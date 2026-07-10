@@ -4,6 +4,11 @@ node_modules/
 # Build output
 dist/
 
+# Local env (Supabase keys) — never commit
+.env
+.env.local
+.env.*.local
+
 # Editors / OS
 .vscode/
 .idea/

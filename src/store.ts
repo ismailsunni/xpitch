@@ -54,6 +54,12 @@ export interface AppState {
   // and the auto-inferred left/right can need mirroring per match.
   attackDirs: Record<string, number>;
   sideDirs: Record<string, number>;
+  cloudFields: SavedField[]; // pitches fetched from Supabase (logged-in users)
+  cloud: {
+    mode: 'local' | 'cloud';
+    matchShortId: string | null;
+    ownerId: string | null;
+  };
   options: {
     age: number | null;
     maxHR: number | null;
@@ -101,7 +107,20 @@ function loadStoredFormat(): FormatKey {
 }
 
 let currentFit: FitResult | null = null;
+let currentRawFiles: { name: string; bytes: ArrayBuffer }[] = [];
 let geoToken = 0;
+
+// Raw .fit bytes of the currently loaded match (for saving to cloud Storage).
+// Empty for the synthetic demo (not saveable).
+export function getRawFiles(): { name: string; bytes: ArrayBuffer }[] {
+  return currentRawFiles;
+}
+export function getCurrentFit(): FitResult | null {
+  return currentFit;
+}
+export function isSaveable(): boolean {
+  return currentRawFiles.length > 0 && !!store.analytics;
+}
 
 export const store = reactive<AppState>({
   analytics: null,
@@ -119,6 +138,8 @@ export const store = reactive<AppState>({
   fieldEditorOpen: false,
   attackDirs: {},
   sideDirs: {},
+  cloudFields: [],
+  cloud: { mode: 'local', matchShortId: null, ownerId: null },
   options: {
     age: null,
     maxHR: null,
@@ -147,9 +168,10 @@ function recordsToLatLon(recs: RecordSample[]): LatLon[] {
     .map((r) => ({ lat: r.position_lat as number, lon: r.position_long as number }));
 }
 
-// All fields available for matching: shipped predefined + user-saved.
+// All fields available for matching: shipped predefined + cloud (logged-in) +
+// guest local pitches.
 export function allFields(): SavedField[] {
-  return [...PREDEFINED_FIELDS, ...store.fields];
+  return [...PREDEFINED_FIELDS, ...store.cloudFields, ...store.fields];
 }
 
 // Nearest field to a set of records, within FIELD_MATCH_M.
@@ -221,11 +243,14 @@ function geocodeCurrent(): void {
   }
 }
 
-export function loadFit(fit: FitResult, name: string): void {
+export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
   currentFit = fit;
   store.fileName = name;
-  store.attackDirs = {};
-  store.sideDirs = {};
+  if (resetFlips) {
+    store.attackDirs = {};
+    store.sideDirs = {};
+    store.cloud = { mode: 'local', matchShortId: null, ownerId: null };
+  }
   store.activeTab = 'overview';
   store.segments = buildSegments(fit, store.options.groupGapMin * 60);
   // Default to the first real match, not the combined "whole file" view.
@@ -234,6 +259,11 @@ export function loadFit(fit: FitResult, name: string): void {
   store.activePeriod = -1;
   recompute();
   if (store.analytics) geocodeCurrent();
+}
+
+// Non-combined segments in order; session `seq` (1-based) maps to index seq-1.
+export function nonCombinedSegments(): Segment[] {
+  return store.segments.filter((s) => s.kind !== 'combined');
 }
 
 export function selectSegment(id: string): void {
@@ -250,6 +280,7 @@ export function selectPeriod(index: number): void {
 
 export function loadDemo(): void {
   store.files = ['demo-afternoon.fit'];
+  currentRawFiles = []; // synthetic — no real bytes, not saveable
   loadFit(generate(), 'demo-afternoon.fit');
 }
 
@@ -272,13 +303,16 @@ export async function loadFiles(fileList: File[]): Promise<void> {
   store.error = '';
   try {
     const parsed: ParsedFile[] = [];
+    const raw: { name: string; bytes: ArrayBuffer }[] = [];
     for (const f of fileList) {
       const buf = await f.arrayBuffer();
       const fit = FitParser.parse(buf);
       if (!fit.records.length) throw new Error(`${f.name}: no record messages found`);
       parsed.push({ name: f.name, fit });
+      raw.push({ name: f.name, bytes: buf });
     }
     if (!parsed.length) return;
+    currentRawFiles = raw;
     store.files = parsed.map((p) => p.name);
     const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     const label = parsed.length === 1 ? parsed[0].name : `${parsed.length} files`;
@@ -302,6 +336,7 @@ export async function loadFromUrl(url: string, name?: string): Promise<void> {
     const res = await fetch(url);
     const buf = await res.arrayBuffer();
     const nm = name || url.split('/').pop() || 'match.fit';
+    currentRawFiles = [{ name: nm, bytes: buf }];
     store.files = [nm];
     loadFit(FitParser.parse(buf), nm);
   } catch (e: any) {
@@ -316,10 +351,14 @@ export async function loadFromUrls(urls: string[]): Promise<void> {
   store.error = '';
   try {
     const parsed: ParsedFile[] = [];
+    const raw: { name: string; bytes: ArrayBuffer }[] = [];
     for (const u of urls) {
       const buf = await (await fetch(u)).arrayBuffer();
-      parsed.push({ name: u.split('/').pop() || u, fit: FitParser.parse(buf) });
+      const name = u.split('/').pop() || u;
+      parsed.push({ name, fit: FitParser.parse(buf) });
+      raw.push({ name, bytes: buf });
     }
+    currentRawFiles = raw;
     store.files = parsed.map((p) => p.name);
     const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     loadFit(merged, parsed.length === 1 ? parsed[0].name : `${parsed.length} files`);
@@ -410,4 +449,88 @@ export function currentViewCentroid(): LatLon | null {
   const seg = activeSegment();
   if (!seg) return null;
   return centroid(recordsToLatLon(recordsForPeriod(seg, store.activePeriod)));
+}
+
+// ---- Cloud (Supabase) load/save helpers ----
+export interface CloudSession {
+  seq: number;
+  attacking_dir: number;
+  side_dir: number;
+  flips?: { attack?: Record<string, number>; side?: Record<string, number> } | null;
+}
+
+export interface CloudLoadMeta {
+  shortId: string;
+  ownerId: string;
+  fileNames: string[];
+  rawFiles: { name: string; bytes: ArrayBuffer }[];
+  groupGapMin: number;
+  options: {
+    age?: number | null;
+    maxHR?: number | null;
+    sprintKmh?: number;
+    highIntensityKmh?: number;
+    format?: FormatKey;
+  };
+  sessions: CloudSession[];
+  cloudFields?: SavedField[];
+  seq?: number;
+}
+
+// Open a match downloaded from the cloud: apply stored options, build segments
+// deterministically (same group gap), seed per-session flips, select `seq`.
+export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
+  currentRawFiles = meta.rawFiles;
+  store.files = meta.fileNames;
+  if (meta.cloudFields) store.cloudFields = meta.cloudFields;
+  const o = meta.options || {};
+  if (o.format) store.options.format = o.format;
+  if (o.age !== undefined) store.options.age = o.age ?? null;
+  if (o.maxHR !== undefined) store.options.maxHR = o.maxHR ?? null;
+  if (o.sprintKmh != null) store.options.sprintKmh = o.sprintKmh;
+  if (o.highIntensityKmh != null) store.options.highIntensityKmh = o.highIntensityKmh;
+  store.options.groupGapMin = meta.groupGapMin;
+
+  store.attackDirs = {};
+  store.sideDirs = {};
+  store.cloud = { mode: 'cloud', matchShortId: meta.shortId, ownerId: meta.ownerId };
+  loadFit(fit, meta.fileNames.length === 1 ? meta.fileNames[0] : `${meta.fileNames.length} files`, false);
+
+  const segs = nonCombinedSegments();
+  for (const sess of meta.sessions) {
+    const seg = segs[sess.seq - 1];
+    if (!seg) continue;
+    store.attackDirs[`${seg.id}:-1`] = sess.attacking_dir ?? 1;
+    store.sideDirs[`${seg.id}:-1`] = sess.side_dir ?? 1;
+    const fa = sess.flips?.attack || {};
+    const fs = sess.flips?.side || {};
+    for (const p in fa) store.attackDirs[`${seg.id}:${p}`] = fa[p];
+    for (const p in fs) store.sideDirs[`${seg.id}:${p}`] = fs[p];
+  }
+  const target = meta.seq ? segs[meta.seq - 1] : segs[0];
+  if (target) store.activeSegmentId = target.id;
+  store.activePeriod = -1;
+  recompute();
+  geocodeCurrent();
+}
+
+// Per-session direction payload for saving (whole-segment dirs + period overrides).
+export function dirsForSegment(seg: Segment): {
+  attacking_dir: number;
+  side_dir: number;
+  flips: { attack: Record<string, number>; side: Record<string, number> };
+} {
+  const whole = `${seg.id}:-1`;
+  const attack: Record<string, number> = {};
+  const side: Record<string, number> = {};
+  for (const p of seg.periods) {
+    const ka = `${seg.id}:${p.index}`;
+    if (store.attackDirs[ka] != null) attack[p.index] = store.attackDirs[ka];
+    if (store.sideDirs[ka] != null) side[p.index] = store.sideDirs[ka];
+  }
+  return {
+    attacking_dir: store.attackDirs[whole] ?? 1,
+    side_dir: store.sideDirs[whole] ?? 1,
+    flips: { attack, side },
+  };
 }
