@@ -17,6 +17,24 @@ export interface SavedField {
   corners: LatLon[];
 }
 
+// Predefined pitches shipped with the app (available to everyone, not deletable).
+export const PREDEFINED_FIELDS: SavedField[] = [
+  {
+    id: 'predef-amikom',
+    name: 'Amikom Soccer Arena',
+    corners: [
+      { lat: -7.7623279322076115, lon: 110.41793171866435 },
+      { lat: -7.762382229525912, lon: 110.41824325775242 },
+      { lat: -7.761906796671553, lon: 110.41834754980765 },
+      { lat: -7.7618485263125905, lon: 110.4180279882538 },
+    ],
+  },
+];
+
+export function isPredefined(id: string | null): boolean {
+  return !!id && PREDEFINED_FIELDS.some((f) => f.id === id);
+}
+
 export interface AppState {
   analytics: MatchAnalytics | null;
   fileName: string;
@@ -129,13 +147,18 @@ function recordsToLatLon(recs: RecordSample[]): LatLon[] {
     .map((r) => ({ lat: r.position_lat as number, lon: r.position_long as number }));
 }
 
-// Nearest saved field to a set of records, within FIELD_MATCH_M.
+// All fields available for matching: shipped predefined + user-saved.
+export function allFields(): SavedField[] {
+  return [...PREDEFINED_FIELDS, ...store.fields];
+}
+
+// Nearest field to a set of records, within FIELD_MATCH_M.
 function resolveField(recs: RecordSample[]): SavedField | null {
   const gc = centroid(recordsToLatLon(recs));
   if (!gc) return null;
   let best: SavedField | null = null;
   let bestD = Infinity;
-  for (const f of store.fields) {
+  for (const f of allFields()) {
     const fc = centroid(f.corners);
     if (!fc) continue;
     const d = haversine(gc.lat, gc.lon, fc.lat, fc.lon);
@@ -376,7 +399,7 @@ export function removeField(id: string): void {
   recompute();
 }
 
-export const appliedField = () => store.fields.find((f) => f.id === store.appliedFieldId) || null;
+export const appliedField = () => allFields().find((f) => f.id === store.appliedFieldId) || null;
 
 // Centroid of the current view's GPS (for the field editor to focus on).
 export function currentViewCentroid(): LatLon | null {

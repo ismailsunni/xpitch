@@ -269,11 +269,22 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
     if (!transform) transform = buildPitchTransform(gpsPts);
     if (transform) {
       const pts: any[] = [];
+      const OFF_FIELD = 0.12; // fraction of pitch beyond a line before a fix is treated as GPS error
       for (const s of samples) {
         if (s.lat == null || s.lon == null || s._gpsOutlier) continue;
         const p = transform.project(s.lat, s.lon);
-        const u = opt.attackingDir >= 0 ? p.u : 1 - p.u;
-        const v = opt.sideDir >= 0 ? p.v : 1 - p.v;
+        let u = opt.attackingDir >= 0 ? p.u : 1 - p.u;
+        let v = opt.sideDir >= 0 ? p.v : 1 - p.v;
+        if (hasField) {
+          // With a real field, points can land outside it (GPS noise or genuinely
+          // off-pitch). Drop wild strays; clamp near-line points onto the pitch.
+          if (u < -OFF_FIELD || u > 1 + OFF_FIELD || v < -OFF_FIELD || v > 1 + OFF_FIELD) {
+            s._gpsOutlier = true;
+            continue;
+          }
+          u = Math.min(1, Math.max(0, u));
+          v = Math.min(1, Math.max(0, v));
+        }
         pts.push({ u, v, tSec: s.tSec, dt: s.dt, speed: s.speed });
         s._u = u;
         s._v = v;
@@ -306,8 +317,8 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
 
       const zoneGrid = Array.from({ length: 3 }, () => new Array(3).fill(0));
       for (const p of pts) {
-        const zx = Math.min(2, Math.floor(p.u * 3));
-        const zy = Math.min(2, Math.floor(p.v * 3));
+        const zx = Math.max(0, Math.min(2, Math.floor(p.u * 3)));
+        const zy = Math.max(0, Math.min(2, Math.floor(p.v * 3)));
         zoneGrid[zy][zx] += p.dt;
       }
 

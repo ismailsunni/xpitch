@@ -14,7 +14,7 @@ import { fromLonLat, toLonLat } from 'ol/proj';
 import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import type { MapBrowserEvent } from 'ol';
-import { store, addField, updateField, removeField, appliedField } from '../store';
+import { store, addField, updateField, removeField, appliedField, allFields, isPredefined, PREDEFINED_FIELDS } from '../store';
 
 const mapEl = ref<HTMLDivElement>();
 const cornersLL = ref<number[][]>([]); // [lon, lat]
@@ -136,7 +136,9 @@ function save() {
   }
   const corners = cornersLL.value.map((c) => ({ lat: c[1], lon: c[0] }));
   const name = fieldName.value.trim() || 'Field ' + (store.fields.length + 1);
-  if (editingId.value) updateField(editingId.value, name, corners);
+  // Editing a built-in pitch saves a personal copy; only user pitches update in place.
+  const isUser = store.fields.some((f) => f.id === editingId.value);
+  if (editingId.value && isUser) updateField(editingId.value, name, corners);
   else addField(name, corners);
   close();
 }
@@ -224,8 +226,19 @@ onBeforeUnmount(() => {
         <span v-if="err" class="error" style="margin: 0; font-size: 12.5px">{{ err }}</span>
       </div>
 
-      <div v-if="store.fields.length" class="fe-saved">
-        <span class="k">Saved pitches</span>
+      <div v-if="allFields().length" class="fe-saved">
+        <span class="k">Pitches</span>
+        <span
+          v-for="f in PREDEFINED_FIELDS"
+          :key="f.id"
+          class="pill-btn"
+          :class="{ active: editingId === f.id }"
+          title="Built-in pitch"
+          style="cursor: pointer"
+          @click="loadSaved(f)"
+        >
+          🏟 {{ f.name }}
+        </span>
         <span v-for="f in store.fields" :key="f.id" class="pill-btn" :class="{ active: editingId === f.id }">
           <span style="cursor: pointer" @click="loadSaved(f)">{{ f.name }}</span>
           <span class="del" title="Delete" @click="deleteSaved(f.id)">✕</span>
