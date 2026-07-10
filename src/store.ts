@@ -31,9 +31,11 @@ export interface AppState {
   fields: SavedField[];
   appliedFieldId: string | null;
   fieldEditorOpen: boolean;
-  // Attacking direction per view ("<segmentId>:<period>" -> +1 | -1). Teams
-  // switch ends at half-time and matches differ, so it is not global.
+  // Attacking direction (length) and side (left/right, width) per view
+  // ("<segmentId>:<period>" -> +1 | -1). Not global: ends switch at half-time,
+  // and the auto-inferred left/right can need mirroring per match.
   attackDirs: Record<string, number>;
+  sideDirs: Record<string, number>;
   options: {
     age: number | null;
     maxHR: number | null;
@@ -98,6 +100,7 @@ export const store = reactive<AppState>({
   appliedFieldId: null,
   fieldEditorOpen: false,
   attackDirs: {},
+  sideDirs: {},
   options: {
     age: null,
     maxHR: null,
@@ -115,6 +118,9 @@ function viewKey(): string {
 // Attacking direction (+1 / -1) for the currently selected match & period.
 export function currentAttackDir(): number {
   return store.attackDirs[viewKey()] ?? 1;
+}
+export function currentSideDir(): number {
+  return store.sideDirs[viewKey()] ?? 1;
 }
 
 function recordsToLatLon(recs: RecordSample[]): LatLon[] {
@@ -168,6 +174,7 @@ export function recompute(): void {
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,
     attackingDir: currentAttackDir(),
+    sideDir: currentSideDir(),
     field: field ? field.corners : null,
     format: store.options.format,
   });
@@ -195,6 +202,7 @@ export function loadFit(fit: FitResult, name: string): void {
   currentFit = fit;
   store.fileName = name;
   store.attackDirs = {};
+  store.sideDirs = {};
   store.activeTab = 'overview';
   store.segments = buildSegments(fit, store.options.groupGapMin * 60);
   // Default to the first real match, not the combined "whole file" view.
@@ -313,6 +321,12 @@ export function setGroupGap(min: number): void {
 export function flipAttack(): void {
   const k = viewKey();
   store.attackDirs[k] = (store.attackDirs[k] ?? 1) * -1;
+  recompute();
+}
+
+export function flipSides(): void {
+  const k = viewKey();
+  store.sideDirs[k] = (store.sideDirs[k] ?? 1) * -1;
   recompute();
 }
 

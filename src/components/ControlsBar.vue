@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, recompute, flipAttack, setFormat, appliedField, currentAttackDir } from '../store';
+import { store, recompute, flipAttack, flipSides, setFormat, appliedField, currentAttackDir, currentSideDir } from '../store';
 import { FORMATS } from '../lib/analytics';
 
 const flipped = computed(() => currentAttackDir() === -1);
+const sidesFlipped = computed(() => currentSideDir() === -1);
 
 function num(v: string): number | null {
   const n = parseFloat(v);
@@ -79,14 +80,25 @@ const resolvedFormat = computed(() => {
       />
     </div>
     <div class="ctl">
-      <span class="ctl-label">Attack</span>
-      <button
-        class="btn ghost small"
-        :title="'Swap which end this match/half attacks. Applies to the selected view only (' + (flipped ? 'currently flipped' : 'default') + ').'"
-        @click="flipAttack"
-      >
-        {{ flipped ? 'Attacking ◀' : '▶ Attacking' }} · flip
-      </button>
+      <span class="ctl-label">Orient</span>
+      <div style="display: flex; gap: 6px">
+        <button
+          class="btn ghost small"
+          :class="{ primary: flipped }"
+          title="Swap which end this match/half attacks (length). Selected view only."
+          @click="flipAttack"
+        >
+          {{ flipped ? 'Attacking ◀' : '▶ Attacking' }}
+        </button>
+        <button
+          class="btn ghost small"
+          :class="{ primary: sidesFlipped }"
+          title="Mirror left/right (width). Use if your wing shows on the wrong side. Selected view only."
+          @click="flipSides"
+        >
+          ⇅ Swap sides
+        </button>
+      </div>
     </div>
 
     <div class="ctl" v-if="hasGPS">

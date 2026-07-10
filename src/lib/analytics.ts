@@ -62,6 +62,7 @@ export interface AnalyticsOptions {
   restHR?: number;
   age?: number | null;
   attackingDir?: number;
+  sideDir?: number; // +1 normal, -1 mirror left/right (width axis)
   sprintKmh?: number;
   highIntensityKmh?: number;
   field?: LatLon[] | null; // user-defined pitch corners (lat/lon)
@@ -117,6 +118,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       restHR: 60,
       age: null,
       attackingDir: 1,
+      sideDir: 1,
       sprintKmh: 19.8,
       highIntensityKmh: 14.4,
       field: null,
@@ -271,9 +273,10 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
         if (s.lat == null || s.lon == null || s._gpsOutlier) continue;
         const p = transform.project(s.lat, s.lon);
         const u = opt.attackingDir >= 0 ? p.u : 1 - p.u;
-        pts.push({ u, v: p.v, tSec: s.tSec, dt: s.dt, speed: s.speed });
+        const v = opt.sideDir >= 0 ? p.v : 1 - p.v;
+        pts.push({ u, v, tSec: s.tSec, dt: s.dt, speed: s.speed });
         s._u = u;
-        s._v = p.v;
+        s._v = v;
       }
 
       const GX = 42;
