@@ -75,13 +75,25 @@ function drawPitchLines(ctx: CanvasRenderingContext2D, w: number, h: number, mar
   dot(ctx, margin + pw - penW * 0.72, margin + ph / 2, 2.5);
 }
 
-function drawDirectionLabels(ctx: CanvasRenderingContext2D, w: number, h: number, margin: number) {
+function drawDirectionLabels(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  margin: number,
+  compass?: { left: string; right: string; top: string; bottom: string } | null
+) {
   ctx.font = '11px system-ui';
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  // Attacking is drawn to the right; when a field is set, also show compass.
   ctx.textAlign = 'left';
-  ctx.fillText('◀ Defensive', margin + 4, h - 4);
+  ctx.fillText(compass ? `◀ Defensive (${compass.left})` : '◀ Defensive', margin + 4, h - 4);
   ctx.textAlign = 'right';
-  ctx.fillText('Attacking ▶', w - margin - 4, h - 4);
+  ctx.fillText(compass ? `(${compass.right}) Attacking ▶` : 'Attacking ▶', w - margin - 4, h - 4);
+  if (compass) {
+    ctx.textAlign = 'center';
+    ctx.fillText(compass.top, w / 2, margin + 12);
+    ctx.fillText(compass.bottom, w / 2, h - 16);
+  }
 }
 
 function heatColor(t: number): [number, number, number] {
@@ -176,7 +188,7 @@ function drawHeatmap(canvas: HTMLCanvasElement, positional: any, aspect: number)
     ctx.textAlign = 'center';
     ctx.fillText('AVG', p.x, p.y - 12);
   }
-  drawDirectionLabels(ctx, w, h, margin);
+  drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
 function drawTrail(canvas: HTMLCanvasElement, positional: any, aspect: number) {
@@ -200,7 +212,7 @@ function drawTrail(canvas: HTMLCanvasElement, positional: any, aspect: number) {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  drawDirectionLabels(ctx, w, h, margin);
+  drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
 function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
@@ -229,7 +241,7 @@ function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
       ctx.fillText(Math.round(pct * 100) + '%', x + pw / 6, y + ph / 6 + 5);
     }
   }
-  drawDirectionLabels(ctx, w, h, margin);
+  drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
 export function drawPitch(canvas: HTMLCanvasElement, positional: any, mode: PitchMode) {

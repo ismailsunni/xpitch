@@ -82,6 +82,11 @@ export interface MatchAnalytics {
   options?: Required<AnalyticsOptions>;
 }
 
+const COMPASS8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function compassOf(deg: number): string {
+  return COMPASS8[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+
 function mean(arr: number[]): number {
   if (!arr.length) return 0;
   return arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -322,6 +327,20 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
         zoneGrid[zy][zx] += p.dt;
       }
 
+      // Compass labels for the four drawn sides, from the field's real bearings
+      // adjusted for the current attack/side flips (right = attacking end).
+      let compass: any = null;
+      if (hasField && transform.uBearing != null && transform.vBearing != null) {
+        const rb = opt.attackingDir >= 0 ? transform.uBearing : (transform.uBearing + 180) % 360;
+        const bb = opt.sideDir >= 0 ? transform.vBearing : (transform.vBearing + 180) % 360;
+        compass = {
+          right: compassOf(rb),
+          left: compassOf((rb + 180) % 360),
+          bottom: compassOf(bb),
+          top: compassOf((bb + 180) % 360),
+        };
+      }
+
       positional = {
         transform,
         points: pts,
@@ -337,6 +356,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
         widthM: transform.widthM,
         hasField,
         fieldIgnored,
+        compass,
       };
     }
   }

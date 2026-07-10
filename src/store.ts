@@ -341,12 +341,16 @@ export function setGroupGap(min: number): void {
   geocodeCurrent();
 }
 
+// Switching which end you attack is a 180° rotation: both the ends AND
+// left/right invert together (not a pure mirror).
 export function flipAttack(): void {
   const k = viewKey();
   store.attackDirs[k] = (store.attackDirs[k] ?? 1) * -1;
+  store.sideDirs[k] = (store.sideDirs[k] ?? 1) * -1;
   recompute();
 }
 
+// Pure left/right mirror, for the rare case the wings are still reversed.
 export function flipSides(): void {
   const k = viewKey();
   store.sideDirs[k] = (store.sideDirs[k] ?? 1) * -1;

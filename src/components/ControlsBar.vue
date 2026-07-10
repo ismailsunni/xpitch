@@ -85,7 +85,7 @@ const resolvedFormat = computed(() => {
         <button
           class="btn ghost small"
           :class="{ primary: flipped }"
-          title="Swap which end this match/half attacks (length). Selected view only."
+          title="Switch which end you attacked — rotates the pitch 180° (ends and wings together). Selected match/half only."
           @click="flipAttack"
         >
           {{ flipped ? 'Attacking ◀' : '▶ Attacking' }}

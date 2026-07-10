@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import { store } from '../../store';
 import PitchCanvas from '../PitchCanvas.vue';
+// Lazy: only pulls in OpenLayers when the positional tab is viewed.
+const PitchMap = defineAsyncComponent(() => import('../PitchMap.vue'));
 
 const a = computed<any>(() => store.analytics);
 const p = computed<any>(() => a.value.positional);
@@ -78,6 +80,17 @@ const preferredSide = computed(() => {
             Preferred side: <strong style="color: var(--text)">{{ preferredSide }}</strong>.
           </p>
         </div>
+      </div>
+
+      <div class="panel">
+        <h3>On the real pitch</h3>
+        <PitchMap :key="store.activeSegmentId + ':' + store.activePeriod" />
+        <p class="hint">
+          Your GPS track on satellite imagery.
+          <span v-if="p.hasField">Blue outline = the defined pitch.</span>
+          <span class="swatch" style="background: #8c5afa"></span> start
+          <span class="swatch" style="background: #ff961e"></span> end.
+        </p>
       </div>
     </template>
   </section>

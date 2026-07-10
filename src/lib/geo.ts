@@ -31,6 +31,8 @@ export interface PitchTransform {
   widthM: number;
   meanLat: number;
   meanLon: number;
+  uBearing?: number; // geographic bearing (deg, 0=N,90=E) of increasing u
+  vBearing?: number; // geographic bearing of increasing v
 }
 
 export interface LatLon {
@@ -217,7 +219,7 @@ export function buildFieldTransform(cornersLL: LatLon[]): PitchTransform | null 
   const H = homography(src, dst);
   if (!H) return null;
 
-  const project = (lat: number, lon: number) => {
+  const rawProject = (lat: number, lon: number) => {
     const l = toLocal(lat, lon);
     const den = H[6] * l.x + H[7] * l.y + 1;
     return {
@@ -226,7 +228,31 @@ export function buildFieldTransform(cornersLL: LatLon[]): PitchTransform | null 
     };
   };
 
-  return { project, toLocal, lengthM, widthM, meanLat, meanLon };
+  // Geographic bearing of the u and v axes (for compass labels), via finite
+  // differences of 1 m steps north/east from the field centre.
+  const mLat = (1 / R_EARTH) * (180 / Math.PI);
+  const mLon = mLat / Math.cos(toRad(meanLat));
+  const c = rawProject(meanLat, meanLon);
+  const pN = rawProject(meanLat + mLat, meanLon);
+  const pE = rawProject(meanLat, meanLon + mLon);
+  const bearing = (dE: number, dN: number) => ((Math.atan2(dE, dN) * 180) / Math.PI + 360) % 360;
+  const uBearing = bearing(pE.u - c.u, pN.u - c.u);
+  let vBearing = bearing(pE.v - c.v, pN.v - c.v);
+
+  // Enforce football convention: attacking to the right => the player's right
+  // wing is at the bottom. That means v-increasing (downward) must be 90°
+  // clockwise of u-increasing; if it came out the other way, mirror v.
+  const flipV = ((vBearing - uBearing + 360) % 360) > 180;
+  if (flipV) vBearing = (vBearing + 180) % 360;
+
+  const project = flipV
+    ? (lat: number, lon: number) => {
+        const p = rawProject(lat, lon);
+        return { u: p.u, v: 1 - p.v };
+      }
+    : rawProject;
+
+  return { project, toLocal, lengthM, widthM, meanLat, meanLon, uBearing, vBearing };
 }
 
 // Centroid of a set of lat/lon points (for the "different venue" guard).
