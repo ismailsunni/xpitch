@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store } from '../store';
+import { store, activeSegment } from '../store';
 import { sportName, fmtDur } from '../lib/format';
 
 const meta = computed(() => store.analytics?.meta);
 const session = computed<any>(() => meta.value?.session || {});
+
+// Clear label of the currently selected match + period.
+const viewing = computed(() => {
+  const seg = activeSegment();
+  if (!seg || store.segments.length <= 1) {
+    if (seg && seg.periods.length && store.activePeriod >= 0) return seg.periods[store.activePeriod].label;
+    return null;
+  }
+  const period =
+    store.activePeriod >= 0 && seg.periods[store.activePeriod] ? ' · ' + seg.periods[store.activePeriod].label : '';
+  return seg.label + period;
+});
 
 const when = computed(() => {
   const d: Date | undefined = meta.value?.startDate;
@@ -28,6 +40,10 @@ const calories = computed(() => session.value.total_calories ?? null);
 
 <template>
   <section class="metabar" v-if="meta">
+    <div class="mi" v-if="viewing">
+      <span class="k">Viewing</span>
+      <span class="val" style="color: var(--accent)">{{ viewing }}</span>
+    </div>
     <div class="mi" v-if="when">
       <span class="k">When</span>
       <span class="val">{{ when }}</span>
