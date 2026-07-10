@@ -211,6 +211,19 @@ export function loadDemo(): void {
   loadFit(generate(), 'demo-afternoon.fit');
 }
 
+// Real sample: an afternoon of four mini-soccer matches (shipped in public/).
+const SAMPLE_FILES = [
+  'Mini_Soccer_Match_1.fit',
+  'Mini_Soccer_Match_2.fit',
+  'Mini_Soccer_Match_3.fit',
+  'Mini_Soccer_Match_4.fit',
+];
+
+export function loadSample(): Promise<void> {
+  const base = import.meta.env.BASE_URL || './';
+  return loadFromUrls(SAMPLE_FILES.map((f) => `${base}samples/${f}`));
+}
+
 // Parse and load one or more .fit files, merged into a single timeline.
 export async function loadFiles(fileList: File[]): Promise<void> {
   store.loading = true;

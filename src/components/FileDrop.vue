@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { store, loadFiles, loadDemo } from '../store';
+import { store, loadFiles, loadDemo, loadSample } from '../store';
 
 const dragging = ref(false);
 
@@ -28,7 +28,11 @@ function onDrop(e: DragEvent) {
         automatically. Nothing is uploaded; parsing happens locally in your browser.
       </p>
       <p class="dz-or">
-        No file handy? <button class="linkbtn" @click="loadDemo">Load a demo match</button>
+        No file handy? <button class="linkbtn" @click="loadSample">Load a real sample</button>
+        <span style="color: var(--muted)"> — an afternoon of 4 mini-soccer matches</span>
+      </p>
+      <p style="font-size: 12.5px">
+        or a <button class="linkbtn" @click="loadDemo">synthetic demo</button>
       </p>
       <p v-if="store.loading" class="hint">Parsing…</p>
       <p v-if="store.error" class="error">{{ store.error }}</p>

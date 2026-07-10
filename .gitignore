@@ -13,3 +13,6 @@ Thumbs.db
 # Personal .fit recordings (contain real GPS locations — keep out of a public repo).
 # Force-add with `git add -f` if you deliberately want to ship a sample.
 *.fit
+
+# ...except the sample matches shipped with the app (user-provided, public).
+!public/samples/*.fit

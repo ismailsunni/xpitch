@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted } from 'vue';
-import { store, loadDemo, loadFiles, loadFromUrl, loadFromUrls } from './store';
+import { store, loadDemo, loadSample, loadFiles, loadFromUrl, loadFromUrls } from './store';
 import FileDrop from './components/FileDrop.vue';
 // Lazy-loaded so OpenLayers is only fetched when the field editor is opened.
 const FieldEditor = defineAsyncComponent(() => import('./components/FieldEditor.vue'));
@@ -31,19 +31,17 @@ function onPick(e: Event) {
 onMounted(() => {
   // Dev/test hooks: #autodemo[/tab] or #autoload=<url>[/tab]
   const hash = location.hash;
-  if (hash.indexOf('autodemo') !== -1) {
+  if (hash.indexOf('autosample') !== -1) {
+    loadSample();
+  } else if (hash.indexOf('autodemo') !== -1) {
     loadDemo();
     const tab = hash.split('/')[1];
     if (tab === 'field') store.fieldEditorOpen = true;
     else if (tab) store.activeTab = tab;
   } else if (hash.indexOf('autoload=') !== -1) {
-    const rest = hash.split('autoload=')[1];
-    const [urlPart, tab] = rest.split('/');
-    const urls = urlPart.split(',');
-    const done = () => {
-      if (tab) store.activeTab = tab;
-    };
-    (urls.length > 1 ? loadFromUrls(urls) : loadFromUrl(urls[0])).then(done);
+    const urls = hash.split('autoload=')[1].split(',');
+    if (urls.length > 1) loadFromUrls(urls);
+    else loadFromUrl(urls[0]);
   }
 });
 </script>
@@ -58,7 +56,7 @@ onMounted(() => {
       </div>
     </div>
     <div class="topbar-actions">
-      <button class="btn ghost" @click="loadDemo">Load demo match</button>
+      <button class="btn ghost" @click="loadSample">Load sample</button>
       <label class="btn primary">
         <input type="file" accept=".fit" multiple hidden @change="onPick" />
         Open .fit file(s)

@@ -23,8 +23,10 @@ npm run preview    # serve the built dist/ locally
 npm run typecheck  # vue-tsc
 ```
 
-No `.fit` file handy? Click **Load demo match** for a synthesized 50-minute
-minisoccer match.
+No `.fit` file handy? Click **Load sample** for a real afternoon of four
+mini-soccer matches (shipped in `public/samples/`), or the landing page's
+"synthetic demo" link for a generated one. Uploading several files at once
+merges them and groups matches recorded close together into one session.
 
 ## Deploy to GitHub Pages
 
@@ -104,5 +106,6 @@ src/
   device placement all affect accuracy.
 - Personal `.fit` recordings are git-ignored (they contain real locations).
 
-> Dev/test hooks: append `#autodemo` (optionally `#autodemo/positional`) to
-> auto-load the demo, or `#autoload=<url>` to fetch and parse a `.fit`.
+> Dev/test hooks: append `#autosample` to load the bundled sample, `#autodemo`
+> (optionally `#autodemo/positional`) for the synthetic demo, or
+> `#autoload=<url>[,<url>]` to fetch and parse one or more `.fit` files.
