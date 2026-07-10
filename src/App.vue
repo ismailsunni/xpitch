@@ -50,8 +50,8 @@ onMounted(() => {
     <div class="brand">
       <span class="logo">⚽</span>
       <div>
-        <h1>Spatial Football</h1>
-        <p class="tagline">Analyze &amp; visualize a <code>.fit</code> match file — all in your browser</p>
+        <h1>xPitch</h1>
+        <p class="tagline">Smart analysis of your match from a <code>.fit</code> file — all in your browser</p>
       </div>
     </div>
     <div class="topbar-actions">

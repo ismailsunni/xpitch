@@ -1,8 +1,8 @@
-# ⚽ Spatial Football
+# ⚽ xPitch
 
-A **front-end-only** web app to analyze and visualize a `.fit` file from a
-football / minisoccer match. Drop in a FIT file recorded by a GPS watch or pod
-and get a full match dashboard — positional, running, physiological and
+Smart analysis of your football, mini-soccer or futsal match from a `.fit` file
+— a **front-end-only** web app. Drop in a FIT file recorded by a GPS watch or
+pod and get a full match dashboard: positional, running, physiological and
 football-specific metrics. **Everything is parsed and computed in your browser;
 nothing is uploaded.**
 
