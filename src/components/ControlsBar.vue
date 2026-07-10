@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, recompute, flipAttack, setFormat, appliedField } from '../store';
+import { store, recompute, flipAttack, setFormat, appliedField, currentAttackDir } from '../store';
 import { FORMATS } from '../lib/analytics';
+
+const flipped = computed(() => currentAttackDir() === -1);
 
 function num(v: string): number | null {
   const n = parseFloat(v);
@@ -77,8 +79,13 @@ const resolvedFormat = computed(() => {
       />
     </div>
     <div class="ctl">
-      <button class="btn ghost small" title="Swap which end of the pitch is 'attacking'" @click="flipAttack">
-        ⇄ Flip attack direction
+      <span class="ctl-label">Attack</span>
+      <button
+        class="btn ghost small"
+        :title="'Swap which end this match/half attacks. Applies to the selected view only (' + (flipped ? 'currently flipped' : 'default') + ').'"
+        @click="flipAttack"
+      >
+        {{ flipped ? 'Attacking ◀' : '▶ Attacking' }} · flip
       </button>
     </div>
 

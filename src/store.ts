@@ -31,12 +31,14 @@ export interface AppState {
   fields: SavedField[];
   appliedFieldId: string | null;
   fieldEditorOpen: boolean;
+  // Attacking direction per view ("<segmentId>:<period>" -> +1 | -1). Teams
+  // switch ends at half-time and matches differ, so it is not global.
+  attackDirs: Record<string, number>;
   options: {
     age: number | null;
     maxHR: number | null;
     sprintKmh: number;
     highIntensityKmh: number;
-    attackingDir: number;
     format: FormatKey;
     groupGapMin: number;
   };
@@ -95,16 +97,25 @@ export const store = reactive<AppState>({
   fields: loadStoredFields(),
   appliedFieldId: null,
   fieldEditorOpen: false,
+  attackDirs: {},
   options: {
     age: null,
     maxHR: null,
     sprintKmh: 19.8,
     highIntensityKmh: 14.4,
-    attackingDir: 1,
     format: loadStoredFormat(),
     groupGapMin: DEFAULT_GROUP_GAP_MIN,
   },
 });
+
+function viewKey(): string {
+  return store.activeSegmentId + ':' + store.activePeriod;
+}
+
+// Attacking direction (+1 / -1) for the currently selected match & period.
+export function currentAttackDir(): number {
+  return store.attackDirs[viewKey()] ?? 1;
+}
 
 function recordsToLatLon(recs: RecordSample[]): LatLon[] {
   return recs
@@ -156,7 +167,7 @@ export function recompute(): void {
     maxHR: store.options.maxHR,
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,
-    attackingDir: store.options.attackingDir,
+    attackingDir: currentAttackDir(),
     field: field ? field.corners : null,
     format: store.options.format,
   });
@@ -183,7 +194,7 @@ function geocodeCurrent(): void {
 export function loadFit(fit: FitResult, name: string): void {
   currentFit = fit;
   store.fileName = name;
-  store.options.attackingDir = 1;
+  store.attackDirs = {};
   store.activeTab = 'overview';
   store.segments = buildSegments(fit, store.options.groupGapMin * 60);
   // Default to the first real match, not the combined "whole file" view.
@@ -300,7 +311,8 @@ export function setGroupGap(min: number): void {
 }
 
 export function flipAttack(): void {
-  store.options.attackingDir *= -1;
+  const k = viewKey();
+  store.attackDirs[k] = (store.attackDirs[k] ?? 1) * -1;
   recompute();
 }
 

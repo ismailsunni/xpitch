@@ -77,7 +77,9 @@ and reused; a saved field more than 3 km from a new match is ignored automatical
 - Enter your **age** or **max HR** for accurate HR zones (otherwise the observed
   max is used as the reference).
 - Adjust the **sprint threshold** (km/h) for amateur vs elite pace.
-- If defensive/attacking ends look reversed, hit **⇄ Flip attack direction**.
+- If the attacking end looks reversed, hit **flip** — it applies to the selected
+  match and period only (teams switch ends at half-time), and is remembered as
+  you switch between sessions and halves.
 
 ## Project layout
 
