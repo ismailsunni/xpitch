@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, defineAsyncComponent, onMounted } from 'vue';
 import { store, loadDemo, loadFile, loadFromUrl } from './store';
 import FileDrop from './components/FileDrop.vue';
+// Lazy-loaded so OpenLayers is only fetched when the field editor is opened.
+const FieldEditor = defineAsyncComponent(() => import('./components/FieldEditor.vue'));
 import ControlsBar from './components/ControlsBar.vue';
 import MetaBar from './components/MetaBar.vue';
 import OverviewTab from './components/tabs/OverviewTab.vue';
@@ -31,7 +33,8 @@ onMounted(() => {
   if (hash.indexOf('autodemo') !== -1) {
     loadDemo();
     const tab = hash.split('/')[1];
-    if (tab) store.activeTab = tab;
+    if (tab === 'field') store.fieldEditorOpen = true;
+    else if (tab) store.activeTab = tab;
   } else if (hash.indexOf('autoload=') !== -1) {
     const rest = hash.split('autoload=')[1];
     const [url, tab] = rest.split('/');
@@ -84,4 +87,6 @@ onMounted(() => {
       <p>All processing is local · FIT decoded in-browser · Metrics are estimates from GPS/HR data.</p>
     </footer>
   </main>
+
+  <FieldEditor v-if="store.fieldEditorOpen" />
 </template>

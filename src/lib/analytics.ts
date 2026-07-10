@@ -4,8 +4,8 @@
  * compute(fit, options) -> big object consumed by the UI.
  * All speeds internally in m/s; presented in km/h. Distances in metres.
  */
-import { haversine, buildPitchTransform } from './geo';
-import type { PitchTransform } from './geo';
+import { haversine, buildPitchTransform, buildFieldTransform, centroid } from './geo';
+import type { PitchTransform, LatLon } from './geo';
 import type { FitResult } from './fit-parser';
 
 export const KMH = 3.6; // m/s -> km/h
@@ -27,6 +27,7 @@ export interface AnalyticsOptions {
   attackingDir?: number;
   sprintKmh?: number;
   highIntensityKmh?: number;
+  field?: LatLon[] | null; // user-defined pitch corners (lat/lon)
 }
 
 export interface MatchAnalytics {
@@ -80,6 +81,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       attackingDir: 1,
       sprintKmh: 19.8,
       highIntensityKmh: 14.4,
+      field: null,
     },
     options || {}
   ) as Required<AnalyticsOptions>;
@@ -202,7 +204,23 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       prevFix = { lat: s.lat, lon: s.lon, tSec: s.tSec };
       gpsPts.push({ lat: s.lat, lon: s.lon });
     }
-    const transform: PitchTransform | null = buildPitchTransform(gpsPts);
+    // Prefer a user-defined field (true orientation/extent), but ignore a
+    // saved field that belongs to a different venue (>3 km from this track).
+    let transform: PitchTransform | null = null;
+    let hasField = false;
+    let fieldIgnored = false;
+    if (opt.field && opt.field.length >= 4) {
+      const fc = centroid(opt.field);
+      const gc = centroid(gpsPts);
+      const far = fc && gc && haversine(fc.lat, fc.lon, gc.lat, gc.lon) > 3000;
+      if (far) {
+        fieldIgnored = true;
+      } else {
+        transform = buildFieldTransform(opt.field);
+        hasField = !!transform;
+      }
+    }
+    if (!transform) transform = buildPitchTransform(gpsPts);
     if (transform) {
       const pts: any[] = [];
       for (const s of samples) {
@@ -259,6 +277,8 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
         zoneGrid,
         lengthM: transform.lengthM,
         widthM: transform.widthM,
+        hasField,
+        fieldIgnored,
       };
     }
   }

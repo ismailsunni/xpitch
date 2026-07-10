@@ -55,13 +55,27 @@ max HR, detected recovery periods.
 **⚽ Football** — high-intensity runs, repeated-sprint bouts, work rate through
 the match, second-half fatigue, heuristic estimated playing role.
 
+### Define the pitch (recommended for accurate positioning)
+
+By default the pitch is **inferred** from your GPS track (PCA + bounding box), so
+positioning is relative to where you moved. For true, absolute positioning, click
+**📐 Set field** and either:
+
+- **Draw on the map** — an OpenLayers map with a **satellite** basemap (ESRI, no API
+  key) or OSM, with your GPS track overlaid. Click the **4 corners** of the pitch
+  (order doesn't matter). Or
+- **Enter coordinates** — paste a GeoJSON `Polygon` or four `lat, lon` lines.
+
+The field is mapped to the pitch with a projective **homography**, so any
+orientation and slightly-off rectangles work. The field is saved in `localStorage`
+and reused; a saved field more than 3 km from a new match is ignored automatically.
+
 ### Tips
 
 - Enter your **age** or **max HR** for accurate HR zones (otherwise the observed
   max is used as the reference).
 - Adjust the **sprint threshold** (km/h) for amateur vs elite pace.
-- Pitch orientation is inferred from your GPS track (PCA). If defensive/attacking
-  ends look reversed, hit **⇄ Flip attack direction**.
+- If defensive/attacking ends look reversed, hit **⇄ Flip attack direction**.
 
 ## Project layout
 
@@ -75,18 +89,17 @@ src/
     charts.ts       Chart.js config builders
     demo.ts         synthetic demo match
     format.ts       presentation helpers + reverse geocode
-  components/        StatCard, ChartPanel, PitchCanvas, RoleCard,
-                     FileDrop, ControlsBar, MetaBar, tabs/*
+  components/        StatCard, ChartPanel, PitchCanvas, RoleCard, FieldEditor
+                     (OpenLayers), FileDrop, ControlsBar, MetaBar, tabs/*
   store.ts          reactive state + actions
   App.vue           layout + tab navigation
 ```
 
 ## Notes & limitations
 
-- Pitch coordinates are normalized to the **observed GPS bounding box**, so
-  orientation and extent are inferred from where the player moved, not the real
-  field. A field-boundary input (draw the pitch on a satellite/OSM map) is the
-  planned next step to anchor this to the true pitch.
+- Without a defined field, pitch coordinates are normalized to the **observed GPS
+  bounding box**, so orientation/extent are inferred from where the player moved.
+  Define the field (see above) to anchor everything to the true pitch.
 - All metrics are estimates from GPS/HR samples — GPS quality, sampling rate and
   device placement all affect accuracy.
 - Personal `.fit` recordings are git-ignored (they contain real locations).

@@ -18,10 +18,10 @@ interface FitResult {
   h: number;
 }
 
-function fit(canvas: HTMLCanvasElement): FitResult {
+function fit(canvas: HTMLCanvasElement, aspect = 68 / 105): FitResult {
   const parent = canvas.parentElement as HTMLElement;
   const w = parent.clientWidth || 320;
-  const h = Math.round(w * (68 / 105));
+  const h = Math.round(w * aspect);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = w * dpr;
   canvas.height = h * dpr;
@@ -117,8 +117,8 @@ function timeColor(t: number): [number, number, number] {
   ];
 }
 
-function drawHeatmap(canvas: HTMLCanvasElement, positional: any) {
-  const { ctx, w, h } = fit(canvas);
+function drawHeatmap(canvas: HTMLCanvasElement, positional: any, aspect: number) {
+  const { ctx, w, h } = fit(canvas, aspect);
   const margin = Math.max(14, w * 0.03);
   drawPitchLines(ctx, w, h, margin);
   const map = mapper(w, h, margin);
@@ -179,8 +179,8 @@ function drawHeatmap(canvas: HTMLCanvasElement, positional: any) {
   drawDirectionLabels(ctx, w, h, margin);
 }
 
-function drawTrail(canvas: HTMLCanvasElement, positional: any) {
-  const { ctx, w, h } = fit(canvas);
+function drawTrail(canvas: HTMLCanvasElement, positional: any, aspect: number) {
+  const { ctx, w, h } = fit(canvas, aspect);
   const margin = Math.max(14, w * 0.03);
   drawPitchLines(ctx, w, h, margin);
   const map = mapper(w, h, margin);
@@ -203,8 +203,8 @@ function drawTrail(canvas: HTMLCanvasElement, positional: any) {
   drawDirectionLabels(ctx, w, h, margin);
 }
 
-function drawZones(canvas: HTMLCanvasElement, positional: any) {
-  const { ctx, w, h } = fit(canvas);
+function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
+  const { ctx, w, h } = fit(canvas, aspect);
   const margin = Math.max(14, w * 0.03);
   drawPitchLines(ctx, w, h, margin);
   const pw = w - 2 * margin;
@@ -234,7 +234,13 @@ function drawZones(canvas: HTMLCanvasElement, positional: any) {
 
 export function drawPitch(canvas: HTMLCanvasElement, positional: any, mode: PitchMode) {
   if (!canvas || !positional) return;
-  if (mode === 'heatmap') drawHeatmap(canvas, positional);
-  else if (mode === 'trail') drawTrail(canvas, positional);
-  else if (mode === 'zones') drawZones(canvas, positional);
+  // Use the real field aspect ratio when a field is defined; otherwise the
+  // canonical 105x68 template (the PCA bounding box aspect is not meaningful).
+  let aspect = 68 / 105;
+  if (positional.hasField && positional.lengthM > 0) {
+    aspect = Math.min(0.95, Math.max(0.4, positional.widthM / positional.lengthM));
+  }
+  if (mode === 'heatmap') drawHeatmap(canvas, positional, aspect);
+  else if (mode === 'trail') drawTrail(canvas, positional, aspect);
+  else if (mode === 'zones') drawZones(canvas, positional, aspect);
 }

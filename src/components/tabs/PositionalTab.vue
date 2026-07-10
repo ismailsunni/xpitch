@@ -67,9 +67,15 @@ const preferredSide = computed(() => {
             </div>
           </div>
           <p class="hint">
-            Pitch span sampled from GPS: ~{{ Math.round(p.lengthM) }} m long ×
-            {{ Math.round(p.widthM) }} m wide. Preferred side:
-            <strong style="color: var(--text)">{{ preferredSide }}</strong>.
+            <template v-if="p.hasField">
+              Using your defined field: {{ Math.round(p.lengthM) }} m long ×
+              {{ Math.round(p.widthM) }} m wide (true orientation).
+            </template>
+            <template v-else>
+              Pitch span sampled from GPS: ~{{ Math.round(p.lengthM) }} m long ×
+              {{ Math.round(p.widthM) }} m wide (orientation inferred — set a field for accuracy).
+            </template>
+            Preferred side: <strong style="color: var(--text)">{{ preferredSide }}</strong>.
           </p>
         </div>
       </div>

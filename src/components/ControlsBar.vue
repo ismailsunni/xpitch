@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { store, recompute, flipAttack } from '../store';
+import { computed } from 'vue';
+import { store, recompute, flipAttack, clearField } from '../store';
 
 function num(v: string): number | null {
   const n = parseFloat(v);
   return isFinite(n) ? n : null;
 }
+
+const hasGPS = computed(() => !!store.analytics?.meta?.hasGPS);
+const usingField = computed(() => !!store.analytics?.positional?.hasField);
+const fieldIgnored = computed(() => !!store.analytics?.positional?.fieldIgnored);
 </script>
 
 <template>
@@ -53,6 +58,28 @@ function num(v: string): number | null {
       <button class="btn ghost small" title="Swap which end of the pitch is 'attacking'" @click="flipAttack">
         ⇄ Flip attack direction
       </button>
+    </div>
+
+    <div class="ctl" v-if="hasGPS">
+      <span class="ctl-label">Pitch</span>
+      <div style="display: flex; gap: 8px; align-items: center">
+        <button class="btn ghost small" @click="store.fieldEditorOpen = true">
+          📐 {{ usingField ? 'Edit field' : 'Set field' }}
+        </button>
+        <span
+          class="hint"
+          style="margin: 0"
+          :class="{ warn: fieldIgnored }"
+          :title="fieldIgnored ? 'Saved field is >3 km away; using auto-inferred pitch' : ''"
+        >
+          <template v-if="usingField">custom ✓</template>
+          <template v-else-if="fieldIgnored">field off-venue</template>
+          <template v-else>auto-inferred</template>
+        </span>
+        <button v-if="usingField || fieldIgnored" class="linkbtn" style="font-size: 12px" @click="clearField">
+          clear
+        </button>
+      </div>
     </div>
   </section>
 </template>

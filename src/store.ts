@@ -6,6 +6,7 @@ import { compute } from './lib/analytics';
 import type { MatchAnalytics } from './lib/analytics';
 import { generate } from './lib/demo';
 import { reverseGeocode } from './lib/format';
+import type { LatLon } from './lib/geo';
 
 export interface AppState {
   analytics: MatchAnalytics | null;
@@ -14,12 +15,27 @@ export interface AppState {
   loading: boolean;
   activeTab: string;
   location: string | null;
+  field: LatLon[] | null;
+  fieldEditorOpen: boolean;
   options: {
     age: number | null;
     maxHR: number | null;
     sprintKmh: number;
     attackingDir: number;
   };
+}
+
+const FIELD_KEY = 'sf_field_v1';
+
+function loadStoredField(): LatLon[] | null {
+  try {
+    const raw = localStorage.getItem(FIELD_KEY);
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) && arr.length >= 4 ? arr : null;
+  } catch {
+    return null;
+  }
 }
 
 let currentFit: FitResult | null = null;
@@ -32,6 +48,8 @@ export const store = reactive<AppState>({
   loading: false,
   activeTab: 'overview',
   location: null,
+  field: loadStoredField(),
+  fieldEditorOpen: false,
   options: { age: null, maxHR: null, sprintKmh: 19.8, attackingDir: 1 },
 });
 
@@ -42,6 +60,7 @@ export function recompute(): void {
     maxHR: store.options.maxHR,
     sprintKmh: store.options.sprintKmh,
     attackingDir: store.options.attackingDir,
+    field: store.field,
   });
   if (!a.ok) {
     store.error = a.error || 'Could not analyze this file.';
@@ -108,6 +127,26 @@ export async function loadFromUrl(url: string, name?: string): Promise<void> {
 
 export function flipAttack(): void {
   store.options.attackingDir *= -1;
+  recompute();
+}
+
+export function setField(corners: LatLon[]): void {
+  store.field = corners;
+  try {
+    localStorage.setItem(FIELD_KEY, JSON.stringify(corners));
+  } catch {
+    /* ignore */
+  }
+  recompute();
+}
+
+export function clearField(): void {
+  store.field = null;
+  try {
+    localStorage.removeItem(FIELD_KEY);
+  } catch {
+    /* ignore */
+  }
   recompute();
 }
 
