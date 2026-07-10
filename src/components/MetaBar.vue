@@ -58,6 +58,10 @@ const calories = computed(() => session.value.total_calories ?? null);
       <span class="k">Calories</span>
       <span class="val">{{ Math.round(calories) }} kcal</span>
     </div>
+    <div class="mi" v-if="store.files.length > 1">
+      <span class="k">Files</span>
+      <span class="val" :title="store.files.join('\n')">{{ store.files.length }} merged</span>
+    </div>
     <div class="mi">
       <span class="k">Data</span>
       <span class="val"

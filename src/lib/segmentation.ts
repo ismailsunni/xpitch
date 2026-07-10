@@ -1,9 +1,11 @@
 /*
- * segmentation.ts — split a parsed FIT file into analyzable segments.
+ * segmentation.ts — split parsed FIT data into analyzable segments, across one
+ * or many uploaded files.
  *
- * A single .fit can hold several matches (multiple `session` messages), or one
- * continuous recording of several matches (split on long time gaps). Within a
- * session, `lap` messages become periods (halves / extra time).
+ * Pipeline: merge files into one timeline -> base units (one per FIT `session`,
+ * or contiguous runs split on short pauses when there are no sessions) -> group
+ * adjacent units whose gap is within `groupGapS` into one segment ("group them
+ * as one session if close enough"). Merged pieces become periods (halves).
  */
 import { fitTimestampToDate } from './fit-parser';
 import type { FitResult, RecordSample, SessionMessage } from './fit-parser';
@@ -27,7 +29,13 @@ export interface Segment {
   periods: Period[];
 }
 
-const GAP_SPLIT_S = 240; // a >4-min break starts a new segment
+export interface ParsedFile {
+  name: string;
+  fit: FitResult;
+}
+
+export const DEFAULT_GROUP_GAP_MIN = 10;
+const ATOMIC_GAP_S = 120; // pauses shorter than this stay within one base unit
 
 function ts(r: RecordSample): number {
   return r.timestamp as number;
@@ -48,8 +56,8 @@ function periodLabel(i: number, n: number): string {
 
 function sessionRange(s: SessionMessage, fallbackStart: number, fallbackEnd: number): [number, number] {
   const elapsed = (s.total_elapsed_time ?? s.total_timer_time ?? 0) as number;
-  let start = (s.start_time as number) ?? (s.timestamp != null && elapsed ? (s.timestamp as number) - elapsed : fallbackStart);
-  let end = elapsed ? start + elapsed : ((s.timestamp as number) ?? fallbackEnd);
+  const start = (s.start_time as number) ?? (s.timestamp != null && elapsed ? (s.timestamp as number) - elapsed : fallbackStart);
+  const end = elapsed ? start + elapsed : ((s.timestamp as number) ?? fallbackEnd);
   return [start, end];
 }
 
@@ -79,6 +87,56 @@ function gapSplit(recs: RecordSample[], gapS: number): RecordSample[][] {
   return chunks.filter((c) => c.length >= 10);
 }
 
+interface BaseUnit {
+  startTime: number;
+  endTime: number;
+  records: RecordSample[];
+  session: SessionMessage | null;
+  laps: Period[];
+}
+
+// Atomic units before grouping: one per FIT session, else contiguous runs.
+function baseUnits(fit: FitResult, recs: RecordSample[]): BaseUnit[] {
+  const firstTs = ts(recs[0]);
+  const lastTs = ts(recs[recs.length - 1]);
+  const sessions = fit.sessions.filter((s) => s && (s.start_time != null || s.timestamp != null));
+
+  if (sessions.length >= 1) {
+    const units = sessions
+      .map((s) => {
+        const [start, end] = sessionRange(s, firstTs, lastTs);
+        const sr = recs.filter((r) => ts(r) >= start - 2 && ts(r) <= end + 2);
+        return { startTime: start, endTime: end, records: sr, session: s, laps: lapsFor(fit.laps, start, end) };
+      })
+      .filter((u) => u.records.length);
+    if (units.length) return units.sort((a, b) => a.startTime - b.startTime);
+    // Bad session ranges: fall through to gap-splitting.
+  }
+
+  const chunks = gapSplit(recs, ATOMIC_GAP_S);
+  return chunks.map((c) => ({
+    startTime: ts(c[0]),
+    endTime: ts(c[c.length - 1]),
+    records: c,
+    session: null,
+    laps: [],
+  }));
+}
+
+function synthSession(members: BaseUnit[], start: number, end: number): SessionMessage {
+  const withS = members.filter((m) => m.session);
+  const calSum = withS.reduce((a, m) => a + (Number(m.session!.total_calories) || 0), 0);
+  return {
+    sport: withS[0]?.session?.sport,
+    total_calories: calSum || undefined,
+    // total_distance intentionally omitted: summed record deltas are correct
+    // across per-file distance resets (see analytics totalDistance).
+    start_time: start,
+    total_elapsed_time: end - start,
+    timestamp: end,
+  } as SessionMessage;
+}
+
 function combinedSeg(recs: RecordSample[], label: string): Segment {
   return {
     id: 'all',
@@ -93,68 +151,79 @@ function combinedSeg(recs: RecordSample[], label: string): Segment {
   };
 }
 
-export function buildSegments(fit: FitResult): Segment[] {
-  const recs = fit.records
-    .filter((r) => r.timestamp != null)
-    .sort((a, b) => ts(a) - ts(b));
+export function buildSegments(fit: FitResult, groupGapS = DEFAULT_GROUP_GAP_MIN * 60): Segment[] {
+  const recs = fit.records.filter((r) => r.timestamp != null).sort((a, b) => ts(a) - ts(b));
   if (!recs.length) return [];
 
-  const firstTs = ts(recs[0]);
-  const lastTs = ts(recs[recs.length - 1]);
-  const sessions = fit.sessions.filter((s) => s && (s.start_time != null || s.timestamp != null));
-
-  // Primary: split by FIT sessions.
-  if (sessions.length >= 1) {
-    const segs: Segment[] = sessions.map((s, i) => {
-      const [start, end] = sessionRange(s, firstTs, lastTs);
-      let sr = recs.filter((r) => ts(r) >= start - 2 && ts(r) <= end + 2);
-      if (!sr.length) sr = recs; // bad ranges -> don't lose data
-      return {
-        id: 's' + i,
-        label: 'Session ' + (i + 1),
-        sublabel: sublabel(start, end),
-        kind: 'session' as const,
-        startTime: start,
-        endTime: end,
-        records: sr,
-        session: s,
-        periods: lapsFor(fit.laps, start, end),
-      };
-    });
-    if (sessions.length > 1) segs.unshift(combinedSeg(recs, 'Whole file (all sessions)'));
-    return segs;
-  }
-
-  // Fallback: no sessions — split on long time gaps.
-  const chunks = gapSplit(recs, GAP_SPLIT_S);
-  if (chunks.length <= 1) {
+  const units = baseUnits(fit, recs);
+  if (!units.length) {
     return [
       {
         id: 'full',
         label: 'Full activity',
-        sublabel: sublabel(firstTs, lastTs),
+        sublabel: sublabel(ts(recs[0]), ts(recs[recs.length - 1])),
         kind: 'full',
-        startTime: firstTs,
-        endTime: lastTs,
+        startTime: ts(recs[0]),
+        endTime: ts(recs[recs.length - 1]),
         records: recs,
         session: null,
         periods: [],
       },
     ];
   }
-  const segs: Segment[] = chunks.map((c, i) => ({
-    id: 'g' + i,
-    label: 'Part ' + (i + 1),
-    sublabel: sublabel(ts(c[0]), ts(c[c.length - 1])),
-    kind: 'gap' as const,
-    startTime: ts(c[0]),
-    endTime: ts(c[c.length - 1]),
-    records: c,
-    session: null,
-    periods: [],
-  }));
-  segs.unshift(combinedSeg(recs, 'Whole recording'));
+
+  // Group adjacent units whose gap is within the threshold.
+  const groups: BaseUnit[][] = [];
+  let cur: BaseUnit[] = [units[0]];
+  for (let i = 1; i < units.length; i++) {
+    if (units[i].startTime - cur[cur.length - 1].endTime <= groupGapS) cur.push(units[i]);
+    else {
+      groups.push(cur);
+      cur = [units[i]];
+    }
+  }
+  groups.push(cur);
+
+  const single = groups.length === 1;
+  const segs: Segment[] = groups.map((g, i) => {
+    const records = g.flatMap((m) => m.records);
+    const start = g[0].startTime;
+    const end = g[g.length - 1].endTime;
+    const periods: Period[] =
+      g.length > 1
+        ? g.map((m, idx) => ({ index: idx, label: periodLabel(idx, g.length), startTime: m.startTime, endTime: m.endTime }))
+        : g[0].laps;
+    const session = g.length === 1 ? g[0].session : synthSession(g, start, end);
+    const hasSession = !!session;
+    return {
+      id: 'g' + i,
+      label: single ? 'Full match' : 'Session ' + (i + 1),
+      sublabel: sublabel(start, end),
+      kind: hasSession ? 'session' : 'full',
+      startTime: start,
+      endTime: end,
+      records,
+      session,
+      periods,
+    };
+  });
+
+  if (groups.length > 1) segs.unshift(combinedSeg(recs, 'Whole upload'));
   return segs;
+}
+
+// Merge several parsed files into one timeline (records tagged with file name).
+export function mergeFiles(files: ParsedFile[]): FitResult {
+  const records: RecordSample[] = [];
+  const sessions: SessionMessage[] = [];
+  const laps: SessionMessage[] = [];
+  for (const pf of files) {
+    for (const r of pf.fit.records) records.push({ ...r, _fileName: pf.name });
+    sessions.push(...pf.fit.sessions);
+    laps.push(...pf.fit.laps);
+  }
+  records.sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
+  return { records, sessions, laps, events: [], activity: null, file_id: files[0]?.fit.file_id ?? null, other: {} };
 }
 
 // Records within a segment restricted to a period (half). index -1 = whole.

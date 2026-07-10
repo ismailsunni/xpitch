@@ -206,15 +206,20 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
   const movingTime = movingSamples.reduce((a, s) => a + s.dt, 0);
   const standingTime = samples.reduce((a, s) => a + s.dt, 0) - movingTime;
 
+  // Sum of positive per-sample increments (dInc) is the robust total: it works
+  // for a partial slice (a single half) and for merged multi-file data where
+  // each file's cumulative `distance` resets. Fall back to the device session
+  // total only when there is no usable distance field at all.
   let totalDistance: number;
-  const distField = samples.filter((s) => s.distance != null);
+  const dIncSum = samples.reduce((a, s) => a + s.dInc, 0);
+  const hasDistField = samples.some((s) => s.distance != null);
   const sessionDist = fit.sessions[0] && (fit.sessions[0].total_distance as number);
-  if (distField.length >= 2) {
-    totalDistance = distField[distField.length - 1].distance - distField[0].distance;
+  if (hasDistField) {
+    totalDistance = dIncSum;
   } else if (sessionDist != null && sessionDist > 0) {
     totalDistance = sessionDist;
   } else {
-    totalDistance = samples.reduce((a, s) => a + s.dInc, 0);
+    totalDistance = dIncSum;
   }
 
   const smoothSpeed = smooth(

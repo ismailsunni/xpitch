@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { store, loadFile, loadDemo } from '../store';
+import { store, loadFiles, loadDemo } from '../store';
 
 const dragging = ref(false);
 
 function onDrop(e: DragEvent) {
   dragging.value = false;
-  const f = e.dataTransfer?.files?.[0];
-  if (f) loadFile(f);
+  const files = e.dataTransfer?.files;
+  if (files && files.length) loadFiles(Array.from(files));
 }
 </script>
 
@@ -22,10 +22,10 @@ function onDrop(e: DragEvent) {
   >
     <div class="dz-inner">
       <div class="dz-icon">📂</div>
-      <h2>Drop your <code>.fit</code> file here</h2>
+      <h2>Drop your <code>.fit</code> file(s) here</h2>
       <p>
-        or use <strong>Open .fit file</strong> above. Nothing is uploaded — parsing happens
-        locally in your browser.
+        One or several files — matches recorded close together are grouped into one session
+        automatically. Nothing is uploaded; parsing happens locally in your browser.
       </p>
       <p class="dz-or">
         No file handy? <button class="linkbtn" @click="loadDemo">Load a demo match</button>

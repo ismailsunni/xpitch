@@ -5,8 +5,8 @@ import type { FitResult, RecordSample } from './lib/fit-parser';
 import { compute, FORMATS } from './lib/analytics';
 import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
-import { buildSegments, recordsForPeriod } from './lib/segmentation';
-import type { Segment } from './lib/segmentation';
+import { buildSegments, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
+import type { Segment, ParsedFile } from './lib/segmentation';
 import { reverseGeocode } from './lib/format';
 import { haversine, centroid } from './lib/geo';
 import type { LatLon } from './lib/geo';
@@ -24,6 +24,7 @@ export interface AppState {
   loading: boolean;
   activeTab: string;
   location: string | null;
+  files: string[];
   segments: Segment[];
   activeSegmentId: string;
   activePeriod: number; // -1 = whole segment
@@ -37,6 +38,7 @@ export interface AppState {
     highIntensityKmh: number;
     attackingDir: number;
     format: FormatKey;
+    groupGapMin: number;
   };
 }
 
@@ -86,6 +88,7 @@ export const store = reactive<AppState>({
   loading: false,
   activeTab: 'overview',
   location: null,
+  files: [],
   segments: [],
   activeSegmentId: '',
   activePeriod: -1,
@@ -99,6 +102,7 @@ export const store = reactive<AppState>({
     highIntensityKmh: 14.4,
     attackingDir: 1,
     format: loadStoredFormat(),
+    groupGapMin: DEFAULT_GROUP_GAP_MIN,
   },
 });
 
@@ -181,7 +185,7 @@ export function loadFit(fit: FitResult, name: string): void {
   store.fileName = name;
   store.options.attackingDir = 1;
   store.activeTab = 'overview';
-  store.segments = buildSegments(fit);
+  store.segments = buildSegments(fit, store.options.groupGapMin * 60);
   // Default to the first real match, not the combined "whole file" view.
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
@@ -203,23 +207,37 @@ export function selectPeriod(index: number): void {
 }
 
 export function loadDemo(): void {
+  store.files = ['demo-afternoon.fit'];
   loadFit(generate(), 'demo-afternoon.fit');
 }
 
-export async function loadFile(file: File): Promise<void> {
+// Parse and load one or more .fit files, merged into a single timeline.
+export async function loadFiles(fileList: File[]): Promise<void> {
   store.loading = true;
   store.error = '';
   try {
-    const buf = await file.arrayBuffer();
-    const fit = FitParser.parse(buf);
-    if (!fit.records.length) throw new Error('No record messages found in this FIT file.');
-    loadFit(fit, file.name);
+    const parsed: ParsedFile[] = [];
+    for (const f of fileList) {
+      const buf = await f.arrayBuffer();
+      const fit = FitParser.parse(buf);
+      if (!fit.records.length) throw new Error(`${f.name}: no record messages found`);
+      parsed.push({ name: f.name, fit });
+    }
+    if (!parsed.length) return;
+    store.files = parsed.map((p) => p.name);
+    const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
+    const label = parsed.length === 1 ? parsed[0].name : `${parsed.length} files`;
+    loadFit(merged, label);
   } catch (e: any) {
-    store.error = 'Could not parse this file: ' + (e?.message || e);
+    store.error = 'Could not parse: ' + (e?.message || e);
     store.analytics = null;
   } finally {
     store.loading = false;
   }
+}
+
+export async function loadFile(file: File): Promise<void> {
+  return loadFiles([file]);
 }
 
 export async function loadFromUrl(url: string, name?: string): Promise<void> {
@@ -228,12 +246,44 @@ export async function loadFromUrl(url: string, name?: string): Promise<void> {
   try {
     const res = await fetch(url);
     const buf = await res.arrayBuffer();
-    loadFit(FitParser.parse(buf), name || url.split('/').pop() || 'match.fit');
+    const nm = name || url.split('/').pop() || 'match.fit';
+    store.files = [nm];
+    loadFit(FitParser.parse(buf), nm);
   } catch (e: any) {
     store.error = 'Could not load sample: ' + (e?.message || e);
   } finally {
     store.loading = false;
   }
+}
+
+export async function loadFromUrls(urls: string[]): Promise<void> {
+  store.loading = true;
+  store.error = '';
+  try {
+    const parsed: ParsedFile[] = [];
+    for (const u of urls) {
+      const buf = await (await fetch(u)).arrayBuffer();
+      parsed.push({ name: u.split('/').pop() || u, fit: FitParser.parse(buf) });
+    }
+    store.files = parsed.map((p) => p.name);
+    const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
+    loadFit(merged, parsed.length === 1 ? parsed[0].name : `${parsed.length} files`);
+  } catch (e: any) {
+    store.error = 'Could not load: ' + (e?.message || e);
+  } finally {
+    store.loading = false;
+  }
+}
+
+export function setGroupGap(min: number): void {
+  store.options.groupGapMin = min;
+  if (!currentFit) return;
+  store.segments = buildSegments(currentFit, min * 60);
+  const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
+  store.activeSegmentId = first ? first.id : '';
+  store.activePeriod = -1;
+  recompute();
+  geocodeCurrent();
 }
 
 export function flipAttack(): void {
