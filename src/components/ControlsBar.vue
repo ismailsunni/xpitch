@@ -84,16 +84,17 @@ const resolvedFormat = computed(() => {
       <div style="display: flex; gap: 6px">
         <button
           class="btn ghost small"
-          :class="{ primary: flipped }"
+          :class="{ on: flipped }"
           title="Switch which end you attacked — rotates the pitch 180° (ends and wings together). Selected match/half only."
           @click="flipAttack"
         >
           {{ flipped ? 'Attacking ◀' : '▶ Attacking' }}
         </button>
         <button
+          v-if="!usingField"
           class="btn ghost small"
-          :class="{ primary: sidesFlipped }"
-          title="Mirror left/right (width). Use if your wing shows on the wrong side. Selected view only."
+          :class="{ on: sidesFlipped }"
+          title="Mirror left/right (width). Only needed without a defined pitch, where left/right is guessed."
           @click="flipSides"
         >
           ⇅ Swap sides
