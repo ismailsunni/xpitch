@@ -1,0 +1,120 @@
+/* store.ts — reactive application state and actions (lightweight, no Pinia). */
+import { reactive } from 'vue';
+import * as FitParser from './lib/fit-parser';
+import type { FitResult } from './lib/fit-parser';
+import { compute } from './lib/analytics';
+import type { MatchAnalytics } from './lib/analytics';
+import { generate } from './lib/demo';
+import { reverseGeocode } from './lib/format';
+
+export interface AppState {
+  analytics: MatchAnalytics | null;
+  fileName: string;
+  error: string;
+  loading: boolean;
+  activeTab: string;
+  location: string | null;
+  options: {
+    age: number | null;
+    maxHR: number | null;
+    sprintKmh: number;
+    attackingDir: number;
+  };
+}
+
+let currentFit: FitResult | null = null;
+let geoToken = 0;
+
+export const store = reactive<AppState>({
+  analytics: null,
+  fileName: '',
+  error: '',
+  loading: false,
+  activeTab: 'overview',
+  location: null,
+  options: { age: null, maxHR: null, sprintKmh: 19.8, attackingDir: 1 },
+});
+
+export function recompute(): void {
+  if (!currentFit) return;
+  const a = compute(currentFit, {
+    age: store.options.age,
+    maxHR: store.options.maxHR,
+    sprintKmh: store.options.sprintKmh,
+    attackingDir: store.options.attackingDir,
+  });
+  if (!a.ok) {
+    store.error = a.error || 'Could not analyze this file.';
+    store.analytics = null;
+    return;
+  }
+  store.error = '';
+  store.analytics = a;
+}
+
+function afterLoad(): void {
+  store.location = null;
+  const meta = store.analytics?.meta;
+  if (meta && meta.startLat != null && meta.startLon != null) {
+    const token = ++geoToken;
+    reverseGeocode(meta.startLat, meta.startLon).then((place) => {
+      if (token === geoToken) store.location = place;
+    });
+  }
+}
+
+export function loadFit(fit: FitResult, name: string): void {
+  currentFit = fit;
+  store.fileName = name;
+  store.options.attackingDir = 1;
+  store.activeTab = 'overview';
+  recompute();
+  if (store.analytics) afterLoad();
+}
+
+export function loadDemo(): void {
+  loadFit(generate(), 'demo-minisoccer.fit');
+}
+
+export async function loadFile(file: File): Promise<void> {
+  store.loading = true;
+  store.error = '';
+  try {
+    const buf = await file.arrayBuffer();
+    const fit = FitParser.parse(buf);
+    if (!fit.records.length) throw new Error('No record messages found in this FIT file.');
+    loadFit(fit, file.name);
+  } catch (e: any) {
+    store.error = 'Could not parse this file: ' + (e?.message || e);
+    store.analytics = null;
+  } finally {
+    store.loading = false;
+  }
+}
+
+export async function loadFromUrl(url: string, name?: string): Promise<void> {
+  store.loading = true;
+  store.error = '';
+  try {
+    const res = await fetch(url);
+    const buf = await res.arrayBuffer();
+    loadFit(FitParser.parse(buf), name || url.split('/').pop() || 'match.fit');
+  } catch (e: any) {
+    store.error = 'Could not load sample: ' + (e?.message || e);
+  } finally {
+    store.loading = false;
+  }
+}
+
+export function flipAttack(): void {
+  store.options.attackingDir *= -1;
+  recompute();
+}
+
+export function reset(): void {
+  currentFit = null;
+  store.analytics = null;
+  store.fileName = '';
+  store.error = '';
+  store.location = null;
+}

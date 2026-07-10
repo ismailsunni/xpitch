@@ -1,0 +1,78 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import { store } from '../../store';
+import PitchCanvas from '../PitchCanvas.vue';
+
+const a = computed<any>(() => store.analytics);
+const p = computed<any>(() => a.value.positional);
+
+const thirdLabels = ['Defensive third', 'Middle third', 'Attacking third'];
+const thirdColors = ['#3b82f6', '#22c55e', '#ef4444'];
+const sideLabels = ['Left flank', 'Central', 'Right flank'];
+const sideColors = ['#a78bfa', '#22c55e', '#fb923c'];
+
+function bars(values: number[], labels: string[], colors: string[]) {
+  const total = values.reduce((x, y) => x + y, 0) || 1;
+  return values.map((v, i) => ({
+    label: labels[i],
+    pct: Math.round((v / total) * 100),
+    color: colors[i],
+  }));
+}
+
+const thirds = computed(() => (p.value ? bars(p.value.thirds, thirdLabels, thirdColors) : []));
+const sides = computed(() => (p.value ? bars(p.value.sides, sideLabels, sideColors) : []));
+const preferredSide = computed(() => {
+  if (!p.value) return '';
+  return sideLabels[p.value.sides.indexOf(Math.max(...p.value.sides))];
+});
+</script>
+
+<template>
+  <section class="tabpane">
+    <p v-if="!p" class="empty">No GPS data in this file — positional analysis is unavailable.</p>
+    <template v-else>
+      <div class="grid2">
+        <div class="panel">
+          <h3>Positional heatmap</h3>
+          <PitchCanvas :positional="p" mode="heatmap" />
+          <p class="hint">Red = most time spent. White dot = average position.</p>
+        </div>
+        <div class="panel">
+          <h3>Movement trail</h3>
+          <PitchCanvas :positional="p" mode="trail" />
+          <p class="hint">
+            <span class="swatch" style="background: #8c5afa"></span> start →
+            <span class="swatch" style="background: #ff961e"></span> end
+          </p>
+        </div>
+        <div class="panel">
+          <h3>Zone occupancy (time %)</h3>
+          <PitchCanvas :positional="p" mode="zones" />
+        </div>
+        <div class="panel">
+          <h3>Positioning breakdown</h3>
+          <div class="subhead">Along the pitch (length)</div>
+          <div v-for="b in thirds" :key="b.label" class="bar-row">
+            <div class="bl"><span>{{ b.label }}</span><span>{{ b.pct }}%</span></div>
+            <div class="bar-track">
+              <div class="bar-fill" :style="{ width: b.pct + '%', background: b.color }"></div>
+            </div>
+          </div>
+          <div class="subhead" style="margin-top: 16px">Across the pitch (width)</div>
+          <div v-for="b in sides" :key="b.label" class="bar-row">
+            <div class="bl"><span>{{ b.label }}</span><span>{{ b.pct }}%</span></div>
+            <div class="bar-track">
+              <div class="bar-fill" :style="{ width: b.pct + '%', background: b.color }"></div>
+            </div>
+          </div>
+          <p class="hint">
+            Pitch span sampled from GPS: ~{{ Math.round(p.lengthM) }} m long ×
+            {{ Math.round(p.widthM) }} m wide. Preferred side:
+            <strong style="color: var(--text)">{{ preferredSide }}</strong>.
+          </p>
+        </div>
+      </div>
+    </template>
+  </section>
+</template>

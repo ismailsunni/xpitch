@@ -1,8 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
 # Editors / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 
-# Node (not used, but keep clean)
-node_modules/
+# Personal .fit recordings (contain real GPS locations — keep out of a public repo).
+# Force-add with `git add -f` if you deliberately want to ship a sample.
+*.fit
