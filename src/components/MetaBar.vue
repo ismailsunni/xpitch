@@ -47,6 +47,10 @@ const calories = computed(() => session.value.total_calories ?? null);
       <span class="val">{{ sportName(meta.sport) || '—' }}</span>
     </div>
     <div class="mi">
+      <span class="k">Format</span>
+      <span class="val">{{ meta.formatLabel }}</span>
+    </div>
+    <div class="mi">
       <span class="k">Duration</span>
       <span class="val">{{ fmtDur(meta.durationS) }}</span>
     </div>

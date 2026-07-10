@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, recompute, flipAttack, clearField } from '../store';
+import { store, recompute, flipAttack, clearField, setFormat } from '../store';
+import { FORMATS } from '../lib/analytics';
 
 function num(v: string): number | null {
   const n = parseFloat(v);
@@ -10,6 +11,15 @@ function num(v: string): number | null {
 const hasGPS = computed(() => !!store.analytics?.meta?.hasGPS);
 const usingField = computed(() => !!store.analytics?.positional?.hasField);
 const fieldIgnored = computed(() => !!store.analytics?.positional?.fieldIgnored);
+
+const formatOptions = Object.values(FORMATS);
+// When 'auto', show what it resolved to (e.g. "Auto → Mini-soccer").
+const resolvedFormat = computed(() => {
+  const m = store.analytics?.meta;
+  if (!m) return '';
+  if (store.options.format === 'auto') return 'Auto → ' + (FORMATS[m.format]?.short || m.format);
+  return FORMATS[m.format]?.short || '';
+});
 </script>
 
 <template>
@@ -17,6 +27,18 @@ const fieldIgnored = computed(() => !!store.analytics?.positional?.fieldIgnored)
     <div class="ctl">
       <span class="ctl-label">File</span>
       <span class="val" style="font-weight: 600; font-size: 13.5px">{{ store.fileName }}</span>
+    </div>
+    <div class="ctl">
+      <label for="format">Format</label>
+      <select
+        id="format"
+        class="ctl-select"
+        :value="store.options.format"
+        @change="setFormat(($event.target as HTMLSelectElement).value as any)"
+      >
+        <option v-for="f in formatOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
+      </select>
+      <span class="hint" style="margin: 2px 0 0">{{ resolvedFormat }}</span>
     </div>
     <div class="ctl">
       <label for="age">Age</label>

@@ -11,6 +11,43 @@ import type { FitResult } from './fit-parser';
 export const KMH = 3.6; // m/s -> km/h
 const MAX_GAP_S = 8; // cap dt across data gaps when accumulating time
 
+export type FormatKey = 'auto' | 'futsal' | 'mini' | 'full';
+
+// Match formats. `maxLengthM` bounds the auto-detection by pitch length;
+// `aspect` is the drawn template's width/length; sprint/hi are default km/h
+// thresholds fitting the format's typical top speeds.
+export const FORMATS: Record<
+  string,
+  { key: FormatKey; label: string; short: string; maxLengthM: number; aspect: number; sprintKmh: number; hiKmh: number }
+> = {
+  auto: { key: 'auto', label: 'Auto-detect', short: 'Auto', maxLengthM: 0, aspect: 68 / 105, sprintKmh: 19.8, hiKmh: 14.4 },
+  futsal: { key: 'futsal', label: 'Futsal / 5-a-side', short: 'Futsal', maxLengthM: 32, aspect: 0.5, sprintKmh: 15, hiKmh: 11 },
+  mini: { key: 'mini', label: 'Mini-soccer / 7-a-side', short: 'Mini-soccer', maxLengthM: 78, aspect: 0.62, sprintKmh: 18, hiKmh: 13 },
+  full: { key: 'full', label: 'Full football / 11-a-side', short: 'Full football', maxLengthM: Infinity, aspect: 68 / 105, sprintKmh: 19.8, hiKmh: 14.4 },
+};
+
+function inferFormatKey(lengthM: number, fromField: boolean): FormatKey {
+  // Players rarely reach the corners, so scale up a GPS-box estimate.
+  const L = fromField ? lengthM : lengthM * 1.25;
+  if (L < FORMATS.futsal.maxLengthM) return 'futsal';
+  if (L < FORMATS.mini.maxLengthM) return 'mini';
+  return 'full';
+}
+
+function resolveFormat(
+  optFormat: FormatKey,
+  positional: any
+): { key: FormatKey; from: 'user' | 'field' | 'gps' | 'default' } {
+  if (optFormat && optFormat !== 'auto' && FORMATS[optFormat]) return { key: optFormat, from: 'user' };
+  if (positional) {
+    return {
+      key: inferFormatKey(positional.lengthM, positional.hasField),
+      from: positional.hasField ? 'field' : 'gps',
+    };
+  }
+  return { key: 'full', from: 'default' };
+}
+
 // Football speed zones (km/h). Distance & time accumulate per zone.
 export const SPEED_ZONES = [
   { name: 'Walking', min: 0, max: 7, color: '#3b82f6' },
@@ -28,6 +65,7 @@ export interface AnalyticsOptions {
   sprintKmh?: number;
   highIntensityKmh?: number;
   field?: LatLon[] | null; // user-defined pitch corners (lat/lon)
+  format?: FormatKey; // match format ('auto' infers from pitch size)
 }
 
 export interface MatchAnalytics {
@@ -82,6 +120,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       sprintKmh: 19.8,
       highIntensityKmh: 14.4,
       field: null,
+      format: 'auto',
     },
     options || {}
   ) as Required<AnalyticsOptions>;
@@ -345,9 +384,11 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
   const fatigue = computeFatigue(samples, sprints, hiThr, durationS);
   const rse = detectRepeatedSprints(sprints);
 
-  // ---- 7. Role estimation ----
+  // ---- 7. Format resolution + role estimation ----
+  const fmt = resolveFormat(opt.format, positional);
+  if (positional) positional.templateAspect = FORMATS[fmt.key].aspect;
   const role = positional
-    ? estimateRole(positional, { sprints, highIntensityRuns, totalDistance, durationS })
+    ? estimateRole(positional, { sprints, highIntensityRuns, totalDistance, durationS }, fmt.key)
     : null;
 
   return {
@@ -360,6 +401,9 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       durationS,
       sampleCount: samples.length,
       sport: fit.sessions[0] ? fit.sessions[0].sport : null,
+      format: fmt.key,
+      formatFrom: fmt.from,
+      formatLabel: FORMATS[fmt.key].label,
       session: fit.sessions[0] || null,
       fileId: fit.file_id || null,
       startLat: samples.find((s) => s.lat != null)?.lat ?? null,
@@ -537,7 +581,7 @@ function detectRepeatedSprints(sprints: any[]): any[] {
   }));
 }
 
-function estimateRole(positional: any, ctx: any): any {
+function estimateRole(positional: any, ctx: any, format: FormatKey): any {
   const pts = positional.points;
   const us = pts.map((p: any) => p.u);
   const vs = pts.map((p: any) => p.v);
@@ -549,51 +593,50 @@ function estimateRole(positional: any, ctx: any): any {
   const km = ctx.totalDistance / 1000;
   const minutes = ctx.durationS / 60 || 1;
   const kmPerHour = km / (minutes / 60);
-  const sprintsPer = ctx.sprints.length;
+  const sprints = ctx.sprints.length;
   const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  const thirdsTot = sum(positional.thirds) || 1;
+  const attFrac = positional.thirds[2] / thirdsTot;
+  const midFrac = positional.thirds[1] / thirdsTot;
+  const defFrac = positional.thirds[0] / thirdsTot;
 
-  const roles = [
-    {
-      role: 'Winger',
-      score:
-        lateralBias * 3.2 +
-        Math.min(sprintsPer / 12, 1) * 1.6 +
-        Math.max(0, avgU - 0.5) * 1.4 +
-        spreadU * 0.8,
-    },
-    {
-      role: 'Forward / Pivot',
-      score:
-        Math.max(0, avgU - 0.55) * 3.0 +
-        Math.min(sprintsPer / 12, 1) * 1.4 +
-        (0.5 - Math.min(lateralBias, 0.5)) * 1.2 +
-        (positional.thirds[2] / (sum(positional.thirds) || 1)) * 1.5,
-    },
-    {
-      role: 'Central Midfielder',
-      score:
-        (1 - Math.min(lateralBias * 2, 1)) * 1.6 +
-        Math.min(kmPerHour / 9, 1) * 2.0 +
-        spreadU * 2.2 +
-        (positional.thirds[1] / (sum(positional.thirds) || 1)) * 1.4,
-    },
-    {
-      role: 'Defender',
-      score:
-        Math.max(0, 0.45 - avgU) * 3.2 +
-        (positional.thirds[0] / (sum(positional.thirds) || 1)) * 1.8 +
-        (1 - Math.min(sprintsPer / 12, 1)) * 1.0 +
-        (0.4 - Math.min(spreadU, 0.4)) * 1.2,
-    },
-    {
-      role: 'Full-back / Wing-back',
-      score:
-        lateralBias * 2.4 +
-        Math.max(0, 0.5 - avgU) * 1.8 +
-        spreadU * 1.6 +
-        Math.min(sprintsPer / 12, 1) * 0.8,
-    },
-  ];
+  // Shared feature signals -> reusable partial scores.
+  const wide = lateralBias; // 0 central .. 0.5 wide
+  const forward = Math.max(0, avgU - 0.5);
+  const back = Math.max(0, 0.5 - avgU);
+  const roam = (spreadU + spreadV) / 2; // how much of the pitch is covered
+
+  // Per-format role vocabularies. Smaller formats have less positional
+  // specialization, so "Universal / all-rounder" is a real candidate.
+  let roles: { role: string; score: number }[];
+  if (format === 'futsal') {
+    const sp = Math.min(sprints / 8, 1);
+    roles = [
+      { role: 'Pivot (target)', score: forward * 3.0 + attFrac * 1.6 + (0.5 - Math.min(wide, 0.5)) * 0.9 },
+      { role: 'Ala (wide)', score: wide * 3.2 + spreadU * 1.3 + sp * 1.0 },
+      { role: 'Fixo (defender)', score: back * 3.0 + defFrac * 1.8 + (1 - sp) * 0.6 },
+      { role: 'Universal (all-rounder)', score: roam * 2.6 + (1 - Math.min(wide * 2, 1)) * 0.8 + Math.min(kmPerHour / 8, 1) * 0.8 },
+    ];
+  } else if (format === 'mini') {
+    const sp = Math.min(sprints / 10, 1);
+    roles = [
+      { role: 'Forward', score: forward * 3.0 + attFrac * 1.6 + sp * 1.2 + (0.5 - Math.min(wide, 0.5)) * 0.8 },
+      { role: 'Winger', score: wide * 3.2 + spreadU * 1.1 + sp * 1.2 + Math.max(0, avgU - 0.45) * 1.0 },
+      { role: 'Midfielder', score: (1 - Math.min(wide * 2, 1)) * 1.5 + Math.min(kmPerHour / 8, 1) * 2.0 + spreadU * 2.0 + midFrac * 1.3 },
+      { role: 'Defender', score: back * 3.0 + defFrac * 1.7 + (1 - sp) * 0.9 },
+      { role: 'Full-back', score: wide * 2.2 + back * 1.6 + spreadU * 1.5 + sp * 0.7 },
+    ];
+  } else {
+    // full (11-a-side)
+    const sp = Math.min(sprints / 12, 1);
+    roles = [
+      { role: 'Winger', score: wide * 3.2 + sp * 1.6 + forward * 1.4 + spreadU * 0.8 },
+      { role: 'Forward / Striker', score: forward * 3.0 + sp * 1.4 + (0.5 - Math.min(wide, 0.5)) * 1.2 + attFrac * 1.5 },
+      { role: 'Central Midfielder', score: (1 - Math.min(wide * 2, 1)) * 1.6 + Math.min(kmPerHour / 9, 1) * 2.0 + spreadU * 2.2 + midFrac * 1.4 },
+      { role: 'Centre-back', score: back * 3.2 + defFrac * 1.8 + (1 - sp) * 1.0 + (0.4 - Math.min(spreadU, 0.4)) * 1.2 },
+      { role: 'Full-back / Wing-back', score: wide * 2.4 + back * 1.8 + spreadU * 1.6 + sp * 0.8 },
+    ];
+  }
 
   roles.sort((a, b) => b.score - a.score);
   const top = roles[0];
@@ -613,7 +656,7 @@ function estimateRole(positional: any, ctx: any): any {
       ? 'Average position in the defensive half'
       : 'Average position around midfield'
   );
-  notes.push(`${ctx.sprints.length} sprints, ${kmPerHour.toFixed(1)} km covered per hour`);
+  notes.push(`${sprints} sprints, ${kmPerHour.toFixed(1)} km covered per hour`);
 
   return { top: top.role, confidence, ranked: roles, notes, avgU, avgV, spreadU, spreadV };
 }

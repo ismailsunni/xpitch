@@ -236,7 +236,7 @@ export function drawPitch(canvas: HTMLCanvasElement, positional: any, mode: Pitc
   if (!canvas || !positional) return;
   // Use the real field aspect ratio when a field is defined; otherwise the
   // canonical 105x68 template (the PCA bounding box aspect is not meaningful).
-  let aspect = 68 / 105;
+  let aspect = positional.templateAspect || 68 / 105;
   if (positional.hasField && positional.lengthM > 0) {
     aspect = Math.min(0.95, Math.max(0.4, positional.widthM / positional.lengthM));
   }
