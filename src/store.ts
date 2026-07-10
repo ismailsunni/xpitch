@@ -1,14 +1,21 @@
 /* store.ts — reactive application state and actions (lightweight, no Pinia). */
 import { reactive } from 'vue';
 import * as FitParser from './lib/fit-parser';
-import type { FitResult } from './lib/fit-parser';
-import { compute } from './lib/analytics';
-import type { MatchAnalytics } from './lib/analytics';
+import type { FitResult, RecordSample } from './lib/fit-parser';
+import { compute, FORMATS } from './lib/analytics';
+import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
-import { FORMATS } from './lib/analytics';
-import type { FormatKey } from './lib/analytics';
+import { buildSegments, recordsForPeriod } from './lib/segmentation';
+import type { Segment } from './lib/segmentation';
 import { reverseGeocode } from './lib/format';
+import { haversine, centroid } from './lib/geo';
 import type { LatLon } from './lib/geo';
+
+export interface SavedField {
+  id: string;
+  name: string;
+  corners: LatLon[];
+}
 
 export interface AppState {
   analytics: MatchAnalytics | null;
@@ -17,7 +24,11 @@ export interface AppState {
   loading: boolean;
   activeTab: string;
   location: string | null;
-  field: LatLon[] | null;
+  segments: Segment[];
+  activeSegmentId: string;
+  activePeriod: number; // -1 = whole segment
+  fields: SavedField[];
+  appliedFieldId: string | null;
   fieldEditorOpen: boolean;
   options: {
     age: number | null;
@@ -29,8 +40,32 @@ export interface AppState {
   };
 }
 
-const FIELD_KEY = 'sf_field_v1';
+const FIELDS_KEY = 'xp_fields_v1';
 const FORMAT_KEY = 'sf_format_v1';
+const FIELD_MATCH_M = 1500; // a saved field within this distance applies
+
+function genId(): string {
+  return 'f' + Math.random().toString(36).slice(2, 9);
+}
+
+function loadStoredFields(): SavedField[] {
+  try {
+    const raw = localStorage.getItem(FIELDS_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr;
+    }
+    // Migrate a legacy single field.
+    const legacy = localStorage.getItem('sf_field_v1');
+    if (legacy) {
+      const c = JSON.parse(legacy);
+      if (Array.isArray(c) && c.length >= 4) return [{ id: genId(), name: 'Saved pitch', corners: c }];
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
 
 function loadStoredFormat(): FormatKey {
   try {
@@ -38,17 +73,6 @@ function loadStoredFormat(): FormatKey {
     return v && FORMATS[v] ? v : 'auto';
   } catch {
     return 'auto';
-  }
-}
-
-function loadStoredField(): LatLon[] | null {
-  try {
-    const raw = localStorage.getItem(FIELD_KEY);
-    if (!raw) return null;
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) && arr.length >= 4 ? arr : null;
-  } catch {
-    return null;
   }
 }
 
@@ -62,7 +86,11 @@ export const store = reactive<AppState>({
   loading: false,
   activeTab: 'overview',
   location: null,
-  field: loadStoredField(),
+  segments: [],
+  activeSegmentId: '',
+  activePeriod: -1,
+  fields: loadStoredFields(),
+  appliedFieldId: null,
   fieldEditorOpen: false,
   options: {
     age: null,
@@ -74,19 +102,62 @@ export const store = reactive<AppState>({
   },
 });
 
+function recordsToLatLon(recs: RecordSample[]): LatLon[] {
+  return recs
+    .filter((r) => r.position_lat != null && r.position_long != null)
+    .map((r) => ({ lat: r.position_lat as number, lon: r.position_long as number }));
+}
+
+// Nearest saved field to a set of records, within FIELD_MATCH_M.
+function resolveField(recs: RecordSample[]): SavedField | null {
+  const gc = centroid(recordsToLatLon(recs));
+  if (!gc) return null;
+  let best: SavedField | null = null;
+  let bestD = Infinity;
+  for (const f of store.fields) {
+    const fc = centroid(f.corners);
+    if (!fc) continue;
+    const d = haversine(gc.lat, gc.lon, fc.lat, fc.lon);
+    if (d < bestD) {
+      bestD = d;
+      best = f;
+    }
+  }
+  return best && bestD <= FIELD_MATCH_M ? best : null;
+}
+
+export const activeSegment = () => store.segments.find((s) => s.id === store.activeSegmentId) || store.segments[0] || null;
+
 export function recompute(): void {
-  if (!currentFit) return;
-  const a = compute(currentFit, {
+  const seg = activeSegment();
+  if (!currentFit || !seg) {
+    store.analytics = null;
+    return;
+  }
+  const recs = recordsForPeriod(seg, store.activePeriod);
+  const field = resolveField(recs);
+  store.appliedFieldId = field?.id ?? null;
+
+  const pseudo: FitResult = {
+    records: recs,
+    sessions: seg.session ? [seg.session] : [],
+    laps: [],
+    events: [],
+    activity: null,
+    file_id: currentFit.file_id,
+    other: {},
+  };
+  const a = compute(pseudo, {
     age: store.options.age,
     maxHR: store.options.maxHR,
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,
     attackingDir: store.options.attackingDir,
-    field: store.field,
+    field: field ? field.corners : null,
     format: store.options.format,
   });
   if (!a.ok) {
-    store.error = a.error || 'Could not analyze this file.';
+    store.error = a.error || 'Could not analyze this segment.';
     store.analytics = null;
     return;
   }
@@ -94,7 +165,7 @@ export function recompute(): void {
   store.analytics = a;
 }
 
-function afterLoad(): void {
+function geocodeCurrent(): void {
   store.location = null;
   const meta = store.analytics?.meta;
   if (meta && meta.startLat != null && meta.startLon != null) {
@@ -110,12 +181,29 @@ export function loadFit(fit: FitResult, name: string): void {
   store.fileName = name;
   store.options.attackingDir = 1;
   store.activeTab = 'overview';
+  store.segments = buildSegments(fit);
+  // Default to the first real match, not the combined "whole file" view.
+  const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
+  store.activeSegmentId = first ? first.id : '';
+  store.activePeriod = -1;
   recompute();
-  if (store.analytics) afterLoad();
+  if (store.analytics) geocodeCurrent();
+}
+
+export function selectSegment(id: string): void {
+  store.activeSegmentId = id;
+  store.activePeriod = -1;
+  recompute();
+  geocodeCurrent();
+}
+
+export function selectPeriod(index: number): void {
+  store.activePeriod = index;
+  recompute();
 }
 
 export function loadDemo(): void {
-  loadFit(generate(), 'demo-minisoccer.fit');
+  loadFit(generate(), 'demo-afternoon.fit');
 }
 
 export async function loadFile(file: File): Promise<void> {
@@ -153,16 +241,6 @@ export function flipAttack(): void {
   recompute();
 }
 
-export function setField(corners: LatLon[]): void {
-  store.field = corners;
-  try {
-    localStorage.setItem(FIELD_KEY, JSON.stringify(corners));
-  } catch {
-    /* ignore */
-  }
-  recompute();
-}
-
 export function setFormat(fmt: FormatKey): void {
   store.options.format = fmt;
   try {
@@ -170,8 +248,6 @@ export function setFormat(fmt: FormatKey): void {
   } catch {
     /* ignore */
   }
-  // Choosing a specific format sets its default intensity thresholds (still
-  // user-adjustable afterwards). 'auto' leaves the current thresholds alone.
   if (fmt !== 'auto' && FORMATS[fmt]) {
     store.options.sprintKmh = FORMATS[fmt].sprintKmh;
     store.options.highIntensityKmh = FORMATS[fmt].hiKmh;
@@ -179,20 +255,43 @@ export function setFormat(fmt: FormatKey): void {
   recompute();
 }
 
-export function clearField(): void {
-  store.field = null;
+// ---- Saved field list ----
+function persistFields(): void {
   try {
-    localStorage.removeItem(FIELD_KEY);
+    localStorage.setItem(FIELDS_KEY, JSON.stringify(store.fields));
   } catch {
     /* ignore */
   }
+}
+
+export function addField(name: string, corners: LatLon[]): string {
+  const id = genId();
+  store.fields.push({ id, name: name || 'Field ' + (store.fields.length + 1), corners });
+  persistFields();
+  recompute();
+  return id;
+}
+
+export function updateField(id: string, name: string, corners: LatLon[]): void {
+  const f = store.fields.find((x) => x.id === id);
+  if (!f) return;
+  f.name = name || f.name;
+  f.corners = corners;
+  persistFields();
   recompute();
 }
 
-export function reset(): void {
-  currentFit = null;
-  store.analytics = null;
-  store.fileName = '';
-  store.error = '';
-  store.location = null;
+export function removeField(id: string): void {
+  store.fields = store.fields.filter((x) => x.id !== id);
+  persistFields();
+  recompute();
+}
+
+export const appliedField = () => store.fields.find((f) => f.id === store.appliedFieldId) || null;
+
+// Centroid of the current view's GPS (for the field editor to focus on).
+export function currentViewCentroid(): LatLon | null {
+  const seg = activeSegment();
+  if (!seg) return null;
+  return centroid(recordsToLatLon(recordsForPeriod(seg, store.activePeriod)));
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, recompute, flipAttack, clearField, setFormat } from '../store';
+import { store, recompute, flipAttack, setFormat, appliedField } from '../store';
 import { FORMATS } from '../lib/analytics';
 
 function num(v: string): number | null {
@@ -10,7 +10,7 @@ function num(v: string): number | null {
 
 const hasGPS = computed(() => !!store.analytics?.meta?.hasGPS);
 const usingField = computed(() => !!store.analytics?.positional?.hasField);
-const fieldIgnored = computed(() => !!store.analytics?.positional?.fieldIgnored);
+const fieldName = computed(() => appliedField()?.name || '');
 
 const formatOptions = Object.values(FORMATS);
 // When 'auto', show what it resolved to (e.g. "Auto → Mini-soccer").
@@ -86,21 +86,13 @@ const resolvedFormat = computed(() => {
       <span class="ctl-label">Pitch</span>
       <div style="display: flex; gap: 8px; align-items: center">
         <button class="btn ghost small" @click="store.fieldEditorOpen = true">
-          📐 {{ usingField ? 'Edit field' : 'Set field' }}
+          📐 {{ usingField ? 'Edit pitches' : 'Set field' }}
         </button>
-        <span
-          class="hint"
-          style="margin: 0"
-          :class="{ warn: fieldIgnored }"
-          :title="fieldIgnored ? 'Saved field is >3 km away; using auto-inferred pitch' : ''"
-        >
-          <template v-if="usingField">custom ✓</template>
-          <template v-else-if="fieldIgnored">field off-venue</template>
+        <span class="hint" style="margin: 0">
+          <template v-if="usingField && fieldName">{{ fieldName }} ✓</template>
+          <template v-else-if="usingField">custom ✓</template>
           <template v-else>auto-inferred</template>
         </span>
-        <button v-if="usingField || fieldIgnored" class="linkbtn" style="font-size: 12px" @click="clearField">
-          clear
-        </button>
       </div>
     </div>
   </section>

@@ -6,6 +6,7 @@ import FileDrop from './components/FileDrop.vue';
 const FieldEditor = defineAsyncComponent(() => import('./components/FieldEditor.vue'));
 import ControlsBar from './components/ControlsBar.vue';
 import MetaBar from './components/MetaBar.vue';
+import SegmentBar from './components/SegmentBar.vue';
 import OverviewTab from './components/tabs/OverviewTab.vue';
 import PositionalTab from './components/tabs/PositionalTab.vue';
 import RunningTab from './components/tabs/RunningTab.vue';
@@ -68,6 +69,7 @@ onMounted(() => {
   <main v-else>
     <ControlsBar />
     <MetaBar />
+    <SegmentBar />
 
     <nav class="tabs">
       <button

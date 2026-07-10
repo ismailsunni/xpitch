@@ -14,7 +14,7 @@ import { fromLonLat, toLonLat } from 'ol/proj';
 import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import type { MapBrowserEvent } from 'ol';
-import { store, setField, clearField } from '../store';
+import { store, addField, updateField, removeField, appliedField } from '../store';
 
 const mapEl = ref<HTMLDivElement>();
 const cornersLL = ref<number[][]>([]); // [lon, lat]
@@ -22,6 +22,8 @@ const basemap = ref<'sat' | 'osm'>('sat');
 const showManual = ref(false);
 const manualText = ref('');
 const err = ref('');
+const fieldName = ref('');
+const editingId = ref<string | null>(null);
 
 let map: Map | null = null;
 let cornerSource: VectorSource;
@@ -35,11 +37,7 @@ const cornerStyle = (i: number) =>
       fill: new Fill({ color: '#38bdf8' }),
       stroke: new Stroke({ color: '#04121c', width: 2 }),
     }),
-    text: new Text({
-      text: String(i + 1),
-      fill: new Fill({ color: '#04121c' }),
-      font: 'bold 11px system-ui',
-    }),
+    text: new Text({ text: String(i + 1), fill: new Fill({ color: '#04121c' }), font: 'bold 11px system-ui' }),
   });
 
 function redrawCorners() {
@@ -50,10 +48,7 @@ function redrawCorners() {
     ring.push(fromLonLat(ll[0]));
     const poly = new Feature(new Polygon([ring]));
     poly.setStyle(
-      new Style({
-        stroke: new Stroke({ color: '#38bdf8', width: 2 }),
-        fill: new Fill({ color: 'rgba(56,189,248,0.18)' }),
-      })
+      new Style({ stroke: new Stroke({ color: '#38bdf8', width: 2 }), fill: new Fill({ color: 'rgba(56,189,248,0.18)' }) })
     );
     cornerSource.addFeature(poly);
   }
@@ -71,7 +66,7 @@ function onMapClick(e: MapBrowserEvent<any>) {
   redrawCorners();
 }
 
-function reset() {
+function resetCorners() {
   cornersLL.value = [];
   err.value = '';
   redrawCorners();
@@ -100,13 +95,13 @@ function applyManual() {
       else if (g.type === 'Feature') ring = g.geometry.coordinates[0];
       else if (g.type === 'FeatureCollection') ring = g.features[0].geometry.coordinates[0];
       if (!ring) throw new Error('No polygon found in GeoJSON');
-      out = ring.slice(0, 4).map((c: number[]) => [c[0], c[1]]); // GeoJSON is [lon, lat]
+      out = ring.slice(0, 4).map((c: number[]) => [c[0], c[1]]);
     } else {
       const rows = t
         .split(/\n+/)
         .map((l) => l.split(/[,\s]+/).map(Number).filter((n) => isFinite(n)))
         .filter((r) => r.length >= 2);
-      out = rows.slice(0, 4).map((r) => [r[1], r[0]]); // typed "lat, lon" -> [lon, lat]
+      out = rows.slice(0, 4).map((r) => [r[1], r[0]]); // typed "lat, lon"
     }
     if (out.length < 4) throw new Error('Need at least 4 corners');
     cornersLL.value = out;
@@ -117,17 +112,32 @@ function applyManual() {
   }
 }
 
-function confirmField() {
+function loadSaved(f: { id: string; name: string; corners: { lat: number; lon: number }[] }) {
+  cornersLL.value = f.corners.map((c) => [c.lon, c.lat]);
+  fieldName.value = f.name;
+  editingId.value = f.id;
+  err.value = '';
+  redrawCorners();
+  fitTo(cornersLL.value.map((c) => fromLonLat(c)));
+}
+
+function deleteSaved(id: string) {
+  removeField(id);
+  if (editingId.value === id) {
+    editingId.value = null;
+    resetCorners();
+  }
+}
+
+function save() {
   if (cornersLL.value.length < 4) {
     err.value = 'Place all 4 corners of the pitch first.';
     return;
   }
-  setField(cornersLL.value.map((c) => ({ lat: c[1], lon: c[0] })));
-  close();
-}
-
-function useAuto() {
-  clearField();
+  const corners = cornersLL.value.map((c) => ({ lat: c[1], lon: c[0] }));
+  const name = fieldName.value.trim() || 'Field ' + (store.fields.length + 1);
+  if (editingId.value) updateField(editingId.value, name, corners);
+  else addField(name, corners);
   close();
 }
 
@@ -145,21 +155,15 @@ onMounted(() => {
       crossOrigin: 'anonymous',
     }),
   });
-
   cornerSource = new VectorSource();
   const cornerLayer = new VectorLayer({ source: cornerSource });
 
-  // Player GPS track overlay for context.
-  const samples: any[] = (store.analytics?.samples || []).filter(
-    (s) => s.lat != null && s.lon != null
-  );
+  const samples: any[] = (store.analytics?.samples || []).filter((s) => s.lat != null && s.lon != null);
   const step = Math.max(1, Math.floor(samples.length / 2000));
   const track3857: number[][] = [];
   for (let i = 0; i < samples.length; i += step) track3857.push(fromLonLat([samples[i].lon, samples[i].lat]));
   const trackLayer = new VectorLayer({
-    source: new VectorSource({
-      features: track3857.length ? [new Feature(new LineString(track3857))] : [],
-    }),
+    source: new VectorSource({ features: track3857.length ? [new Feature(new LineString(track3857))] : [] }),
     style: new Style({ stroke: new Stroke({ color: 'rgba(255,220,80,0.9)', width: 2 }) }),
   });
 
@@ -171,13 +175,17 @@ onMounted(() => {
   });
   map.on('click', onMapClick);
 
-  // Preload an existing field for editing.
-  if (store.field && store.field.length >= 4) {
-    cornersLL.value = store.field.map((c) => [c.lon, c.lat]);
+  // Preload the field already applied to this view, if any.
+  const applied = appliedField();
+  if (applied) {
+    cornersLL.value = applied.corners.map((c) => [c.lon, c.lat]);
+    fieldName.value = applied.name;
+    editingId.value = applied.id;
     redrawCorners();
+  } else {
+    fieldName.value = store.location || 'Field ' + (store.fields.length + 1);
   }
 
-  // Center on the track (or existing field).
   const focus = track3857.length ? track3857 : cornersLL.value.map((c) => fromLonLat(c));
   setTimeout(() => {
     map?.updateSize();
@@ -192,14 +200,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="fe-overlay" @keydown.esc="close">
+  <div class="fe-overlay">
     <div class="fe-modal">
       <header class="fe-head">
         <div>
           <h3>Set the pitch field</h3>
           <p class="hint" style="margin: 2px 0 0">
             Click the <strong>4 corners</strong> of the pitch on the map ({{ cornersLL.length }}/4).
-            Your GPS track is shown in yellow for reference.
+            Your GPS track is shown in yellow. Saved pitches are matched to matches by location
+            automatically.
           </p>
         </div>
         <button class="btn ghost small" @click="close">✕ Close</button>
@@ -207,16 +216,20 @@ onBeforeUnmount(() => {
 
       <div class="fe-toolbar">
         <div class="seg">
-          <button class="btn small" :class="{ primary: basemap === 'sat' }" @click="setBasemap('sat')">
-            🛰️ Satellite
-          </button>
-          <button class="btn small" :class="{ primary: basemap === 'osm' }" @click="setBasemap('osm')">
-            🗺️ Map
-          </button>
+          <button class="btn small" :class="{ primary: basemap === 'sat' }" @click="setBasemap('sat')">🛰️ Satellite</button>
+          <button class="btn small" :class="{ primary: basemap === 'osm' }" @click="setBasemap('osm')">🗺️ Map</button>
         </div>
-        <button class="btn ghost small" @click="reset">↺ Reset corners</button>
+        <button class="btn ghost small" @click="resetCorners">↺ Reset corners</button>
         <button class="btn ghost small" @click="showManual = !showManual">⌨ Enter coordinates</button>
         <span v-if="err" class="error" style="margin: 0; font-size: 12.5px">{{ err }}</span>
+      </div>
+
+      <div v-if="store.fields.length" class="fe-saved">
+        <span class="k">Saved pitches</span>
+        <span v-for="f in store.fields" :key="f.id" class="pill-btn" :class="{ active: editingId === f.id }">
+          <span style="cursor: pointer" @click="loadSaved(f)">{{ f.name }}</span>
+          <span class="del" title="Delete" @click="deleteSaved(f.id)">✕</span>
+        </span>
       </div>
 
       <div v-if="showManual" class="fe-manual">
@@ -235,14 +248,14 @@ onBeforeUnmount(() => {
       <div ref="mapEl" class="fe-map"></div>
 
       <footer class="fe-foot">
-        <span class="hint" style="margin: 0">
-          Corner order doesn’t matter. Use “Flip attack direction” afterwards if the ends look
-          reversed.
-        </span>
+        <label class="fe-name">
+          <span class="k">Pitch name</span>
+          <input v-model="fieldName" type="text" placeholder="e.g. Rledok Mini Soccer" />
+        </label>
         <div class="fe-actions">
-          <button class="btn ghost small" @click="useAuto">Use auto-inferred</button>
-          <button class="btn primary" :disabled="cornersLL.length < 4" @click="confirmField">
-            Use this field
+          <button class="btn ghost small" @click="close">Cancel</button>
+          <button class="btn primary" :disabled="cornersLL.length < 4" @click="save">
+            {{ editingId ? 'Update pitch' : 'Save pitch' }}
           </button>
         </div>
       </footer>
@@ -263,7 +276,7 @@ onBeforeUnmount(() => {
 }
 .fe-modal {
   width: min(980px, 100%);
-  height: min(88vh, 820px);
+  height: min(90vh, 860px);
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -284,13 +297,33 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 16px;
 }
-.fe-toolbar {
+.fe-toolbar,
+.fe-saved {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 12px 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--border);
+}
+.fe-saved .k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.fe-saved .pill-btn {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.fe-saved .del {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+.fe-saved .del:hover {
+  color: var(--danger);
 }
 .seg {
   display: flex;
@@ -321,11 +354,31 @@ onBeforeUnmount(() => {
 .fe-foot {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
   padding: 12px 18px;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
+}
+.fe-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fe-name .k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.fe-name input {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  min-width: 220px;
 }
 .fe-actions {
   display: flex;
