@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spatial Football — Match Analyzer</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"
+    />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">⚽</span>
+        <div>
+          <h1>Spatial Football</h1>
+          <p class="tagline">Analyze &amp; visualize a <code>.fit</code> match file — all in your browser</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btnDemo" class="btn ghost">Load demo match</button>
+        <label class="btn primary">
+          <input type="file" id="fileInput" accept=".fit" hidden />
+          Open .fit file
+        </label>
+      </div>
+    </header>
+
+    <!-- Landing / dropzone -->
+    <section id="dropzone" class="dropzone">
+      <div class="dz-inner">
+        <div class="dz-icon">📂</div>
+        <h2>Drop your <code>.fit</code> file here</h2>
+        <p>or use <strong>Open .fit file</strong> above. Nothing is uploaded — parsing happens locally.</p>
+        <p class="dz-or">No file handy? <button id="btnDemo2" class="linkbtn">Load a demo match</button></p>
+        <p id="parseError" class="error" hidden></p>
+      </div>
+    </section>
+
+    <!-- Main dashboard -->
+    <main id="dashboard" hidden>
+      <!-- Controls -->
+      <section class="controls">
+        <div class="ctl">
+          <span class="ctl-label">File</span>
+          <span id="fileName" class="ctl-value">—</span>
+        </div>
+        <div class="ctl">
+          <label for="ageInput">Age</label>
+          <input type="number" id="ageInput" min="8" max="90" placeholder="—" />
+        </div>
+        <div class="ctl">
+          <label for="maxHRInput">Max HR</label>
+          <input type="number" id="maxHRInput" min="120" max="230" placeholder="auto" />
+        </div>
+        <div class="ctl">
+          <label for="sprintInput">Sprint ≥ (km/h)</label>
+          <input type="number" id="sprintInput" min="12" max="35" step="0.1" value="19.8" />
+        </div>
+        <div class="ctl">
+          <button id="btnFlip" class="btn ghost small" title="Swap which end of the pitch is 'attacking'">
+            ⇄ Flip attack direction
+          </button>
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="positional">🗺️ Positional</button>
+        <button class="tab" data-tab="running">🏃 Running</button>
+        <button class="tab" data-tab="physio">❤️ Physiological</button>
+        <button class="tab" data-tab="football">⚽ Football</button>
+      </nav>
+
+      <!-- Overview -->
+      <section class="tabpane active" data-pane="overview">
+        <div id="overviewCards" class="cards"></div>
+        <div class="panel">
+          <h3>Speed profile</h3>
+          <div class="chart-box"><canvas id="chartSpeedProfile"></canvas></div>
+        </div>
+        <div id="roleCard"></div>
+      </section>
+
+      <!-- Positional -->
+      <section class="tabpane" data-pane="positional" hidden>
+        <div class="grid2">
+          <div class="panel">
+            <h3>Positional heatmap</h3>
+            <div class="pitch-wrap"><canvas id="pitchHeatmap"></canvas></div>
+            <p class="hint">Red = most time spent. White dot = average position.</p>
+          </div>
+          <div class="panel">
+            <h3>Movement trail</h3>
+            <div class="pitch-wrap"><canvas id="pitchTrail"></canvas></div>
+            <p class="hint"><span class="swatch" style="background:#8c5afa"></span> start → <span class="swatch" style="background:#ff961e"></span> end</p>
+          </div>
+          <div class="panel">
+            <h3>Zone occupancy (time %)</h3>
+            <div class="pitch-wrap"><canvas id="pitchZones"></canvas></div>
+          </div>
+          <div class="panel">
+            <h3>Positioning breakdown</h3>
+            <div id="positionBreakdown"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Running -->
+      <section class="tabpane" data-pane="running" hidden>
+        <div id="runningCards" class="cards"></div>
+        <div class="grid2">
+          <div class="panel">
+            <h3>Distance by speed zone</h3>
+            <div class="chart-box"><canvas id="chartSpeedZones"></canvas></div>
+          </div>
+          <div class="panel">
+            <h3>Sprint efforts</h3>
+            <div id="sprintList" class="scroll-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Physiological -->
+      <section class="tabpane" data-pane="physio" hidden>
+        <div id="physioCards" class="cards"></div>
+        <div class="panel">
+          <h3>Heart rate over the match</h3>
+          <div class="chart-box"><canvas id="chartHR"></canvas></div>
+        </div>
+        <div class="grid2">
+          <div class="panel">
+            <h3>Time in HR zones</h3>
+            <div class="chart-box"><canvas id="chartHRZones"></canvas></div>
+          </div>
+          <div class="panel">
+            <h3>Recovery periods</h3>
+            <div id="recoveryList" class="scroll-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Football -->
+      <section class="tabpane" data-pane="football" hidden>
+        <div id="footballCards" class="cards"></div>
+        <div class="panel">
+          <h3>Work rate throughout the match</h3>
+          <div class="chart-box"><canvas id="chartWorkRate"></canvas></div>
+        </div>
+        <div class="grid2">
+          <div class="panel">
+            <h3>Fatigue — distance per 10-minute segment</h3>
+            <div class="chart-box"><canvas id="chartFatigue"></canvas></div>
+            <div id="fatigueSummary"></div>
+          </div>
+          <div class="panel">
+            <h3>Estimated playing role</h3>
+            <div id="footballRole"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p id="dataNote"></p>
+        <p>All processing is local · FIT decoded in-browser · Metrics are estimates from GPS/HR data.</p>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="js/fit-parser.js"></script>
+    <script src="js/geo.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/pitch.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/demo.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

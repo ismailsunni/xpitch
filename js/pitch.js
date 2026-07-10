@@ -1,0 +1,252 @@
+/*
+ * pitch.js — draws a football pitch on a <canvas> plus data overlays:
+ * heatmap, movement trail, average-position marker and 3x3 zone grid.
+ *
+ * Pitch coordinates: u in [0,1] along length (left=defensive, right=attacking),
+ * v in [0,1] across width (0=top/left flank, 1=bottom/right flank).
+ */
+(function (global) {
+  'use strict';
+
+  const GREEN_DARK = '#1c7a3e';
+  const GREEN_LIGHT = '#2a9350';
+  const LINE = 'rgba(255,255,255,0.75)';
+
+  function fit(canvas) {
+    const parent = canvas.parentElement;
+    const w = parent.clientWidth;
+    const ratio = 68 / 105; // width/length
+    const h = Math.round(w * ratio);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+
+  // Map pitch (u,v) to canvas pixels inside the play area (with margin).
+  function mapper(w, h, margin) {
+    const pw = w - 2 * margin;
+    const ph = h - 2 * margin;
+    return (u, v) => ({ x: margin + u * pw, y: margin + v * ph });
+  }
+
+  function drawPitchLines(ctx, w, h, margin) {
+    const pw = w - 2 * margin;
+    const ph = h - 2 * margin;
+    // Mowed stripes.
+    const stripes = 12;
+    for (let i = 0; i < stripes; i++) {
+      ctx.fillStyle = i % 2 === 0 ? GREEN_DARK : GREEN_LIGHT;
+      ctx.fillRect(margin + (i / stripes) * pw, margin, pw / stripes + 1, ph);
+    }
+    ctx.strokeStyle = LINE;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(margin, margin, pw, ph);
+    // Halfway line.
+    ctx.beginPath();
+    ctx.moveTo(margin + pw / 2, margin);
+    ctx.lineTo(margin + pw / 2, margin + ph);
+    ctx.stroke();
+    // Centre circle + spot.
+    ctx.beginPath();
+    ctx.arc(margin + pw / 2, margin + ph / 2, ph * 0.13, 0, Math.PI * 2);
+    ctx.stroke();
+    dot(ctx, margin + pw / 2, margin + ph / 2, 2.5);
+    // Penalty + goal areas both ends.
+    const penW = pw * 0.16;
+    const penH = ph * 0.58;
+    const goalW = pw * 0.055;
+    const goalH = ph * 0.3;
+    // Left
+    ctx.strokeRect(margin, margin + (ph - penH) / 2, penW, penH);
+    ctx.strokeRect(margin, margin + (ph - goalH) / 2, goalW, goalH);
+    dot(ctx, margin + penW * 0.72, margin + ph / 2, 2.5);
+    // Right
+    ctx.strokeRect(margin + pw - penW, margin + (ph - penH) / 2, penW, penH);
+    ctx.strokeRect(margin + pw - goalW, margin + (ph - goalH) / 2, goalW, goalH);
+    dot(ctx, margin + pw - penW * 0.72, margin + ph / 2, 2.5);
+  }
+
+  function dot(ctx, x, y, r) {
+    ctx.beginPath();
+    ctx.fillStyle = LINE;
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Heatmap: soft radial blobs accumulated then colour-mapped.
+  function drawHeatmap(canvas, positional) {
+    const { ctx, w, h } = fit(canvas);
+    const margin = Math.max(14, w * 0.03);
+    drawPitchLines(ctx, w, h, margin);
+
+    const map = mapper(w, h, margin);
+    const { grid, gridMax, GX, GY } = positional;
+
+    // Render to an offscreen intensity buffer via radial gradients.
+    const off = document.createElement('canvas');
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext('2d');
+    const cellW = (w - 2 * margin) / GX;
+    const radius = Math.max(cellW * 1.6, 10);
+
+    for (let gy = 0; gy < GY; gy++) {
+      for (let gx = 0; gx < GX; gx++) {
+        const val = grid[gy][gx];
+        if (val <= 0) continue;
+        const intensity = Math.pow(val / gridMax, 0.55);
+        const p = map((gx + 0.5) / GX, (gy + 0.5) / GY);
+        const g = octx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+        g.addColorStop(0, `rgba(0,0,0,${0.9 * intensity})`);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        octx.fillStyle = g;
+        octx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
+      }
+    }
+
+    // Colour-map the alpha buffer.
+    const img = octx.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3] / 255;
+      if (a <= 0.02) {
+        d[i + 3] = 0;
+        continue;
+      }
+      const c = heatColor(a);
+      d[i] = c[0];
+      d[i + 1] = c[1];
+      d[i + 2] = c[2];
+      d[i + 3] = Math.min(255, a * 235);
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.drawImage(off, 0, 0);
+
+    // Average position marker.
+    if (positional.avgPos) {
+      const p = map(positional.avgPos.u, positional.avgPos.v);
+      ctx.beginPath();
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 2;
+      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#111';
+      ctx.font = 'bold 11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('AVG', p.x, p.y - 12);
+    }
+    drawDirectionLabels(ctx, w, h, margin);
+  }
+
+  // Blue -> cyan -> green -> yellow -> red.
+  function heatColor(t) {
+    const stops = [
+      [0, [30, 60, 200]],
+      [0.35, [40, 190, 200]],
+      [0.55, [70, 210, 90]],
+      [0.75, [240, 220, 50]],
+      [1, [230, 40, 40]],
+    ];
+    for (let i = 1; i < stops.length; i++) {
+      if (t <= stops[i][0]) {
+        const [t0, c0] = stops[i - 1];
+        const [t1, c1] = stops[i];
+        const f = (t - t0) / (t1 - t0 || 1);
+        return [
+          Math.round(c0[0] + (c1[0] - c0[0]) * f),
+          Math.round(c0[1] + (c1[1] - c0[1]) * f),
+          Math.round(c0[2] + (c1[2] - c0[2]) * f),
+        ];
+      }
+    }
+    return stops[stops.length - 1][1];
+  }
+
+  // Movement trail coloured by match time.
+  function drawTrail(canvas, positional) {
+    const { ctx, w, h } = fit(canvas);
+    const margin = Math.max(14, w * 0.03);
+    drawPitchLines(ctx, w, h, margin);
+    const map = mapper(w, h, margin);
+    const pts = positional.points;
+    if (!pts.length) return;
+
+    const tMax = pts[pts.length - 1].tSec || 1;
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    for (let i = 1; i < pts.length; i++) {
+      const a = map(pts[i - 1].u, pts[i - 1].v);
+      const b = map(pts[i].u, pts[i].v);
+      const frac = pts[i].tSec / tMax;
+      const c = timeColor(frac);
+      ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},0.55)`;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+    drawDirectionLabels(ctx, w, h, margin);
+  }
+
+  // Purple (start) -> orange (end).
+  function timeColor(t) {
+    const c0 = [140, 90, 250];
+    const c1 = [255, 150, 30];
+    return [
+      Math.round(c0[0] + (c1[0] - c0[0]) * t),
+      Math.round(c0[1] + (c1[1] - c0[1]) * t),
+      Math.round(c0[2] + (c1[2] - c0[2]) * t),
+    ];
+  }
+
+  function drawDirectionLabels(ctx, w, h, margin) {
+    ctx.font = '11px system-ui';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText('◀ Defensive', margin + 4, h - 4);
+    ctx.textAlign = 'right';
+    ctx.fillText('Attacking ▶', w - margin - 4, h - 4);
+  }
+
+  // 3x3 zone occupancy overlay with percentages.
+  function drawZones(canvas, positional) {
+    const { ctx, w, h } = fit(canvas);
+    const margin = Math.max(14, w * 0.03);
+    drawPitchLines(ctx, w, h, margin);
+    const pw = w - 2 * margin;
+    const ph = h - 2 * margin;
+    const grid = positional.zoneGrid;
+    let total = 0;
+    for (const row of grid) for (const c of row) total += c;
+    total = total || 1;
+
+    for (let zy = 0; zy < 3; zy++) {
+      for (let zx = 0; zx < 3; zx++) {
+        const pct = grid[zy][zx] / total;
+        const x = margin + (zx / 3) * pw;
+        const y = margin + (zy / 3) * ph;
+        ctx.fillStyle = `rgba(230,40,40,${0.15 + pct * 0.85})`;
+        ctx.fillRect(x, y, pw / 3, ph / 3);
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.strokeRect(x, y, pw / 3, ph / 3);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          Math.round(pct * 100) + '%',
+          x + pw / 6,
+          y + ph / 6 + 5
+        );
+      }
+    }
+    drawDirectionLabels(ctx, w, h, margin);
+  }
+
+  global.Pitch = { drawHeatmap, drawTrail, drawZones };
+})(typeof window !== 'undefined' ? window : this);
