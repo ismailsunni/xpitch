@@ -11,7 +11,8 @@ const label = () =>
 
 function goMatches() {
   open.value = false;
-  if (auth.profile?.username) router.push('/' + auth.profile.username);
+  const u = auth.profile?.username;
+  router.push(u ? '/' + u : '/login');
 }
 async function doSignOut() {
   open.value = false;
@@ -21,8 +22,10 @@ async function doSignOut() {
 </script>
 
 <template>
-  <div class="authmenu" @focusout="open = false" tabindex="-1">
+  <div class="authmenu">
     <button class="btn ghost small" @click="open = !open">{{ label() }} ▾</button>
+    <!-- Backdrop closes on outside click without stealing the menu-item click. -->
+    <div v-if="open" class="menu-backdrop" @click="open = false"></div>
     <div v-if="open" class="menu">
       <button class="menu-item" @click="goMatches">My matches</button>
       <button class="menu-item" @click="doSignOut">Sign out</button>
@@ -33,6 +36,11 @@ async function doSignOut() {
 <style scoped>
 .authmenu {
   position: relative;
+}
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
 }
 .menu {
   position: absolute;
