@@ -9,6 +9,7 @@ import XYZ from 'ol/source/XYZ';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
+import { Translate } from 'ol/interaction';
 import { LineString, Polygon, Point } from 'ol/geom';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { boundingExtent } from 'ol/extent';
@@ -21,6 +22,11 @@ import { upsertFieldCloud, deleteFieldCloud } from '../lib/api';
 
 // Logged in: pitches live in the cloud; guests: localStorage.
 const userFields = computed(() => (auth.user ? store.cloudFields : store.fields));
+// Whether the loaded pitch is one the user can update in place (vs a built-in,
+// which saves as a new copy).
+const isEditingOwn = computed(
+  () => !!editingId.value && userFields.value.some((f) => f.id === editingId.value)
+);
 
 const mapEl = ref<HTMLDivElement>();
 const cornersLL = ref<number[][]>([]); // [lon, lat]
@@ -37,6 +43,7 @@ let map: Map | null = null;
 let cornerSource: VectorSource;
 let osmLayer: TileLayer<OSM>;
 let satLayer: TileLayer<XYZ>;
+let polyFeature: Feature<Polygon> | null = null;
 
 const cornerStyle = (i: number) =>
   new Style({
@@ -48,23 +55,43 @@ const cornerStyle = (i: number) =>
     text: new Text({ text: String(i + 1), fill: new Fill({ color: '#04121c' }), font: 'bold 11px system-ui' }),
   });
 
+// [lon,lat] ring closed back to the first corner, in map projection.
+function closedRing(ll: number[][]): number[][] {
+  const ring = ll.map((c) => fromLonLat(c));
+  if (ll.length) ring.push(fromLonLat(ll[0]));
+  return ring;
+}
+
 function redrawCorners() {
   cornerSource.clear();
+  polyFeature = null;
   const ll = cornersLL.value;
   if (ll.length >= 3) {
-    const ring = ll.map((c) => fromLonLat(c));
-    ring.push(fromLonLat(ll[0]));
-    const poly = new Feature(new Polygon([ring]));
-    poly.setStyle(
+    polyFeature = new Feature(new Polygon([closedRing(ll)]));
+    polyFeature.setStyle(
       new Style({ stroke: new Stroke({ color: '#38bdf8', width: 2 }), fill: new Fill({ color: 'rgba(56,189,248,0.18)' }) })
     );
-    cornerSource.addFeature(poly);
+    cornerSource.addFeature(polyFeature);
   }
   ll.forEach((c, i) => {
     const f = new Feature(new Point(fromLonLat(c)));
+    f.set('cidx', i); // tag so the Translate interaction knows which corner it is
     f.setStyle(cornerStyle(i));
     cornerSource.addFeature(f);
   });
+}
+
+// Live drag of a corner handle: rewrite that corner and reshape the polygon
+// in place (no full redraw, which would drop the feature being dragged).
+function onCornerDrag(e: any) {
+  const f = e.features?.item(0) as Feature<Point> | undefined;
+  const idx = f?.get('cidx');
+  if (!f || idx == null) return;
+  const ll = toLonLat(f.getGeometry()!.getCoordinates());
+  cornersLL.value[idx] = [ll[0], ll[1]];
+  if (polyFeature && cornersLL.value.length >= 3) {
+    polyFeature.getGeometry()!.setCoordinates([closedRing(cornersLL.value)]);
+  }
 }
 
 function onMapClick(e: MapBrowserEvent<any>) {
@@ -203,6 +230,15 @@ onMounted(() => {
   });
   map.on('click', onMapClick);
 
+  // Drag any placed corner to fine-tune it (edit pitch).
+  const translate = new Translate({
+    hitTolerance: 6,
+    filter: (f) => f.get('cidx') != null,
+  });
+  translate.on('translating', onCornerDrag);
+  translate.on('translateend', onCornerDrag);
+  map.addInteraction(translate);
+
   // Preload the field already applied to this view (when opened from a match).
   const applied = appliedField();
   if (applied) {
@@ -252,7 +288,8 @@ onBeforeUnmount(() => {
         <div>
           <h3>{{ hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
           <p class="hint" style="margin: 2px 0 0">
-            Click the <strong>4 corners</strong> of the pitch on the map ({{ cornersLL.length }}/4).
+            Click the <strong>4 corners</strong> of the pitch on the map ({{ cornersLL.length }}/4), then
+            <strong>drag a corner</strong> to fine-tune it.
             <template v-if="hasTrack">Your GPS track is shown in yellow.</template>
             Saved pitches auto-match matches played there.
           </p>
@@ -320,7 +357,7 @@ onBeforeUnmount(() => {
         <div class="fe-actions">
           <button class="btn ghost small" @click="close">Cancel</button>
           <button class="btn primary" :disabled="cornersLL.length < 4" @click="save">
-            {{ editingId ? 'Update pitch' : 'Save pitch' }}
+            {{ isEditingOwn ? 'Update pitch' : editingId ? 'Save as new pitch' : 'Save pitch' }}
           </button>
         </div>
       </footer>
