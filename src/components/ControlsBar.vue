@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { store, recompute, flipAttack, flipSides, setFormat, appliedField, currentAttackDir, currentSideDir } from '../store';
+import { auth } from '../lib/auth';
 import { FORMATS } from '../lib/analytics';
 
 const flipped = computed(() => currentAttackDir() === -1);
 const sidesFlipped = computed(() => currentSideDir() === -1);
+// A saved match you don't own is read-only (no editing controls).
+const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
+const metaFormatLabel = computed(() => store.analytics?.meta?.formatLabel || '');
 
 function num(v: string): number | null {
   const n = parseFloat(v);
@@ -32,6 +36,27 @@ const resolvedFormat = computed(() => {
       <span class="ctl-label">File</span>
       <span class="val" style="font-weight: 600; font-size: 13.5px">{{ store.fileName }}</span>
     </div>
+
+    <!-- Read-only summary for a shared match you don't own -->
+    <template v-if="readOnly">
+      <div class="ctl">
+        <span class="ctl-label">Format</span>
+        <span class="val">{{ metaFormatLabel }}</span>
+      </div>
+      <div class="ctl" v-if="usingField && fieldName">
+        <span class="ctl-label">Pitch</span>
+        <span class="val">
+          <RouterLink v-if="fieldSlug" :to="`/field/${fieldSlug}`">{{ fieldName }}</RouterLink>
+          <template v-else>{{ fieldName }}</template>
+        </span>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">View</span>
+        <span class="hint" style="margin: 0">Read-only shared match</span>
+      </div>
+    </template>
+
+    <template v-else>
     <div class="ctl">
       <label for="format">Format</label>
       <select
@@ -120,5 +145,6 @@ const resolvedFormat = computed(() => {
         </span>
       </div>
     </div>
+    </template>
   </section>
 </template>

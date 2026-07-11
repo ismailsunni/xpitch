@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { store, selectSegment, selectPeriod, activeSegment, setGroupGap } from '../store';
+import { auth } from '../lib/auth';
 
 const seg = computed(() => activeSegment());
 const multiFile = computed(() => store.files.length > 1);
+const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
 const showBar = computed(
   () => store.segments.length > 1 || (seg.value?.periods.length || 0) > 0 || multiFile.value
 );
@@ -53,7 +55,7 @@ function onGap(e: Event) {
       </div>
     </div>
 
-    <div class="seg-group" v-if="multiFile">
+    <div class="seg-group" v-if="multiFile && !readOnly">
       <span class="k">Group within</span>
       <input
         type="number"
