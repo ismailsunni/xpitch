@@ -645,27 +645,22 @@ function estimateRole(positional: any, ctx: any, format: FormatKey): any {
   const back = Math.max(0, 0.5 - avgU);
   const roam = (spreadU + spreadV) / 2; // how much of the pitch is covered
 
-  // Goalkeeper signature. With a defined field, u/v are real-pitch relative, so
-  // a keeper reads as deep (near own goal), central, and barely moving. Without
-  // a field the point cloud is PCA-normalized (extent stretched to fill 0..1),
-  // which erases those cues — but the *absolute* area covered (lengthM×widthM)
-  // is then the player's own footprint, tiny for a keeper. So switch signals on
-  // whether a field is applied. Either way GK is ~0 for an outfield player.
+  // Goalkeeper is only distinguishable when a field is defined: u/v are then
+  // real-pitch relative, so a keeper reads as central, deep (own goal) and
+  // barely moving. Without a field the point cloud is PCA-normalized (extent
+  // stretched to fill 0..1), which erases those cues and makes a low-activity
+  // outfielder look identical to a keeper — so GK is NOT offered without a
+  // field. Even with one, the score is gated on being both central and deep,
+  // so a flank or advanced player can never be mistaken for a keeper (central
+  // is 0 for wing play, which zeroes the score).
   const hasFieldRole = !!positional.hasField;
   const still = Math.max(0, 0.18 - roam) / 0.18; // 1 = barely moves, 0 = roams >=0.18
   const deep = Math.max(0, 0.4 - avgU) / 0.4; // 1 = own goal line, 0 = midfield+
-  const central = (0.2 - Math.min(wide, 0.2)) / 0.2; // 1 = dead centre
+  const central = (0.2 - Math.min(wide, 0.2)) / 0.2; // 1 = dead centre, 0 = on a flank
   const lowRate = 1 - Math.min(kmPerHour / 7, 1); // 1 = very low distance/hour
-  const areaM2 = (positional.lengthM || 0) * (positional.widthM || 0);
-  // A keeper's play stays within ~15 m of the goal line (small along-pitch depth)
-  // and a small overall footprint. Depth is the distinctive axis: an outfielder
-  // who tracks side-to-side has a large lengthM even when the area looks modest.
-  const smallLen = Math.max(0, Math.min(1, (18 - (positional.lengthM || 0)) / 18));
-  const smallArea = Math.max(0, Math.min(1, (250 - areaM2) / 250));
-  const confined = 0.6 * smallLen + 0.4 * smallArea; // 1 = tiny footprint near goal
-  const gkBase =
-    (hasFieldRole ? still * 3.0 + deep * 2.4 + central * 0.9 + defFrac * 1.2 : confined * 3.8) +
-    lowRate * 1.2;
+  const gkScore = hasFieldRole
+    ? (still * 2.4 + deep * 2.6 + defFrac * 1.0 + lowRate * 0.8) * central * Math.min(1, deep * 2 + 0.2)
+    : 0;
 
   // Per-format role vocabularies. Smaller formats have less positional
   // specialization, so "Universal / all-rounder" is a real candidate.
@@ -673,7 +668,6 @@ function estimateRole(positional: any, ctx: any, format: FormatKey): any {
   if (format === 'futsal') {
     const sp = Math.min(sprints / 8, 1);
     roles = [
-      { role: 'Goalkeeper (goleiro)', score: gkBase + (1 - sp) * 0.8 },
       { role: 'Pivot (target)', score: forward * 3.0 + attFrac * 1.6 + (0.5 - Math.min(wide, 0.5)) * 0.9 },
       { role: 'Ala (wide)', score: wide * 3.2 + spreadU * 1.3 + sp * 1.0 },
       { role: 'Fixo (defender)', score: back * 3.0 + defFrac * 1.8 + (1 - sp) * 0.6 },
@@ -682,7 +676,6 @@ function estimateRole(positional: any, ctx: any, format: FormatKey): any {
   } else if (format === 'mini') {
     const sp = Math.min(sprints / 10, 1);
     roles = [
-      { role: 'Goalkeeper', score: gkBase + (1 - sp) * 0.8 },
       { role: 'Forward', score: forward * 3.0 + attFrac * 1.6 + sp * 1.2 + (0.5 - Math.min(wide, 0.5)) * 0.8 },
       { role: 'Winger', score: wide * 3.2 + spreadU * 1.1 + sp * 1.2 + Math.max(0, avgU - 0.45) * 1.0 },
       { role: 'Midfielder', score: (1 - Math.min(wide * 2, 1)) * 1.5 + Math.min(kmPerHour / 8, 1) * 2.0 + spreadU * 2.0 + midFrac * 1.3 },
@@ -693,13 +686,19 @@ function estimateRole(positional: any, ctx: any, format: FormatKey): any {
     // full (11-a-side)
     const sp = Math.min(sprints / 12, 1);
     roles = [
-      { role: 'Goalkeeper', score: gkBase + (1 - sp) * 0.9 },
       { role: 'Winger', score: wide * 3.2 + sp * 1.6 + forward * 1.4 + spreadU * 0.8 },
       { role: 'Forward / Striker', score: forward * 3.0 + sp * 1.4 + (0.5 - Math.min(wide, 0.5)) * 1.2 + attFrac * 1.5 },
       { role: 'Central Midfielder', score: (1 - Math.min(wide * 2, 1)) * 1.6 + Math.min(kmPerHour / 9, 1) * 2.0 + spreadU * 2.2 + midFrac * 1.4 },
       { role: 'Centre-back', score: back * 3.2 + defFrac * 1.8 + (1 - sp) * 1.0 + (0.4 - Math.min(spreadU, 0.4)) * 1.2 },
       { role: 'Full-back / Wing-back', score: wide * 2.4 + back * 1.8 + spreadU * 1.6 + sp * 0.8 },
     ];
+  }
+
+  // Add Goalkeeper only when a field makes the signal trustworthy and the
+  // gated score clears a real threshold (keeps it out of the list for
+  // outfielders instead of showing a bottom-ranked false candidate).
+  if (gkScore > 1.2) {
+    roles.unshift({ role: format === 'futsal' ? 'Goalkeeper (goleiro)' : 'Goalkeeper', score: gkScore });
   }
 
   roles.sort((a, b) => b.score - a.score);
