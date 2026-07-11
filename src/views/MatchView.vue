@@ -15,6 +15,14 @@ import { mergeFiles } from '../lib/segmentation';
 import { auth } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import Dashboard from '../components/Dashboard.vue';
+import ShareButtons from '../components/ShareButtons.vue';
+
+const shareUrl = computed(
+  () => window.location.origin + import.meta.env.BASE_URL + 'match/' + (route.params.shortId as string)
+);
+const shareTitle = computed(() =>
+  matchRow.value?.title ? `${matchRow.value.title} — xPitch` : 'My match on xPitch'
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -125,6 +133,10 @@ watch(
     </p>
     <p v-else-if="state === 'error'" class="error" style="padding: 48px; text-align: center">{{ errMsg }}</p>
     <template v-else>
+      <div class="sharebar">
+        <span class="sb-label">Share this match</span>
+        <ShareButtons :url="shareUrl" :title="shareTitle" />
+      </div>
       <div v-if="owned" class="ownerbar">
         <input class="ob-title" :value="matchRow.title || ''" placeholder="Untitled match" @change="onTitle" />
         <label class="ob-vis">
@@ -143,6 +155,21 @@ watch(
 </template>
 
 <style scoped>
+.sharebar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.015);
+}
+.sb-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
 .ownerbar {
   display: flex;
   gap: 14px;

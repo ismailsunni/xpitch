@@ -16,8 +16,7 @@ function goMatches() {
 }
 function goEdit() {
   open.value = false;
-  const u = auth.profile?.username;
-  router.push(u ? { path: '/' + u, query: { edit: '1' } } : '/login');
+  router.push('/settings');
 }
 async function doSignOut() {
   open.value = false;
