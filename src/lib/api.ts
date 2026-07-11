@@ -175,6 +175,71 @@ export function toCloudSessions(sessions: any[]): CloudSession[] {
   }));
 }
 
+// ---- Profiles & match listing (Phase 2) ----
+export async function getProfileByUsername(username: string): Promise<any | null> {
+  const sb = requireClient();
+  const { data } = await sb
+    .from('profiles')
+    .select('id, username, display_name, bio, avatar_url')
+    .eq('username', username)
+    .maybeSingle();
+  return data ?? null;
+}
+
+export interface ProfileMatches {
+  profile: any;
+  isOwner: boolean;
+  matches: any[];
+}
+
+// A user's matches. The owner sees all; everyone else sees only public ones.
+export async function listMatches(username: string): Promise<ProfileMatches | null> {
+  const sb = requireClient();
+  const profile = await getProfileByUsername(username);
+  if (!profile) return null;
+  const isOwner = auth.user?.id === profile.id;
+  let q = sb
+    .from('matches')
+    .select(
+      'short_id, title, sport, format, started_at, created_at, visibility, location_label, sessions(seq, duration_s, summary)'
+    )
+    .eq('owner_id', profile.id)
+    .order('started_at', { ascending: false, nullsFirst: false });
+  if (!isOwner) q = q.eq('visibility', 'public');
+  const { data, error } = await q;
+  if (error) throw error;
+  return { profile, isOwner, matches: data || [] };
+}
+
+export async function setMatchVisibility(matchId: string, visibility: string): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb.from('matches').update({ visibility }).eq('id', matchId);
+  if (error) throw error;
+}
+
+export async function updateMatchTitle(matchId: string, title: string): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb.from('matches').update({ title: title || null }).eq('id', matchId);
+  if (error) throw error;
+}
+
+// Delete a match: remove its .fit files from Storage, then the row (sessions cascade).
+export async function deleteMatch(match: {
+  id: string;
+  short_id: string;
+  owner_id: string;
+  file_names?: string[] | null;
+}): Promise<void> {
+  const sb = requireClient();
+  const names = match.file_names || [];
+  if (names.length) {
+    const paths = names.map((n) => `${match.owner_id}/${match.short_id}/${n}`);
+    await sb.storage.from(BUCKET).remove(paths);
+  }
+  const { error } = await sb.from('matches').delete().eq('id', match.id);
+  if (error) throw error;
+}
+
 // Persist a single session's direction flips (owner editing a saved match).
 export async function updateSessionDirs(
   sessionId: string,
