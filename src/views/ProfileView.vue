@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { supabaseEnabled } from '../lib/supabase';
+import { auth } from '../lib/auth';
 import { listMatches } from '../lib/api';
 import MatchCard from '../components/MatchCard.vue';
 
@@ -32,6 +33,9 @@ async function load() {
 }
 onMounted(load);
 watch(() => route.params.username, load);
+// Re-fetch once the session resolves (so the owner sees unlisted/private too)
+// or on sign in/out.
+watch(() => auth.user?.id, load);
 </script>
 
 <template>
