@@ -197,6 +197,7 @@ async function save() {
 
 function close() {
   store.fieldEditorOpen = false;
+  store.editFieldTarget = null;
 }
 
 onMounted(() => {
@@ -239,8 +240,9 @@ onMounted(() => {
   translate.on('translateend', onCornerDrag);
   map.addInteraction(translate);
 
-  // Preload the field already applied to this view (when opened from a match).
-  const applied = appliedField();
+  // Preload a pitch chosen explicitly (Edit pitch), else the one applied to
+  // this view (when opened from a match).
+  const applied = store.editFieldTarget || appliedField();
   if (applied) {
     cornersLL.value = applied.corners.map((c) => [c.lon, c.lat]);
     fieldName.value = applied.name;
@@ -286,7 +288,7 @@ onBeforeUnmount(() => {
     <div class="fe-modal">
       <header class="fe-head">
         <div>
-          <h3>{{ hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
+          <h3>{{ editingId ? 'Edit pitch' : hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
           <p class="hint" style="margin: 2px 0 0">
             Click the <strong>4 corners</strong> of the pitch on the map ({{ cornersLL.length }}/4), then
             <strong>drag a corner</strong> to fine-tune it.

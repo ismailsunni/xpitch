@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
 import { getField, listMatchesByField, setFieldVisibility } from '../lib/api';
+import { store, openFieldEditor } from '../store';
 import MatchCard from '../components/MatchCard.vue';
 
 const PitchMap = defineAsyncComponent(() => import('../components/PitchMap.vue'));
@@ -63,6 +64,17 @@ async function onVisibility(e: Event) {
   field.value.visibility = v;
   await setFieldVisibility(field.value.id, v);
 }
+function editPitch() {
+  const f = field.value;
+  openFieldEditor({ id: f.id, name: f.name, corners: f.corners, slug: f.slug, visibility: f.visibility });
+}
+// Reload the pitch after the editor closes (corners/name may have changed).
+watch(
+  () => store.fieldEditorOpen,
+  (open, was) => {
+    if (was && !open) load();
+  }
+);
 </script>
 
 <template>
@@ -76,14 +88,17 @@ async function onVisibility(e: Event) {
           <h2 style="margin: 0">📍 {{ field.name }}</h2>
           <p class="hint" style="margin: 2px 0 0">{{ dims }}</p>
         </div>
-        <label v-if="isOwner()" class="fv-vis">
-          Visibility
-          <select :value="field.visibility" @change="onVisibility">
-            <option value="private">Private</option>
-            <option value="unlisted">Unlisted</option>
-            <option value="public">Public</option>
-          </select>
-        </label>
+        <div v-if="isOwner()" class="fv-owner">
+          <button class="btn ghost small" @click="editPitch">✏ Edit pitch</button>
+          <label class="fv-vis">
+            Visibility
+            <select :value="field.visibility" @change="onVisibility">
+              <option value="private">Private</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+        </div>
       </header>
 
       <div class="panel">
@@ -104,6 +119,11 @@ async function onVisibility(e: Event) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
+}
+.fv-owner {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
 }
 .fv-vis {
   font-size: 11px;

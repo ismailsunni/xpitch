@@ -52,6 +52,7 @@ export interface AppState {
   fields: SavedField[];
   appliedFieldId: string | null;
   fieldEditorOpen: boolean;
+  editFieldTarget: SavedField | null; // pitch to preload into the editor (Edit pitch)
   // Attacking direction (length) and side (left/right, width) per view
   // ("<segmentId>:<period>" -> +1 | -1). Not global: ends switch at half-time,
   // and the auto-inferred left/right can need mirroring per match.
@@ -142,6 +143,7 @@ export const store = reactive<AppState>({
   fields: loadStoredFields(),
   appliedFieldId: null,
   fieldEditorOpen: false,
+  editFieldTarget: null,
   attackDirs: {},
   sideDirs: {},
   cloudFields: [],
@@ -486,6 +488,12 @@ export function removeField(id: string): void {
 }
 
 export const appliedField = () => allFields().find((f) => f.id === store.appliedFieldId) || null;
+
+// Open the pitch editor, optionally preloaded with a specific pitch to edit.
+export function openFieldEditor(field?: SavedField): void {
+  store.editFieldTarget = field ?? null;
+  store.fieldEditorOpen = true;
+}
 
 // Centroid of the current view's GPS (for the field editor to focus on).
 export function currentViewCentroid(): LatLon | null {

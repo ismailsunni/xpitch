@@ -3,11 +3,14 @@ import { ref, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
-import { store } from '../store';
+import { store, openFieldEditor } from '../store';
 import { listFields } from '../lib/api';
 
 function newPitch() {
-  store.fieldEditorOpen = true;
+  openFieldEditor();
+}
+function editPitch(f: any) {
+  openFieldEditor({ id: f.id, name: f.name, corners: f.corners, slug: f.slug, visibility: f.visibility });
 }
 // Refresh the list after the editor closes (a pitch may have been added).
 watch(
@@ -72,6 +75,13 @@ watch(() => auth.user?.id, load);
             <span v-if="f.visibility !== 'public'" class="fc-badge">{{ f.visibility }}</span>
           </div>
           <div class="fc-sub">{{ dims(f.corners) }}<span v-if="!f.owner_id"> · built-in</span></div>
+          <button
+            v-if="auth.user && f.owner_id === auth.user.id"
+            class="btn ghost small fc-edit"
+            @click.prevent.stop="editPitch(f)"
+          >
+            ✏ Edit
+          </button>
         </RouterLink>
       </div>
     </template>
@@ -96,6 +106,10 @@ watch(() => auth.user?.id, load);
   text-decoration: none;
   color: inherit;
   transition: 0.15s;
+  position: relative;
+}
+.fc-edit {
+  margin-top: 10px;
 }
 .fieldcard:hover {
   border-color: var(--accent);
