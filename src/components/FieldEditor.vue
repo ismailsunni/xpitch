@@ -31,6 +31,7 @@ const err = ref('');
 const fieldName = ref('');
 const editingId = ref<string | null>(null);
 const visibility = ref<'private' | 'unlisted' | 'public'>('unlisted');
+const hasTrack = ref(false);
 
 let map: Map | null = null;
 let cornerSource: VectorSource;
@@ -188,6 +189,7 @@ onMounted(() => {
   const step = Math.max(1, Math.floor(samples.length / 2000));
   const track3857: number[][] = [];
   for (let i = 0; i < samples.length; i += step) track3857.push(fromLonLat([samples[i].lon, samples[i].lat]));
+  hasTrack.value = track3857.length > 0;
   const trackLayer = new VectorLayer({
     source: new VectorSource({ features: track3857.length ? [new Feature(new LineString(track3857))] : [] }),
     style: new Style({ stroke: new Stroke({ color: 'rgba(255,220,80,0.9)', width: 2 }) }),
@@ -201,23 +203,41 @@ onMounted(() => {
   });
   map.on('click', onMapClick);
 
-  // Preload the field already applied to this view, if any.
+  // Preload the field already applied to this view (when opened from a match).
   const applied = appliedField();
   if (applied) {
     cornersLL.value = applied.corners.map((c) => [c.lon, c.lat]);
     fieldName.value = applied.name;
     editingId.value = applied.id;
+    visibility.value = (applied.visibility as any) || 'unlisted';
     redrawCorners();
   } else {
-    fieldName.value = store.location || 'Field ' + (store.fields.length + 1);
+    fieldName.value = store.location || '';
   }
 
   const focus = track3857.length ? track3857 : cornersLL.value.map((c) => fromLonLat(c));
   setTimeout(() => {
     map?.updateSize();
-    fitTo(focus);
+    if (focus.length) fitTo(focus);
+    else centerForNewPitch();
   }, 60);
 });
+
+// New-pitch mode: start near a known pitch, else the user's location.
+function centerForNewPitch() {
+  const f = store.cloudFields[0] || PREDEFINED_FIELDS[0];
+  if (f && f.corners?.length) {
+    fitTo(f.corners.map((c) => fromLonLat([c.lon, c.lat])));
+    return;
+  }
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => map?.getView().animate({ center: fromLonLat([pos.coords.longitude, pos.coords.latitude]), zoom: 18 }),
+      () => {},
+      { timeout: 5000 }
+    );
+  }
+}
 
 onBeforeUnmount(() => {
   map?.setTarget(undefined);
@@ -230,11 +250,11 @@ onBeforeUnmount(() => {
     <div class="fe-modal">
       <header class="fe-head">
         <div>
-          <h3>Set the pitch field</h3>
+          <h3>{{ hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
           <p class="hint" style="margin: 2px 0 0">
             Click the <strong>4 corners</strong> of the pitch on the map ({{ cornersLL.length }}/4).
-            Your GPS track is shown in yellow. Saved pitches are matched to matches by location
-            automatically.
+            <template v-if="hasTrack">Your GPS track is shown in yellow.</template>
+            Saved pitches auto-match matches played there.
           </p>
         </div>
         <button class="btn ghost small" @click="close">✕ Close</button>

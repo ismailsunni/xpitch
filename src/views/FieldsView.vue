@@ -3,7 +3,19 @@ import { ref, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
+import { store } from '../store';
 import { listFields } from '../lib/api';
+
+function newPitch() {
+  store.fieldEditorOpen = true;
+}
+// Refresh the list after the editor closes (a pitch may have been added).
+watch(
+  () => store.fieldEditorOpen,
+  (open, was) => {
+    if (was && !open) load();
+  }
+);
 
 const state = ref<'loading' | 'ready' | 'error' | 'disabled'>('loading');
 const fields = ref<any[]>([]);
@@ -44,7 +56,10 @@ watch(() => auth.user?.id, load);
 
 <template>
   <main class="tabpane">
-    <h2 style="margin: 0 0 18px">Pitches</h2>
+    <div class="fields-head">
+      <h2 style="margin: 0">Pitches</h2>
+      <button v-if="auth.user" class="btn primary small" @click="newPitch">＋ New pitch</button>
+    </div>
     <p v-if="state === 'disabled'" class="empty">Pitches aren’t available on this deployment.</p>
     <p v-else-if="state === 'loading'" class="empty">Loading…</p>
     <p v-else-if="state === 'error'" class="empty">{{ err }}</p>
@@ -64,6 +79,13 @@ watch(() => auth.user?.id, load);
 </template>
 
 <style scoped>
+.fields-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
 .field-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

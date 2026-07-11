@@ -14,6 +14,11 @@ function goMatches() {
   const u = auth.profile?.username;
   router.push(u ? '/' + u : '/login');
 }
+function goEdit() {
+  open.value = false;
+  const u = auth.profile?.username;
+  router.push(u ? { path: '/' + u, query: { edit: '1' } } : '/login');
+}
 async function doSignOut() {
   open.value = false;
   await signOut();
@@ -27,7 +32,8 @@ async function doSignOut() {
     <!-- Backdrop closes on outside click without stealing the menu-item click. -->
     <div v-if="open" class="menu-backdrop" @click="open = false"></div>
     <div v-if="open" class="menu">
-      <button class="menu-item" @click="goMatches">My matches</button>
+      <button class="menu-item" @click="goMatches">My profile &amp; matches</button>
+      <button class="menu-item" @click="goEdit">Edit profile</button>
       <button class="menu-item" @click="doSignOut">Sign out</button>
     </div>
   </div>

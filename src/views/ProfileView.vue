@@ -27,6 +27,7 @@ async function load() {
     }
     data.value = res;
     state.value = 'ready';
+    if (res.isOwner && route.query.edit) openEdit();
   } catch (e: any) {
     state.value = 'error';
     errMsg.value = e?.message || String(e);
