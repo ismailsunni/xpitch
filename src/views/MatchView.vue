@@ -81,6 +81,7 @@ async function load() {
       groupGapMin: res.match.group_gap_min ?? 10,
       options: res.sessions[0]?.analysis_options || { format: res.match.format },
       sessions: toCloudSessions(res.sessions),
+      manualSplits: res.match.manual_splits || null,
       seq,
     });
     state.value = 'ready';

@@ -145,6 +145,14 @@ const resolvedFormat = computed(() => {
         </span>
       </div>
     </div>
+
+    <div class="ctl">
+      <span class="ctl-label">Split</span>
+      <div style="display: flex; gap: 8px; align-items: center">
+        <button class="btn ghost small" @click="store.manualSplitOpen = true">✂ Split manually</button>
+        <span v-if="store.manualSplits" class="hint" style="margin: 0">manual ✓</span>
+      </div>
+    </div>
     </template>
   </section>
 </template>

@@ -8,6 +8,7 @@ import { loadMyFields } from './lib/api';
 // Lazy: OpenLayers (FieldEditor) and the rarely-shown username gate.
 const FieldEditor = defineAsyncComponent(() => import('./components/FieldEditor.vue'));
 const UsernameGate = defineAsyncComponent(() => import('./components/UsernameGate.vue'));
+const ManualSplitEditor = defineAsyncComponent(() => import('./components/ManualSplitEditor.vue'));
 
 // Keep the user's saved pitches loaded (for auto-matching) across sign in/out.
 watch(
@@ -21,5 +22,6 @@ watch(
   <AppHeader />
   <router-view />
   <FieldEditor v-if="store.fieldEditorOpen" />
+  <ManualSplitEditor v-if="store.manualSplitOpen" />
   <UsernameGate v-if="auth.ready && needsUsername()" />
 </template>

@@ -212,6 +212,64 @@ export function buildSegments(fit: FitResult, groupGapS = DEFAULT_GROUP_GAP_MIN 
   return segs;
 }
 
+// Manual splitting: carve the recording into sessions at `sessionBreaksSec`
+// and each session into periods (halves) at `halfBreaksSec`. Break times are
+// seconds from the recording's first record.
+export function buildSegmentsManual(
+  fit: FitResult,
+  sessionBreaksSec: number[],
+  halfBreaksSec: number[]
+): Segment[] {
+  const recs = fit.records.filter((r) => r.timestamp != null).sort((a, b) => ts(a) - ts(b));
+  if (!recs.length) return [];
+  const firstTs = ts(recs[0]);
+  const lastTs = ts(recs[recs.length - 1]);
+  const toTs = (sec: number) => firstTs + sec;
+
+  const sBreaks = [...sessionBreaksSec]
+    .map(toTs)
+    .filter((t) => t > firstTs && t < lastTs)
+    .sort((a, b) => a - b);
+  const bounds = [firstTs, ...sBreaks, lastTs + 1]; // upper bound exclusive
+
+  const segs: Segment[] = [];
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const chunk = recs.filter((r) => ts(r) >= bounds[i] && ts(r) < bounds[i + 1]);
+    if (chunk.length < 2) continue;
+    const cStart = ts(chunk[0]);
+    const cEnd = ts(chunk[chunk.length - 1]);
+    const hBreaks = halfBreaksSec
+      .map(toTs)
+      .filter((t) => t > cStart && t < cEnd)
+      .sort((a, b) => a - b);
+    const pb = [cStart, ...hBreaks, cEnd + 1];
+    const periods: Period[] =
+      pb.length > 2
+        ? pb.slice(0, -1).map((s, j) => ({
+            index: j,
+            label: periodLabel(j, pb.length - 1),
+            startTime: s,
+            endTime: pb[j + 1] - 1,
+          }))
+        : [];
+    segs.push({
+      id: 'm' + i,
+      label: 'Session ' + (segs.length + 1),
+      sublabel: sublabel(cStart, cEnd),
+      kind: 'session',
+      startTime: cStart,
+      endTime: cEnd,
+      records: chunk,
+      session: null,
+      periods,
+    });
+  }
+  if (!segs.length) return buildSegments(fit); // nothing valid → fall back
+  if (segs.length > 1) segs.unshift(combinedSeg(recs, 'Whole recording'));
+  else segs[0].label = 'Full match';
+  return segs;
+}
+
 // Merge several parsed files into one timeline (records tagged with file name).
 export function mergeFiles(files: ParsedFile[]): FitResult {
   const records: RecordSample[] = [];

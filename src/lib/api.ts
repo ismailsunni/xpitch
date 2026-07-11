@@ -101,6 +101,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       centroid_lon: meta.startLon ?? null,
       primary_field_id: nearField?.id ?? null,
       file_names: store.files,
+      manual_splits: store.manualSplits,
       visibility: opts.visibility ?? 'unlisted',
     })
     .select()

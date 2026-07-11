@@ -5,7 +5,7 @@ import type { FitResult, RecordSample } from './lib/fit-parser';
 import { compute, FORMATS } from './lib/analytics';
 import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
-import { buildSegments, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
+import { buildSegments, buildSegmentsManual, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
 import type { Segment, ParsedFile } from './lib/segmentation';
 import { reverseGeocode, deriveAge } from './lib/format';
 import { auth } from './lib/auth';
@@ -63,6 +63,9 @@ export interface AppState {
     matchShortId: string | null;
     ownerId: string | null;
   };
+  // User-defined split points (seconds from recording start); null = automatic.
+  manualSplits: { sessionBreaks: number[]; halfBreaks: number[] } | null;
+  manualSplitOpen: boolean;
   options: {
     age: number | null;
     maxHR: number | null;
@@ -143,6 +146,8 @@ export const store = reactive<AppState>({
   sideDirs: {},
   cloudFields: [],
   cloud: { mode: 'local', matchShortId: null, ownerId: null },
+  manualSplits: null,
+  manualSplitOpen: false,
   options: {
     age: null,
     maxHR: null,
@@ -256,9 +261,12 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.attackDirs = {};
     store.sideDirs = {};
     store.cloud = { mode: 'local', matchShortId: null, ownerId: null };
+    store.manualSplits = null;
   }
   store.activeTab = 'overview';
-  store.segments = buildSegments(fit, store.options.groupGapMin * 60);
+  store.segments = store.manualSplits
+    ? buildSegmentsManual(fit, store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks)
+    : buildSegments(fit, store.options.groupGapMin * 60);
   // Default to the first real match, not the combined "whole file" view.
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
@@ -377,13 +385,42 @@ export async function loadFromUrls(urls: string[]): Promise<void> {
 
 export function setGroupGap(min: number): void {
   store.options.groupGapMin = min;
-  if (!currentFit) return;
+  if (!currentFit || store.manualSplits) return;
   store.segments = buildSegments(currentFit, min * 60);
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
   store.activePeriod = -1;
   recompute();
   geocodeCurrent();
+}
+
+// Total recording span (seconds) of the currently loaded file(s).
+export function recordingDurationSec(): number {
+  const recs = (currentFit?.records || []).filter((r) => r.timestamp != null);
+  if (recs.length < 2) return 0;
+  const ts = recs.map((r) => r.timestamp as number);
+  return Math.max(...ts) - Math.min(...ts);
+}
+
+// Apply manual split points (seconds from recording start). Empty → automatic.
+export function setManualSplits(sessionBreaks: number[], halfBreaks: number[]): void {
+  if (!currentFit) return;
+  const active = sessionBreaks.length || halfBreaks.length;
+  store.manualSplits = active ? { sessionBreaks, halfBreaks } : null;
+  store.attackDirs = {};
+  store.sideDirs = {};
+  store.segments = store.manualSplits
+    ? buildSegmentsManual(currentFit, sessionBreaks, halfBreaks)
+    : buildSegments(currentFit, store.options.groupGapMin * 60);
+  const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
+  store.activeSegmentId = first ? first.id : '';
+  store.activePeriod = -1;
+  recompute();
+  geocodeCurrent();
+}
+
+export function clearManualSplits(): void {
+  setManualSplits([], []);
 }
 
 // Switching which end you attack is a 180° rotation: both the ends AND
@@ -480,6 +517,7 @@ export interface CloudLoadMeta {
   };
   sessions: CloudSession[];
   cloudFields?: SavedField[];
+  manualSplits?: { sessionBreaks: number[]; halfBreaks: number[] } | null;
   seq?: number;
 }
 
@@ -500,6 +538,7 @@ export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   store.attackDirs = {};
   store.sideDirs = {};
   store.cloud = { mode: 'cloud', matchShortId: meta.shortId, ownerId: meta.ownerId };
+  store.manualSplits = meta.manualSplits ?? null;
   loadFit(fit, meta.fileNames.length === 1 ? meta.fileNames[0] : `${meta.fileNames.length} files`, false);
 
   const segs = nonCombinedSegments();
