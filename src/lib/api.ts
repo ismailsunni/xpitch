@@ -8,13 +8,27 @@ import { supabase } from './supabase';
 import { auth } from './auth';
 import { compute } from './analytics';
 import { fitTimestampToDate } from './fit-parser';
+import { centroid, haversine, type LatLon } from './geo';
 import {
   store,
+  recompute,
   getRawFiles,
   nonCombinedSegments,
   dirsForSegment,
   type CloudSession,
 } from '../store';
+
+const FIELD_MATCH_M = 1500;
+
+function slugify(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'pitch'
+  );
+}
 
 const BUCKET = 'fits';
 
@@ -66,8 +80,12 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
     if (error) throw error;
   }
 
-  // 2. Insert the match row
+  // 2. Insert the match row (link to the nearest known pitch, if any)
   const meta = store.analytics.meta;
+  const nearField =
+    meta.startLat != null && meta.startLon != null
+      ? await resolveNearestFieldId(meta.startLat, meta.startLon)
+      : null;
   const { data: match, error: mErr } = await sb
     .from('matches')
     .insert({
@@ -81,6 +99,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       location_label: store.location,
       centroid_lat: meta.startLat ?? null,
       centroid_lon: meta.startLon ?? null,
+      primary_field_id: nearField?.id ?? null,
       file_names: store.files,
       visibility: opts.visibility ?? 'unlisted',
     })
@@ -115,6 +134,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       match_id: match.id,
       owner_id: uid,
       seq: i + 1,
+      field_id: nearField?.id ?? null,
       label: seg.label,
       kind: seg.kind,
       start_time: fitTimestampToDate(seg.startTime)?.toISOString() ?? null,
@@ -238,6 +258,90 @@ export async function deleteMatch(match: {
   }
   const { error } = await sb.from('matches').delete().eq('id', match.id);
   if (error) throw error;
+}
+
+// ---- Cloud pitches (Phase 3) ----
+
+// Load the signed-in user's saved pitches into the store (for auto-matching).
+export async function loadMyFields(): Promise<void> {
+  if (!supabase || !auth.user) {
+    store.cloudFields = [];
+    return;
+  }
+  const { data } = await supabase
+    .from('fields')
+    .select('id, slug, name, corners')
+    .eq('owner_id', auth.user.id)
+    .order('created_at');
+  store.cloudFields = (data || []).map((f: any) => ({ id: f.id, slug: f.slug, name: f.name, corners: f.corners }));
+  recompute();
+}
+
+// Create or update a pitch owned by the current user.
+export async function upsertFieldCloud(field: { id?: string; name: string; corners: LatLon[] }): Promise<any> {
+  const sb = requireClient();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('Sign in to save pitches.');
+  const c = centroid(field.corners);
+  const patch = { name: field.name, corners: field.corners, centroid_lat: c?.lat ?? null, centroid_lon: c?.lon ?? null };
+  let row: any;
+  if (field.id) {
+    const { data, error } = await sb.from('fields').update(patch).eq('id', field.id).select().single();
+    if (error) throw error;
+    row = data;
+  } else {
+    const slug = `${slugify(field.name)}-${nanoid(4).toLowerCase()}`;
+    const { data, error } = await sb
+      .from('fields')
+      .insert({ owner_id: uid, slug, visibility: 'unlisted', ...patch })
+      .select()
+      .single();
+    if (error) throw error;
+    row = data;
+  }
+  await loadMyFields();
+  return row;
+}
+
+export async function deleteFieldCloud(id: string): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb.from('fields').delete().eq('id', id);
+  if (error) throw error;
+  await loadMyFields();
+}
+
+export async function getField(slug: string): Promise<any | null> {
+  const sb = requireClient();
+  const { data } = await sb.from('fields').select('*').eq('slug', slug).maybeSingle();
+  return data ?? null;
+}
+
+// Matches linked to a field, visible to the viewer (public, or their own).
+export async function listMatchesByField(fieldId: string): Promise<any[]> {
+  const sb = requireClient();
+  const { data } = await sb
+    .from('matches')
+    .select('short_id, title, format, started_at, created_at, visibility, owner_id, location_label, sessions(seq, duration_s, summary)')
+    .eq('primary_field_id', fieldId)
+    .order('started_at', { ascending: false, nullsFirst: false });
+  return (data || []).filter((m: any) => m.visibility === 'public' || m.owner_id === auth.user?.id);
+}
+
+// Nearest DB field (visible to caller) to a point, within FIELD_MATCH_M.
+export async function resolveNearestFieldId(lat: number, lon: number): Promise<{ id: string; slug: string } | null> {
+  const sb = requireClient();
+  const { data } = await sb.from('fields').select('id, slug, centroid_lat, centroid_lon');
+  let best: any = null;
+  let bestD = Infinity;
+  for (const f of data || []) {
+    if (f.centroid_lat == null || f.centroid_lon == null) continue;
+    const d = haversine(lat, lon, f.centroid_lat, f.centroid_lon);
+    if (d < bestD) {
+      bestD = d;
+      best = f;
+    }
+  }
+  return best && bestD <= FIELD_MATCH_M ? { id: best.id, slug: best.slug } : null;
 }
 
 // Persist a single session's direction flips (owner editing a saved match).

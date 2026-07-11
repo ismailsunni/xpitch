@@ -15,6 +15,10 @@ import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle } from 'ol/style';
 import { store, appliedField } from '../store';
 
+// Standalone mode (e.g. the /field page): pass the pitch corners directly and
+// render just the pitch on satellite, without a player track.
+const props = defineProps<{ fieldCorners?: { lat: number; lon: number }[] }>();
+
 const mapEl = ref<HTMLDivElement>();
 const basemap = ref<'sat' | 'osm'>('sat');
 let map: Map | null = null;
@@ -41,8 +45,8 @@ onMounted(() => {
   const layers: any[] = [osmLayer, satLayer];
   const focus: number[][] = [];
 
-  // Field polygon (if one applies to this view).
-  const field = appliedField();
+  // Field polygon: explicit corners (standalone) or the applied match field.
+  const field = props.fieldCorners ? { corners: props.fieldCorners } : appliedField();
   if (field) {
     const ring = field.corners.map((c) => fromLonLat([c.lon, c.lat]));
     ring.push(ring[0]);
@@ -58,8 +62,10 @@ onMounted(() => {
     );
   }
 
-  // Player track for the current view.
-  const samples: any[] = (store.analytics?.samples || []).filter((s) => s.lat != null && s.lon != null);
+  // Player track for the current view (skipped in standalone field mode).
+  const samples: any[] = props.fieldCorners
+    ? []
+    : (store.analytics?.samples || []).filter((s) => s.lat != null && s.lon != null);
   const step = Math.max(1, Math.floor(samples.length / 2500));
   const track: number[][] = [];
   for (let i = 0; i < samples.length; i += step) track.push(fromLonLat([samples[i].lon, samples[i].lat]));

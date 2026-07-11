@@ -15,6 +15,7 @@ export interface SavedField {
   id: string;
   name: string;
   corners: LatLon[];
+  slug?: string; // present for cloud pitches (enables /field/{slug})
 }
 
 // Predefined pitches shipped with the app (available to everyone, not deletable).

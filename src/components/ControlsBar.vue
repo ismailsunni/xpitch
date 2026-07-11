@@ -14,6 +14,7 @@ function num(v: string): number | null {
 const hasGPS = computed(() => !!store.analytics?.meta?.hasGPS);
 const usingField = computed(() => !!store.analytics?.positional?.hasField);
 const fieldName = computed(() => appliedField()?.name || '');
+const fieldSlug = computed(() => appliedField()?.slug || '');
 
 const formatOptions = Object.values(FORMATS);
 // When 'auto', show what it resolved to (e.g. "Auto → Mini-soccer").
@@ -109,7 +110,11 @@ const resolvedFormat = computed(() => {
           📐 {{ usingField ? 'Edit pitches' : 'Set field' }}
         </button>
         <span class="hint" style="margin: 0">
-          <template v-if="usingField && fieldName">{{ fieldName }} ✓</template>
+          <template v-if="usingField && fieldName">
+            <RouterLink v-if="fieldSlug" :to="`/field/${fieldSlug}`">{{ fieldName }}</RouterLink>
+            <template v-else>{{ fieldName }}</template>
+            ✓
+          </template>
           <template v-else-if="usingField">custom ✓</template>
           <template v-else>auto-inferred</template>
         </span>

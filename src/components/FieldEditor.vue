@@ -14,7 +14,13 @@ import { fromLonLat, toLonLat } from 'ol/proj';
 import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import type { MapBrowserEvent } from 'ol';
-import { store, addField, updateField, removeField, appliedField, allFields, isPredefined, PREDEFINED_FIELDS } from '../store';
+import { computed } from 'vue';
+import { store, addField, updateField, removeField, appliedField, PREDEFINED_FIELDS } from '../store';
+import { auth } from '../lib/auth';
+import { upsertFieldCloud, deleteFieldCloud } from '../lib/api';
+
+// Logged in: pitches live in the cloud; guests: localStorage.
+const userFields = computed(() => (auth.user ? store.cloudFields : store.fields));
 
 const mapEl = ref<HTMLDivElement>();
 const cornersLL = ref<number[][]>([]); // [lon, lat]
@@ -121,25 +127,41 @@ function loadSaved(f: { id: string; name: string; corners: { lat: number; lon: n
   fitTo(cornersLL.value.map((c) => fromLonLat(c)));
 }
 
-function deleteSaved(id: string) {
-  removeField(id);
+async function deleteSaved(id: string) {
+  try {
+    if (auth.user) await deleteFieldCloud(id);
+    else removeField(id);
+  } catch (e: any) {
+    err.value = e?.message || 'Could not delete pitch';
+    return;
+  }
   if (editingId.value === id) {
     editingId.value = null;
     resetCorners();
   }
 }
 
-function save() {
+async function save() {
   if (cornersLL.value.length < 4) {
     err.value = 'Place all 4 corners of the pitch first.';
     return;
   }
   const corners = cornersLL.value.map((c) => ({ lat: c[1], lon: c[0] }));
-  const name = fieldName.value.trim() || 'Field ' + (store.fields.length + 1);
-  // Editing a built-in pitch saves a personal copy; only user pitches update in place.
-  const isUser = store.fields.some((f) => f.id === editingId.value);
-  if (editingId.value && isUser) updateField(editingId.value, name, corners);
-  else addField(name, corners);
+  const name = fieldName.value.trim() || 'Field ' + (userFields.value.length + 1);
+  try {
+    if (auth.user) {
+      // Editing an existing cloud pitch updates it; otherwise create a new one.
+      const cloudId = store.cloudFields.some((f) => f.id === editingId.value) ? editingId.value! : undefined;
+      await upsertFieldCloud({ id: cloudId, name, corners });
+    } else {
+      const isUser = store.fields.some((f) => f.id === editingId.value);
+      if (editingId.value && isUser) updateField(editingId.value, name, corners);
+      else addField(name, corners);
+    }
+  } catch (e: any) {
+    err.value = e?.message || 'Could not save pitch';
+    return;
+  }
   close();
 }
 
@@ -226,7 +248,7 @@ onBeforeUnmount(() => {
         <span v-if="err" class="error" style="margin: 0; font-size: 12.5px">{{ err }}</span>
       </div>
 
-      <div v-if="allFields().length" class="fe-saved">
+      <div v-if="PREDEFINED_FIELDS.length || userFields.length" class="fe-saved">
         <span class="k">Pitches</span>
         <span
           v-for="f in PREDEFINED_FIELDS"
@@ -239,7 +261,7 @@ onBeforeUnmount(() => {
         >
           🏟 {{ f.name }}
         </span>
-        <span v-for="f in store.fields" :key="f.id" class="pill-btn" :class="{ active: editingId === f.id }">
+        <span v-for="f in userFields" :key="f.id" class="pill-btn" :class="{ active: editingId === f.id }">
           <span style="cursor: pointer" @click="loadSaved(f)">{{ f.name }}</span>
           <span class="del" title="Delete" @click="deleteSaved(f.id)">✕</span>
         </span>
