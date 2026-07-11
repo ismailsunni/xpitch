@@ -31,6 +31,7 @@ async function onPick(e: Event) {
       <RouterLink to="/">Feed</RouterLink>
       <RouterLink to="/fields">Pitches</RouterLink>
       <RouterLink to="/analyze">Analyze</RouterLink>
+      <RouterLink to="/help">Help</RouterLink>
     </nav>
 
     <div class="topbar-actions">
