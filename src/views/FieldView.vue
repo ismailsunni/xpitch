@@ -2,7 +2,8 @@
 import { ref, onMounted, watch, defineAsyncComponent } from 'vue';
 import { useRoute } from 'vue-router';
 import { supabaseEnabled } from '../lib/supabase';
-import { getField, listMatchesByField } from '../lib/api';
+import { auth } from '../lib/auth';
+import { getField, listMatchesByField, setFieldVisibility } from '../lib/api';
 import MatchCard from '../components/MatchCard.vue';
 
 const PitchMap = defineAsyncComponent(() => import('../components/PitchMap.vue'));
@@ -55,6 +56,13 @@ async function load() {
 }
 onMounted(load);
 watch(() => route.params.slug, load);
+
+const isOwner = () => !!auth.user && field.value && field.value.owner_id === auth.user.id;
+async function onVisibility(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  field.value.visibility = v;
+  await setFieldVisibility(field.value.id, v);
+}
 </script>
 
 <template>
@@ -63,9 +71,19 @@ watch(() => route.params.slug, load);
     <p v-else-if="state === 'error'" class="empty">{{ errMsg }}</p>
     <p v-else-if="state === 'notfound'" class="empty">No pitch “{{ route.params.slug }}”.</p>
     <template v-else>
-      <header style="margin-bottom: 16px">
-        <h2 style="margin: 0">📍 {{ field.name }}</h2>
-        <p class="hint" style="margin: 2px 0 0">{{ dims }}</p>
+      <header style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap">
+        <div>
+          <h2 style="margin: 0">📍 {{ field.name }}</h2>
+          <p class="hint" style="margin: 2px 0 0">{{ dims }}</p>
+        </div>
+        <label v-if="isOwner()" class="fv-vis">
+          Visibility
+          <select :value="field.visibility" @change="onVisibility">
+            <option value="private">Private</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="public">Public</option>
+          </select>
+        </label>
       </header>
 
       <div class="panel">
@@ -86,5 +104,24 @@ watch(() => route.params.slug, load);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
+}
+.fv-vis {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fv-vis select {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 </style>

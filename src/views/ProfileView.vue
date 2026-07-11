@@ -3,7 +3,8 @@ import { ref, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
-import { listMatches } from '../lib/api';
+import { deriveAge } from '../lib/format';
+import { listMatches, updateProfile } from '../lib/api';
 import MatchCard from '../components/MatchCard.vue';
 
 const route = useRoute();
@@ -36,6 +37,34 @@ watch(() => route.params.username, load);
 // Re-fetch once the session resolves (so the owner sees unlisted/private too)
 // or on sign in/out.
 watch(() => auth.user?.id, load);
+
+// ---- Owner profile edit ----
+const editing = ref(false);
+const form = ref({ display_name: '', birth_date: '', bio: '' });
+const saveErr = ref('');
+function openEdit() {
+  form.value = {
+    display_name: auth.profile?.display_name || '',
+    birth_date: auth.profile?.birth_date || '',
+    bio: auth.profile?.bio || '',
+  };
+  saveErr.value = '';
+  editing.value = true;
+}
+async function saveProfile() {
+  saveErr.value = '';
+  try {
+    await updateProfile({
+      display_name: form.value.display_name || null,
+      birth_date: form.value.birth_date || null,
+      bio: form.value.bio || null,
+    });
+    if (data.value) data.value.profile.display_name = form.value.display_name;
+    editing.value = false;
+  } catch (e: any) {
+    saveErr.value = e?.message || String(e);
+  }
+}
 </script>
 
 <template>
@@ -53,10 +82,29 @@ watch(() => auth.user?.id, load);
           </p>
           <p class="hint" style="margin: 2px 0 0">
             {{ data.matches.length }} match{{ data.matches.length === 1 ? '' : 'es' }}
-            <template v-if="data.isOwner"> · this is you</template>
+            <template v-if="data.isOwner && deriveAge(auth.profile?.birth_date)">
+              · {{ deriveAge(auth.profile?.birth_date) }} yrs
+            </template>
           </p>
         </div>
+        <button v-if="data.isOwner && !editing" class="btn ghost small" @click="openEdit">Edit profile</button>
       </header>
+
+      <div v-if="data.isOwner && editing" class="panel edit-form">
+        <div class="ef-row">
+          <label>Display name<input v-model="form.display_name" type="text" placeholder="Your name" /></label>
+          <label>Birth date<input v-model="form.birth_date" type="date" /></label>
+        </div>
+        <label>Bio<textarea v-model="form.bio" rows="2" placeholder="Optional"></textarea></label>
+        <p class="hint" style="margin: 6px 0 0">
+          Your birth date stays private; it’s used to auto-fill your age and max HR when analyzing.
+        </p>
+        <p v-if="saveErr" class="error" style="margin: 6px 0 0">{{ saveErr }}</p>
+        <div class="ef-actions">
+          <button class="btn ghost small" @click="editing = false">Cancel</button>
+          <button class="btn primary small" @click="saveProfile">Save</button>
+        </div>
+      </div>
 
       <p v-if="!data.matches.length" class="empty">
         <template v-if="data.isOwner">
@@ -91,9 +139,52 @@ watch(() => auth.user?.id, load);
   font-size: 24px;
   font-weight: 800;
 }
+.profile-head > button {
+  margin-left: auto;
+}
+.edit-form {
+  margin-bottom: 22px;
+}
+.edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.edit-form input,
+.edit-form textarea {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ef-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.ef-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
 .match-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
+}
+@media (max-width: 560px) {
+  .ef-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

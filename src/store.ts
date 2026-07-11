@@ -7,7 +7,8 @@ import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
 import { buildSegments, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
 import type { Segment, ParsedFile } from './lib/segmentation';
-import { reverseGeocode } from './lib/format';
+import { reverseGeocode, deriveAge } from './lib/format';
+import { auth } from './lib/auth';
 import { haversine, centroid } from './lib/geo';
 import type { LatLon } from './lib/geo';
 
@@ -16,6 +17,7 @@ export interface SavedField {
   name: string;
   corners: LatLon[];
   slug?: string; // present for cloud pitches (enables /field/{slug})
+  visibility?: 'private' | 'unlisted' | 'public';
 }
 
 // Predefined pitches shipped with the app (available to everyone, not deletable).
@@ -214,8 +216,11 @@ export function recompute(): void {
     file_id: currentFit.file_id,
     other: {},
   };
+  // Age falls back to the signed-in user's birth date; analytics derives
+  // max HR (220 − age) when maxHR is unset.
+  const effectiveAge = store.options.age ?? deriveAge(auth.profile?.birth_date);
   const a = compute(pseudo, {
-    age: store.options.age,
+    age: effectiveAge,
     maxHR: store.options.maxHR,
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,

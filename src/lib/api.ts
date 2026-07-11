@@ -5,7 +5,7 @@
  */
 import { nanoid } from 'nanoid';
 import { supabase } from './supabase';
-import { auth } from './auth';
+import { auth, reloadProfile } from './auth';
 import { compute } from './analytics';
 import { fitTimestampToDate } from './fit-parser';
 import { centroid, haversine, type LatLon } from './geo';
@@ -260,6 +260,73 @@ export async function deleteMatch(match: {
   if (error) throw error;
 }
 
+// ---- Feed, fields list, profile (Phase 4) ----
+
+// Attach { _author: {username, display_name} } to match rows (client-side join).
+async function attachAuthors(matches: any[]): Promise<any[]> {
+  const ids = [...new Set(matches.map((m) => m.owner_id).filter(Boolean))];
+  if (!ids.length) return matches;
+  const sb = requireClient();
+  const { data } = await sb.from('profiles').select('id, username, display_name').in('id', ids);
+  const map = new Map((data || []).map((p: any) => [p.id, p]));
+  return matches.map((m) => ({ ...m, _author: map.get(m.owner_id) || null }));
+}
+
+// Public + own matches, newest first, paginated.
+export async function listFeed(page = 0, pageSize = 12): Promise<{ matches: any[]; total: number }> {
+  const sb = requireClient();
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+  let q = sb
+    .from('matches')
+    .select(
+      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, sessions(seq, duration_s, summary)',
+      { count: 'exact' }
+    )
+    .order('started_at', { ascending: false, nullsFirst: false })
+    .range(from, to);
+  const uid = auth.user?.id;
+  q = uid ? q.or(`visibility.eq.public,owner_id.eq.${uid}`) : q.eq('visibility', 'public');
+  const { data, error, count } = await q;
+  if (error) throw error;
+  const matches = await attachAuthors(data || []);
+  return { matches, total: count || 0 };
+}
+
+// Public + own pitches (predefined ones are public → included).
+export async function listFields(): Promise<any[]> {
+  const sb = requireClient();
+  let q = sb
+    .from('fields')
+    .select('id, slug, name, corners, visibility, owner_id, centroid_lat, centroid_lon')
+    .order('name');
+  const uid = auth.user?.id;
+  q = uid ? q.or(`visibility.eq.public,owner_id.eq.${uid}`) : q.eq('visibility', 'public');
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function setFieldVisibility(id: string, visibility: string): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb.from('fields').update({ visibility }).eq('id', id);
+  if (error) throw error;
+  await loadMyFields();
+}
+
+export async function updateProfile(patch: {
+  display_name?: string | null;
+  bio?: string | null;
+  birth_date?: string | null;
+}): Promise<void> {
+  const sb = requireClient();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('Sign in first.');
+  const { error } = await sb.from('profiles').update(patch).eq('id', uid);
+  if (error) throw error;
+  await reloadProfile();
+}
+
 // ---- Cloud pitches (Phase 3) ----
 
 // Load the signed-in user's saved pitches into the store (for auto-matching).
@@ -270,20 +337,32 @@ export async function loadMyFields(): Promise<void> {
   }
   const { data } = await supabase
     .from('fields')
-    .select('id, slug, name, corners')
+    .select('id, slug, name, corners, visibility')
     .eq('owner_id', auth.user.id)
     .order('created_at');
-  store.cloudFields = (data || []).map((f: any) => ({ id: f.id, slug: f.slug, name: f.name, corners: f.corners }));
+  store.cloudFields = (data || []).map((f: any) => ({
+    id: f.id,
+    slug: f.slug,
+    name: f.name,
+    corners: f.corners,
+    visibility: f.visibility,
+  }));
   recompute();
 }
 
 // Create or update a pitch owned by the current user.
-export async function upsertFieldCloud(field: { id?: string; name: string; corners: LatLon[] }): Promise<any> {
+export async function upsertFieldCloud(field: {
+  id?: string;
+  name: string;
+  corners: LatLon[];
+  visibility?: string;
+}): Promise<any> {
   const sb = requireClient();
   const uid = auth.user?.id;
   if (!uid) throw new Error('Sign in to save pitches.');
   const c = centroid(field.corners);
-  const patch = { name: field.name, corners: field.corners, centroid_lat: c?.lat ?? null, centroid_lon: c?.lon ?? null };
+  const patch: any = { name: field.name, corners: field.corners, centroid_lat: c?.lat ?? null, centroid_lon: c?.lon ?? null };
+  if (field.visibility) patch.visibility = field.visibility;
   let row: any;
   if (field.id) {
     const { data, error } = await sb.from('fields').update(patch).eq('id', field.id).select().single();
@@ -293,7 +372,7 @@ export async function upsertFieldCloud(field: { id?: string; name: string; corne
     const slug = `${slugify(field.name)}-${nanoid(4).toLowerCase()}`;
     const { data, error } = await sb
       .from('fields')
-      .insert({ owner_id: uid, slug, visibility: 'unlisted', ...patch })
+      .insert({ owner_id: uid, slug, visibility: field.visibility || 'unlisted', ...patch })
       .select()
       .single();
     if (error) throw error;

@@ -12,11 +12,13 @@ security is enforced by Row Level Security. Do these once.
    - **anon public** key → `VITE_SUPABASE_ANON_KEY`
    (The anon key is meant to be public — safe to ship in the bundle under RLS.)
 
-## 2. Run the migration
-Open **SQL Editor → New query**, paste the contents of
-[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), and **Run**.
-This creates the schema, RLS policies, the private `fits` storage bucket, the
-signup trigger, and seeds the "Amikom Soccer Arena" pitch.
+## 2. Run the migrations
+Open **SQL Editor → New query**, paste and **Run** each in order:
+1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — schema,
+   RLS, the private `fits` storage bucket, the signup trigger, and the seeded
+   "Amikom Soccer Arena" pitch.
+2. [`supabase/migrations/0002_profile_birthdate.sql`](supabase/migrations/0002_profile_birthdate.sql)
+   — adds `profiles.birth_date` (for auto age / max-HR).
 
 ## 3. Enable auth providers
 **Authentication → Providers**:

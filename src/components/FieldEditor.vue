@@ -30,6 +30,7 @@ const manualText = ref('');
 const err = ref('');
 const fieldName = ref('');
 const editingId = ref<string | null>(null);
+const visibility = ref<'private' | 'unlisted' | 'public'>('unlisted');
 
 let map: Map | null = null;
 let cornerSource: VectorSource;
@@ -118,10 +119,11 @@ function applyManual() {
   }
 }
 
-function loadSaved(f: { id: string; name: string; corners: { lat: number; lon: number }[] }) {
+function loadSaved(f: { id: string; name: string; corners: { lat: number; lon: number }[]; visibility?: any }) {
   cornersLL.value = f.corners.map((c) => [c.lon, c.lat]);
   fieldName.value = f.name;
   editingId.value = f.id;
+  visibility.value = f.visibility || 'unlisted';
   err.value = '';
   redrawCorners();
   fitTo(cornersLL.value.map((c) => fromLonLat(c)));
@@ -152,7 +154,7 @@ async function save() {
     if (auth.user) {
       // Editing an existing cloud pitch updates it; otherwise create a new one.
       const cloudId = store.cloudFields.some((f) => f.id === editingId.value) ? editingId.value! : undefined;
-      await upsertFieldCloud({ id: cloudId, name, corners });
+      await upsertFieldCloud({ id: cloudId, name, corners, visibility: visibility.value });
     } else {
       const isUser = store.fields.some((f) => f.id === editingId.value);
       if (editingId.value && isUser) updateField(editingId.value, name, corners);
@@ -287,6 +289,14 @@ onBeforeUnmount(() => {
           <span class="k">Pitch name</span>
           <input v-model="fieldName" type="text" placeholder="e.g. Rledok Mini Soccer" />
         </label>
+        <label v-if="auth.user" class="fe-name">
+          <span class="k">Visibility</span>
+          <select v-model="visibility">
+            <option value="private">Private (only me)</option>
+            <option value="unlisted">Unlisted (link only)</option>
+            <option value="public">Public (anyone can reuse)</option>
+          </select>
+        </label>
         <div class="fe-actions">
           <button class="btn ghost small" @click="close">Cancel</button>
           <button class="btn primary" :disabled="cornersLL.length < 4" @click="save">
@@ -406,7 +416,8 @@ onBeforeUnmount(() => {
   letter-spacing: 0.5px;
   color: var(--muted);
 }
-.fe-name input {
+.fe-name input,
+.fe-name select {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -414,6 +425,9 @@ onBeforeUnmount(() => {
   padding: 7px 10px;
   font-size: 13px;
   min-width: 220px;
+}
+.fe-name select {
+  min-width: 180px;
 }
 .fe-actions {
   display: flex;

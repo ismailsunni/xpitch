@@ -12,6 +12,7 @@ export interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  birth_date: string | null;
 }
 
 export const auth = reactive<{
@@ -34,7 +35,9 @@ async function loadProfile(): Promise<void> {
     return;
   }
   const { data } = await supabase.from('profiles').select('*').eq('id', auth.user.id).maybeSingle();
-  auth.profile = (data as Profile) ?? { id: auth.user.id, username: null, display_name: null, avatar_url: null, bio: null };
+  auth.profile =
+    (data as Profile) ??
+    { id: auth.user.id, username: null, display_name: null, avatar_url: null, bio: null, birth_date: null };
 }
 
 async function applySession(session: Session | null): Promise<void> {
@@ -68,6 +71,10 @@ export async function signOut(): Promise<void> {
   if (supabase) await supabase.auth.signOut();
   auth.user = null;
   auth.profile = null;
+}
+
+export async function reloadProfile(): Promise<void> {
+  await loadProfile();
 }
 
 export function isLoggedIn(): boolean {

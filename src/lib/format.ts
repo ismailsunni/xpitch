@@ -44,6 +44,18 @@ export function sportName(sport: number | string | null | undefined): string | n
   return sport.charAt(0).toUpperCase() + sport.slice(1);
 }
 
+// Age in whole years from an ISO birth date (yyyy-mm-dd), or null.
+export function deriveAge(birthDate: string | null | undefined): number | null {
+  if (!birthDate) return null;
+  const b = new Date(birthDate);
+  if (isNaN(b.getTime())) return null;
+  const now = new Date();
+  let a = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
+  return a > 0 && a < 120 ? a : null;
+}
+
 // Best-effort reverse geocode via OSM Nominatim. Returns a short place label.
 export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
   try {

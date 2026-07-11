@@ -4,7 +4,8 @@ import { RouterLink } from 'vue-router';
 import { FORMATS } from '../lib/analytics';
 import { fmtDist, fmtDur } from '../lib/format';
 
-const props = defineProps<{ match: any }>();
+const props = defineProps<{ match: any; showAuthor?: boolean }>();
+const author = computed(() => props.match._author);
 
 const sessions = computed<any[]>(() => props.match.sessions || []);
 const totalDistance = computed(() =>
@@ -24,6 +25,9 @@ const title = computed(() => props.match.title || (props.match.location_label ? 
     <div class="mc-top">
       <span class="mc-title">{{ title }}</span>
       <span v-if="match.visibility !== 'public'" class="mc-badge">{{ match.visibility }}</span>
+    </div>
+    <div v-if="showAuthor && author" class="mc-author" @click.prevent="$router.push('/' + author.username)">
+      by @{{ author.username }}
     </div>
     <div class="mc-sub">{{ when }} · {{ formatLabel }} · {{ sessions.length }} session{{ sessions.length === 1 ? '' : 's' }}</div>
     <div class="mc-stats">
@@ -61,6 +65,14 @@ const title = computed(() => props.match.title || (props.match.location_label ? 
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 2px 8px;
+}
+.mc-author {
+  color: var(--accent);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.mc-author:hover {
+  text-decoration: underline;
 }
 .mc-sub {
   color: var(--muted);
