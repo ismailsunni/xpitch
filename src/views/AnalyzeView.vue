@@ -32,7 +32,7 @@ onMounted(() => {
     <div v-if="store.cloud.mode === 'local' && isSaveable()" class="savebar">
       <span class="sb-text">Analysis ready — save it to your profile to keep and share it.</span>
       <SaveMatchButton v-if="supabaseEnabled && auth.user" />
-      <RouterLink v-else-if="supabaseEnabled" to="/login" class="btn primary small">Log in to save</RouterLink>
+      <RouterLink v-else-if="supabaseEnabled" to="/login" class="btn primary">Log in to save</RouterLink>
     </div>
     <Dashboard />
   </main>
@@ -45,7 +45,7 @@ onMounted(() => {
   gap: 14px;
   flex-wrap: wrap;
   padding: 12px 22px;
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(34, 197, 94, 0.08);
   border-bottom: 1px solid var(--border);
 }
 .sb-text {

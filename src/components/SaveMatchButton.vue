@@ -29,7 +29,7 @@ async function save() {
 
 <template>
   <span v-if="auth.user && isSaveable() && store.cloud.mode === 'local'" class="savewrap">
-    <button class="btn primary small" :disabled="busy" @click="save">
+    <button class="btn primary" :disabled="busy" @click="save">
       {{ busy ? 'Saving…' : '💾 Save match' }}
     </button>
     <span v-if="err" class="error save-err">{{ err }}</span>

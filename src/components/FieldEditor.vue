@@ -49,10 +49,10 @@ const cornerStyle = (i: number) =>
   new Style({
     image: new CircleStyle({
       radius: 7,
-      fill: new Fill({ color: '#38bdf8' }),
-      stroke: new Stroke({ color: '#04121c', width: 2 }),
+      fill: new Fill({ color: '#22c55e' }),
+      stroke: new Stroke({ color: '#052012', width: 2 }),
     }),
-    text: new Text({ text: String(i + 1), fill: new Fill({ color: '#04121c' }), font: 'bold 11px system-ui' }),
+    text: new Text({ text: String(i + 1), fill: new Fill({ color: '#052012' }), font: 'bold 11px system-ui' }),
   });
 
 // [lon,lat] ring closed back to the first corner, in map projection.
@@ -69,7 +69,7 @@ function redrawCorners() {
   if (ll.length >= 3) {
     polyFeature = new Feature(new Polygon([closedRing(ll)]));
     polyFeature.setStyle(
-      new Style({ stroke: new Stroke({ color: '#38bdf8', width: 2 }), fill: new Fill({ color: 'rgba(56,189,248,0.18)' }) })
+      new Style({ stroke: new Stroke({ color: '#22c55e', width: 2 }), fill: new Fill({ color: 'rgba(34,197,94,0.18)' }) })
     );
     cornerSource.addFeature(polyFeature);
   }
@@ -453,7 +453,7 @@ onBeforeUnmount(() => {
 .fe-map {
   flex: 1;
   min-height: 0;
-  background: #0d141d;
+  background: #0d1712;
 }
 .fe-foot {
   display: flex;
@@ -480,8 +480,9 @@ onBeforeUnmount(() => {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 7px 10px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  line-height: var(--ctl-line);
   font-size: 13px;
   min-width: 220px;
 }

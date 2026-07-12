@@ -1,15 +1,36 @@
 :root {
-  --bg: #0b1017;
-  --bg-elev: #141b26;
-  --bg-elev2: #1b2430;
-  --border: #263241;
-  --text: #e6ebf2;
-  --muted: #8ea0b5;
-  --accent: #38bdf8;
-  --accent2: #34d399;
+  --bg: #0a0f0d;
+  --bg-elev: #121a16;
+  --bg-elev2: #1a241e;
+  --border: #26332b;
+  --text: #e8f0ea;
+  --muted: #8fa79a;
+  --accent: #22c55e;
+  --accent2: #4ade80;
   --danger: #ef4444;
   --radius: 14px;
-  --shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+  --shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+
+  /* Accent tints (green) — reused across chrome */
+  --accent-tint: rgba(34, 197, 94, 0.14);
+  --accent-tint-strong: rgba(34, 197, 94, 0.4);
+
+  /* Control metrics — one coherent system.
+     Default controls render at 38px, small controls at 32px. */
+  --ctl-pad-y: 8px;
+  --ctl-pad-x: 12px;
+  --ctl-line: 20px;
+  --ctl-radius: 10px;
+  --ctl-pad-y-sm: 6px;
+  --ctl-pad-x-sm: 12px;
+  --ctl-line-sm: 18px;
+
+  /* Spacing steps */
+  --sp-1: 6px;
+  --sp-2: 10px;
+  --sp-3: 14px;
+  --sp-4: 18px;
+  --sp-5: 22px;
 }
 
 * {
@@ -22,7 +43,7 @@ body {
 }
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: radial-gradient(1200px 600px at 80% -10%, #16283a 0%, var(--bg) 55%);
+  background: radial-gradient(1200px 600px at 80% -10%, #16281c 0%, var(--bg) 55%);
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
@@ -49,7 +70,7 @@ a {
   gap: 16px;
   padding: 14px 22px;
   border-bottom: 1px solid var(--border);
-  background: rgba(11, 16, 23, 0.7);
+  background: rgba(10, 15, 13, 0.7);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -80,13 +101,14 @@ a {
   flex-wrap: wrap;
 }
 
-/* Buttons */
+/* Buttons — 38px tall by default, 32px for .small; share metrics with inputs/selects */
 .btn {
   border: 1px solid var(--border);
   background: var(--bg-elev);
   color: var(--text);
-  padding: 9px 16px;
-  border-radius: 10px;
+  padding: var(--ctl-pad-y) 16px;
+  line-height: var(--ctl-line);
+  border-radius: var(--ctl-radius);
   cursor: pointer;
   font-size: 13.5px;
   font-weight: 600;
@@ -97,9 +119,9 @@ a {
   border-color: var(--accent);
 }
 .btn.primary {
-  background: linear-gradient(180deg, #3fc0fb, #1f9fe0);
+  background: linear-gradient(180deg, #2ee06a, #16a34a);
   border-color: transparent;
-  color: #04121c;
+  color: #052012;
 }
 .btn.primary:hover {
   filter: brightness(1.06);
@@ -110,11 +132,16 @@ a {
 .btn.on {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(56, 189, 248, 0.14);
+  background: var(--accent-tint);
 }
 .btn.small {
-  padding: 6px 12px;
+  padding: var(--ctl-pad-y-sm) var(--ctl-pad-x-sm);
+  line-height: var(--ctl-line-sm);
   font-size: 12px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .linkbtn {
   background: none;
@@ -126,6 +153,26 @@ a {
   text-decoration: underline;
 }
 
+/* Accessible focus ring on all interactive chrome */
+.btn:focus-visible,
+.pill-btn:focus-visible,
+.tab:focus-visible,
+.linkbtn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Softer focus glow for text controls */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
 /* Dropzone */
 .dropzone {
   display: flex;
@@ -135,7 +182,7 @@ a {
   padding: 24px;
 }
 .dropzone.drag {
-  background: rgba(56, 189, 248, 0.06);
+  background: rgba(34, 197, 94, 0.06);
 }
 .dz-inner {
   text-align: center;
@@ -219,8 +266,9 @@ a {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 7px 10px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  line-height: var(--ctl-line);
   font-size: 13px;
 }
 .ctl-select {
@@ -261,7 +309,8 @@ a {
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 20px;
-  padding: 6px 14px;
+  padding: var(--ctl-pad-y-sm) 14px;
+  line-height: var(--ctl-line-sm);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
@@ -272,7 +321,7 @@ a {
   border-color: var(--accent);
 }
 .pill-btn.active {
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.25), rgba(56, 189, 248, 0.12));
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.12));
   border-color: var(--accent);
 }
 .pill-btn .sub {
@@ -342,7 +391,7 @@ a {
   box-shadow: var(--shadow);
 }
 .card.accent {
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: var(--accent-tint-strong);
 }
 .card .label {
   font-size: 11.5px;
@@ -476,8 +525,8 @@ a {
   font-weight: 800;
   padding: 14px 22px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.22), rgba(52, 211, 153, 0.16));
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.22), rgba(74, 222, 128, 0.16));
+  border: 1px solid var(--accent-tint-strong);
 }
 .role-conf {
   font-size: 13px;

@@ -132,7 +132,7 @@ async function saveProfile() {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.3), rgba(52, 211, 153, 0.2));
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.3), rgba(74, 222, 128, 0.2));
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -161,8 +161,9 @@ async function saveProfile() {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  line-height: var(--ctl-line);
   font-size: 14px;
   text-transform: none;
   letter-spacing: 0;

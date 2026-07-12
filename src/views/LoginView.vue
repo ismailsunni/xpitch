@@ -68,8 +68,9 @@ async function google() {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 9px 12px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  line-height: var(--ctl-line);
   font-size: 14px;
 }
 .or {

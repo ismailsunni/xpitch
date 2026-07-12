@@ -230,8 +230,9 @@ watch(
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  line-height: var(--ctl-line);
   font-size: 15px;
   font-weight: 600;
 }
@@ -248,8 +249,9 @@ watch(
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y-sm) 10px;
+  line-height: var(--ctl-line-sm);
   font-size: 13px;
   text-transform: none;
   letter-spacing: 0;

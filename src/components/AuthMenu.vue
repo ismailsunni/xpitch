@@ -27,7 +27,7 @@ async function doSignOut() {
 
 <template>
   <div class="authmenu">
-    <button class="btn ghost small" @click="open = !open">{{ label() }} ▾</button>
+    <button class="btn ghost" @click="open = !open">{{ label() }} ▾</button>
     <!-- Backdrop closes on outside click without stealing the menu-item click. -->
     <div v-if="open" class="menu-backdrop" @click="open = false"></div>
     <div v-if="open" class="menu">

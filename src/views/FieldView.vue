@@ -138,8 +138,9 @@ watch(
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y-sm) 10px;
+  line-height: var(--ctl-line-sm);
   font-size: 13px;
   text-transform: none;
   letter-spacing: 0;

@@ -55,8 +55,8 @@ onMounted(() => {
       new VectorLayer({
         source: new VectorSource({ features: [new Feature(new Polygon([ring]))] }),
         style: new Style({
-          stroke: new Stroke({ color: '#38bdf8', width: 2 }),
-          fill: new Fill({ color: 'rgba(56,189,248,0.10)' }),
+          stroke: new Stroke({ color: '#22c55e', width: 2 }),
+          fill: new Fill({ color: 'rgba(34,197,94,0.10)' }),
         }),
       })
     );
@@ -74,7 +74,7 @@ onMounted(() => {
     const feats: Feature[] = [new Feature(new LineString(track))];
     const mk = (pt: number[], color: string) => {
       const f = new Feature(new Point(pt));
-      f.setStyle(new Style({ image: new CircleStyle({ radius: 5, fill: new Fill({ color }), stroke: new Stroke({ color: '#04121c', width: 1.5 }) }) }));
+      f.setStyle(new Style({ image: new CircleStyle({ radius: 5, fill: new Fill({ color }), stroke: new Stroke({ color: '#052012', width: 1.5 }) }) }));
       return f;
     };
     feats.push(mk(track[0], '#8c5afa'), mk(track[track.length - 1], '#ff961e'));
@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #0d141d;
+  background: #0d1712;
 }
 :deep(.ol-attribution) {
   font-size: 10px;

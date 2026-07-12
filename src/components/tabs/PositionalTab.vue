@@ -87,7 +87,7 @@ const preferredSide = computed(() => {
         <PitchMap :key="store.activeSegmentId + ':' + store.activePeriod" />
         <p class="hint">
           Your GPS track on satellite imagery.
-          <span v-if="p.hasField">Blue outline = the defined pitch.</span>
+          <span v-if="p.hasField">Green outline = the defined pitch.</span>
           <span class="swatch" style="background: #8c5afa"></span> start
           <span class="swatch" style="background: #ff961e"></span> end.
         </p>
