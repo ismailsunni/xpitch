@@ -305,7 +305,11 @@ async function attachAuthors(matches: any[]): Promise<any[]> {
 }
 
 // Public + own matches, newest first, paginated.
-export async function listFeed(page = 0, pageSize = 12): Promise<{ matches: any[]; total: number }> {
+export async function listFeed(
+  page = 0,
+  pageSize = 12,
+  mine = false
+): Promise<{ matches: any[]; total: number }> {
   const sb = requireClient();
   const from = page * pageSize;
   const to = from + pageSize - 1;
@@ -318,7 +322,10 @@ export async function listFeed(page = 0, pageSize = 12): Promise<{ matches: any[
     .order('started_at', { ascending: false, nullsFirst: false })
     .range(from, to);
   const uid = auth.user?.id;
-  q = uid ? q.or(`visibility.eq.public,owner_id.eq.${uid}`) : q.eq('visibility', 'public');
+  // "My matches" → only the signed-in user's (any visibility, per RLS);
+  // otherwise the public feed plus the user's own.
+  if (mine && uid) q = q.eq('owner_id', uid);
+  else q = uid ? q.or(`visibility.eq.public,owner_id.eq.${uid}`) : q.eq('visibility', 'public');
   const { data, error, count } = await q;
   if (error) throw error;
   const matches = await attachAuthors(data || []);
