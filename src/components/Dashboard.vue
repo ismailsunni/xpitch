@@ -12,10 +12,10 @@ import FootballTab from './tabs/FootballTab.vue';
 
 const TABS = [
   { id: 'overview', label: 'Overview', comp: OverviewTab },
-  { id: 'positional', label: '🗺️ Positional', comp: PositionalTab },
-  { id: 'running', label: '🏃 Running', comp: RunningTab },
-  { id: 'physio', label: '❤️ Physiological', comp: PhysioTab },
-  { id: 'football', label: '⚽ Football', comp: FootballTab },
+  { id: 'positional', label: 'Heatmap', comp: PositionalTab },
+  { id: 'running', label: 'Speed & distance', comp: RunningTab },
+  { id: 'physio', label: 'Heart rate', comp: PhysioTab },
+  { id: 'football', label: 'Football', comp: FootballTab },
 ];
 
 const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.comp || OverviewTab);
@@ -23,10 +23,8 @@ const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.co
 
 <template>
   <div>
-    <ControlsBar />
-    <MetaBar />
-    <SegmentBar />
-
+    <!-- Activity-local section nav (this level is the match detail's own nav,
+         separate from the global sidebar — Strava keeps the two apart). -->
     <nav class="tabs">
       <button
         v-for="t in TABS"
@@ -38,6 +36,10 @@ const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.co
         {{ t.label }}
       </button>
     </nav>
+
+    <ControlsBar />
+    <MetaBar />
+    <SegmentBar />
 
     <component :is="activeComp" :key="store.activeTab" />
 
