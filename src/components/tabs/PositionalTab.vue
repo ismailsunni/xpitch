@@ -9,9 +9,9 @@ const a = computed<any>(() => store.analytics);
 const p = computed<any>(() => a.value.positional);
 
 const thirdLabels = ['Defensive third', 'Middle third', 'Attacking third'];
-const thirdColors = ['#3b82f6', '#22c55e', '#ef4444'];
+const thirdColors = ['#3b82f6', '#16c060', '#ef4444'];
 const sideLabels = ['Left flank', 'Central', 'Right flank'];
-const sideColors = ['#a78bfa', '#22c55e', '#fb923c'];
+const sideColors = ['#a78bfa', '#16c060', '#fb923c'];
 
 function bars(values: number[], labels: string[], colors: string[]) {
   const total = values.reduce((x, y) => x + y, 0) || 1;

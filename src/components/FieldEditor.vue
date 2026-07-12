@@ -49,7 +49,7 @@ const cornerStyle = (i: number) =>
   new Style({
     image: new CircleStyle({
       radius: 7,
-      fill: new Fill({ color: '#22c55e' }),
+      fill: new Fill({ color: '#16c060' }),
       stroke: new Stroke({ color: '#052012', width: 2 }),
     }),
     text: new Text({ text: String(i + 1), fill: new Fill({ color: '#052012' }), font: 'bold 11px system-ui' }),
@@ -69,7 +69,7 @@ function redrawCorners() {
   if (ll.length >= 3) {
     polyFeature = new Feature(new Polygon([closedRing(ll)]));
     polyFeature.setStyle(
-      new Style({ stroke: new Stroke({ color: '#22c55e', width: 2 }), fill: new Fill({ color: 'rgba(34,197,94,0.18)' }) })
+      new Style({ stroke: new Stroke({ color: '#16c060', width: 2 }), fill: new Fill({ color: 'rgba(22,192,96,0.18)' }) })
     );
     cornerSource.addFeature(polyFeature);
   }

@@ -115,7 +115,7 @@ export function workRateConfig(bins: any[]): ChartConfiguration {
         {
           label: 'Distance per minute (m)',
           data: bins.map((b) => Math.round(b.distance)),
-          backgroundColor: '#22c55e',
+          backgroundColor: '#16c060',
           borderRadius: 3,
           order: 2,
         },

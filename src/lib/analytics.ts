@@ -51,7 +51,7 @@ function resolveFormat(
 // Football speed zones (km/h). Distance & time accumulate per zone.
 export const SPEED_ZONES = [
   { name: 'Walking', min: 0, max: 7, color: '#3b82f6' },
-  { name: 'Jogging', min: 7, max: 14.4, color: '#22c55e' },
+  { name: 'Jogging', min: 7, max: 14.4, color: '#16c060' },
   { name: 'Running', min: 14.4, max: 19.8, color: '#eab308' },
   { name: 'High speed', min: 19.8, max: 25.2, color: '#f97316' },
   { name: 'Sprint', min: 25.2, max: Infinity, color: '#ef4444' },
@@ -391,7 +391,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
 
     const zoneDefs = [
       { name: 'Z1 Recovery', min: 0, max: 0.6, color: '#3b82f6' },
-      { name: 'Z2 Aerobic', min: 0.6, max: 0.7, color: '#22c55e' },
+      { name: 'Z2 Aerobic', min: 0.6, max: 0.7, color: '#16c060' },
       { name: 'Z3 Tempo', min: 0.7, max: 0.8, color: '#eab308' },
       { name: 'Z4 Threshold', min: 0.8, max: 0.9, color: '#f97316' },
       { name: 'Z5 Max', min: 0.9, max: Infinity, color: '#ef4444' },

@@ -45,7 +45,7 @@ onMounted(() => {
   gap: 14px;
   flex-wrap: wrap;
   padding: 12px 22px;
-  background: rgba(34, 197, 94, 0.08);
+  background: rgba(22, 192, 96, 0.08);
   border-bottom: 1px solid var(--border);
 }
 .sb-text {

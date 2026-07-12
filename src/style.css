@@ -1,19 +1,21 @@
 :root {
-  --bg: #0a0f0d;
-  --bg-elev: #121a16;
-  --bg-elev2: #1a241e;
-  --border: #26332b;
-  --text: #e8f0ea;
-  --muted: #8fa79a;
-  --accent: #22c55e;
-  --accent2: #4ade80;
+  /* Neutral near-black base (FotMob-style), emerald primary, blue secondary. */
+  --bg: #0a0b0d;
+  --bg-elev: #16181c;
+  --bg-elev2: #1f2228;
+  --border: #2a2e35;
+  --text: #f2f4f7;
+  --muted: #9aa3af;
+  --accent: #16c060;
+  --accent2: #37e07f;
+  --accent-blue: #4a9eff;
   --danger: #ef4444;
   --radius: 14px;
-  --shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+  --shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
 
-  /* Accent tints (green) — reused across chrome */
-  --accent-tint: rgba(34, 197, 94, 0.14);
-  --accent-tint-strong: rgba(34, 197, 94, 0.4);
+  /* Accent tints (emerald) — reused across chrome */
+  --accent-tint: rgba(22, 192, 96, 0.14);
+  --accent-tint-strong: rgba(22, 192, 96, 0.42);
 
   /* Control metrics — one coherent system.
      Default controls render at 38px, small controls at 32px. */
@@ -43,7 +45,7 @@ body {
 }
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: radial-gradient(1200px 600px at 80% -10%, #16281c 0%, var(--bg) 55%);
+  background: radial-gradient(1200px 600px at 80% -10%, #14171c 0%, var(--bg) 55%);
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
@@ -59,7 +61,7 @@ code {
   font-size: 0.9em;
 }
 a {
-  color: var(--accent);
+  color: var(--accent-blue);
 }
 
 /* Top bar */
@@ -119,7 +121,7 @@ a {
   border-color: var(--accent);
 }
 .btn.primary {
-  background: linear-gradient(180deg, #2ee06a, #16a34a);
+  background: linear-gradient(180deg, #1fd873, #12a552);
   border-color: transparent;
   color: #052012;
 }
@@ -182,7 +184,7 @@ textarea:focus-visible {
   padding: 24px;
 }
 .dropzone.drag {
-  background: rgba(34, 197, 94, 0.06);
+  background: rgba(22, 192, 96, 0.06);
 }
 .dz-inner {
   text-align: center;
@@ -321,7 +323,7 @@ textarea:focus-visible {
   border-color: var(--accent);
 }
 .pill-btn.active {
-  background: linear-gradient(180deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.12));
+  background: linear-gradient(180deg, rgba(22, 192, 96, 0.25), rgba(22, 192, 96, 0.12));
   border-color: var(--accent);
 }
 .pill-btn .sub {
@@ -525,7 +527,7 @@ textarea:focus-visible {
   font-weight: 800;
   padding: 14px 22px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(34, 197, 94, 0.22), rgba(74, 222, 128, 0.16));
+  background: linear-gradient(180deg, rgba(22, 192, 96, 0.22), rgba(55, 224, 127, 0.16));
   border: 1px solid var(--accent-tint-strong);
 }
 .role-conf {
