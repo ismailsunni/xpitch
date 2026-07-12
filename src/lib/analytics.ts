@@ -320,10 +320,14 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
         sides[idx] += p.dt;
       }
 
-      const zoneGrid = Array.from({ length: 3 }, () => new Array(3).fill(0));
+      // Occupancy grid: 6 columns along the pitch length (u) x 3 rows across
+      // the width (v). Rendered generically from these dimensions.
+      const ZONE_NX = 6;
+      const ZONE_NY = 3;
+      const zoneGrid = Array.from({ length: ZONE_NY }, () => new Array(ZONE_NX).fill(0));
       for (const p of pts) {
-        const zx = Math.max(0, Math.min(2, Math.floor(p.u * 3)));
-        const zy = Math.max(0, Math.min(2, Math.floor(p.v * 3)));
+        const zx = Math.max(0, Math.min(ZONE_NX - 1, Math.floor(p.u * ZONE_NX)));
+        const zy = Math.max(0, Math.min(ZONE_NY - 1, Math.floor(p.v * ZONE_NY)));
         zoneGrid[zy][zx] += p.dt;
       }
 

@@ -75,50 +75,32 @@ function drawPitchLines(ctx: CanvasRenderingContext2D, w: number, h: number, mar
   dot(ctx, margin + pw - penW * 0.72, margin + ph / 2, 2.5);
 }
 
-// A right-pointing arrow across the pitch showing the attacking direction
-// (data is always oriented so attacking is to the right). Placed in the upper
-// band so it clears the centre circle and the average-position marker.
+// A large, faint block arrow spanning the pitch, showing the attacking
+// direction (data is always oriented so attacking is to the right). Drawn as a
+// background watermark right after the pitch lines, so data overlays sit on top.
 function drawAttackArrow(ctx: CanvasRenderingContext2D, w: number, h: number, margin: number) {
   const pw = w - 2 * margin;
   const ph = h - 2 * margin;
-  const y = margin + ph * 0.3;
-  const x1 = margin + pw * 0.38;
-  const x2 = margin + pw * 0.62;
-  const head = Math.max(10, ph * 0.05);
-  const FILL = '#f2fff4';
-  const OUTLINE = 'rgba(4,20,10,0.55)';
+  const y = margin + ph / 2; // vertical centre
+  const x1 = margin + pw * 0.16;
+  const x2 = margin + pw * 0.84;
+  const head = ph * 0.26; // big arrowhead
+  const shaftH = ph * 0.11; // thick shaft
+  const headBaseX = x2 - head;
+  const top = y - shaftH / 2;
+  const bot = y + shaftH / 2;
   ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  // Shaft (dark halo under a light stroke for contrast on any overlay).
+  ctx.fillStyle = 'rgba(255,255,255,0.11)';
   ctx.beginPath();
-  ctx.moveTo(x1, y);
-  ctx.lineTo(x2 - head * 0.55, y);
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 7;
-  ctx.stroke();
-  ctx.strokeStyle = FILL;
-  ctx.lineWidth = 3.5;
-  ctx.stroke();
-  // Arrowhead.
-  ctx.beginPath();
-  ctx.moveTo(x2, y);
-  ctx.lineTo(x2 - head, y - head * 0.62);
-  ctx.lineTo(x2 - head, y + head * 0.62);
+  ctx.moveTo(x1, top);
+  ctx.lineTo(headBaseX, top);
+  ctx.lineTo(headBaseX, y - head / 2);
+  ctx.lineTo(x2, y);
+  ctx.lineTo(headBaseX, y + head / 2);
+  ctx.lineTo(headBaseX, bot);
+  ctx.lineTo(x1, bot);
   ctx.closePath();
-  ctx.fillStyle = FILL;
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 2;
   ctx.fill();
-  ctx.stroke();
-  // Label.
-  ctx.font = 'bold 10px system-ui';
-  ctx.textAlign = 'center';
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = OUTLINE;
-  ctx.fillStyle = FILL;
-  ctx.strokeText('ATTACKING', (x1 + x2) / 2, y - head * 1.05);
-  ctx.fillText('ATTACKING', (x1 + x2) / 2, y - head * 1.05);
   ctx.restore();
 }
 
@@ -180,6 +162,7 @@ function drawHeatmap(canvas: HTMLCanvasElement, positional: any, aspect: number)
   const { ctx, w, h } = fit(canvas, aspect);
   const margin = Math.max(14, w * 0.03);
   drawPitchLines(ctx, w, h, margin);
+  drawAttackArrow(ctx, w, h, margin);
   const map = mapper(w, h, margin);
   const { grid, gridMax, GX, GY } = positional;
 
@@ -235,7 +218,6 @@ function drawHeatmap(canvas: HTMLCanvasElement, positional: any, aspect: number)
     ctx.textAlign = 'center';
     ctx.fillText('AVG', p.x, p.y - 12);
   }
-  drawAttackArrow(ctx, w, h, margin);
   drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
@@ -243,6 +225,7 @@ function drawTrail(canvas: HTMLCanvasElement, positional: any, aspect: number) {
   const { ctx, w, h } = fit(canvas, aspect);
   const margin = Math.max(14, w * 0.03);
   drawPitchLines(ctx, w, h, margin);
+  drawAttackArrow(ctx, w, h, margin);
   const map = mapper(w, h, margin);
   const pts = positional.points;
   if (!pts.length) return;
@@ -260,7 +243,6 @@ function drawTrail(canvas: HTMLCanvasElement, positional: any, aspect: number) {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-  drawAttackArrow(ctx, w, h, margin);
   drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
@@ -268,26 +250,35 @@ function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
   const { ctx, w, h } = fit(canvas, aspect);
   const margin = Math.max(14, w * 0.03);
   drawPitchLines(ctx, w, h, margin);
+  drawAttackArrow(ctx, w, h, margin);
   const pw = w - 2 * margin;
   const ph = h - 2 * margin;
   const grid = positional.zoneGrid;
+  const ny = grid.length;
+  const nx = grid[0]?.length || 0;
   let total = 0;
   for (const row of grid) for (const c of row) total += c;
   total = total || 1;
+  const cw = pw / nx;
+  const ch = ph / ny;
+  const fontPx = Math.max(9, Math.min(14, cw * 0.34));
 
-  for (let zy = 0; zy < 3; zy++) {
-    for (let zx = 0; zx < 3; zx++) {
+  for (let zy = 0; zy < ny; zy++) {
+    for (let zx = 0; zx < nx; zx++) {
       const pct = grid[zy][zx] / total;
-      const x = margin + (zx / 3) * pw;
-      const y = margin + (zy / 3) * ph;
-      ctx.fillStyle = `rgba(230,40,40,${0.15 + pct * 0.85})`;
-      ctx.fillRect(x, y, pw / 3, ph / 3);
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.strokeRect(x, y, pw / 3, ph / 3);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 14px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(Math.round(pct * 100) + '%', x + pw / 6, y + ph / 6 + 5);
+      const x = margin + zx * cw;
+      const y = margin + zy * ch;
+      ctx.fillStyle = `rgba(230,40,40,${0.12 + pct * 0.88})`;
+      ctx.fillRect(x, y, cw, ch);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.strokeRect(x, y, cw, ch);
+      // Skip the label on empty cells at a fine grid to reduce clutter.
+      if (pct > 0.004 || nx <= 3) {
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${fontPx}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round(pct * 100) + '%', x + cw / 2, y + ch / 2 + fontPx * 0.35);
+      }
     }
   }
   drawAttackArrow(ctx, w, h, margin);
