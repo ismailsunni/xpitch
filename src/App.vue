@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent, watch } from 'vue';
-import AppHeader from './components/AppHeader.vue';
+import AppSidebar from './components/AppSidebar.vue';
 import { store } from './store';
 import { auth, needsUsername } from './lib/auth';
 import { loadMyFields } from './lib/api';
@@ -19,8 +19,10 @@ watch(
 </script>
 
 <template>
-  <AppHeader />
-  <router-view />
+  <div class="shell">
+    <AppSidebar />
+    <main class="shell-main"><router-view /></main>
+  </div>
   <FieldEditor v-if="store.fieldEditorOpen" />
   <ManualSplitEditor v-if="store.manualSplitOpen" />
   <UsernameGate v-if="auth.ready && needsUsername()" />
