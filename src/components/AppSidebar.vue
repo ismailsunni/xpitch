@@ -4,6 +4,7 @@ import { RouterLink, useRouter, useRoute } from 'vue-router';
 import { loadFiles } from '../store';
 import { auth, signOut } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
+import { theme, toggleTheme } from '../lib/theme';
 import SaveMatchButton from './SaveMatchButton.vue';
 
 const router = useRouter();
@@ -96,6 +97,12 @@ watch(
     </label>
 
     <SaveMatchButton class="save-in-sidebar" />
+
+    <button class="theme-toggle" @click="toggleTheme">
+      <svg v-if="theme.mode === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+      <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z" /></svg>
+      <span>{{ theme.mode === 'dark' ? 'Light mode' : 'Dark mode' }}</span>
+    </button>
 
     <!-- User chip -->
     <div v-if="supabaseEnabled" class="user-zone">
@@ -207,8 +214,8 @@ watch(
 }
 .nav-item.active {
   background: var(--accent-tint);
-  color: var(--accent);
-  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--accent-ink);
+  box-shadow: inset 2px 0 0 var(--accent-ink);
 }
 
 .spacer {
@@ -223,9 +230,9 @@ watch(
   width: 100%;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px dashed rgba(200, 247, 81, 0.4);
-  background: rgba(200, 247, 81, 0.06);
-  color: var(--accent);
+  border: 1px dashed var(--accent-tint-strong);
+  background: var(--accent-tint);
+  color: var(--accent-ink);
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
@@ -240,6 +247,32 @@ watch(
 }
 .save-in-sidebar {
   margin-top: 8px;
+}
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 .save-in-sidebar :deep(.btn) {
   width: 100%;

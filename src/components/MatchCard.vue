@@ -67,7 +67,7 @@ const title = computed(() => props.match.title || (props.match.location_label ? 
   padding: 2px 8px;
 }
 .mc-author {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 12px;
   margin-top: 2px;
 }

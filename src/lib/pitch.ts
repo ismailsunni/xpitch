@@ -6,9 +6,25 @@
  * v in [0,1] across width. Rendered onto a canonical 105x68 template.
  */
 
-const GREEN_DARK = '#0b1c11';
-const GREEN_LIGHT = '#0f2416';
-const LINE = 'rgba(255,255,255,0.55)';
+// Turf + line colours, theme-aware. Dark mode = near-black pitch with faint
+// white lines; light mode = a soft lime-green pitch (matching the brand) with
+// dark lines. refreshed at the top of drawPitch().
+let GREEN_DARK = '#0b1c11';
+let GREEN_LIGHT = '#0f2416';
+let LINE = 'rgba(255,255,255,0.55)';
+function refreshPitchColors(): void {
+  const light =
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+  if (light) {
+    GREEN_DARK = '#b4d76a';
+    GREEN_LIGHT = '#bfe07a';
+    LINE = 'rgba(28, 55, 18, 0.5)';
+  } else {
+    GREEN_DARK = '#0b1c11';
+    GREEN_LIGHT = '#0f2416';
+    LINE = 'rgba(255, 255, 255, 0.55)';
+  }
+}
 
 export type PitchMode = 'heatmap' | 'trail' | 'zones';
 
@@ -286,6 +302,7 @@ function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
 
 export function drawPitch(canvas: HTMLCanvasElement, positional: any, mode: PitchMode) {
   if (!canvas || !positional) return;
+  refreshPitchColors();
   // Use the real field aspect ratio when a field is defined; otherwise the
   // canonical 105x68 template (the PCA bounding box aspect is not meaningful).
   let aspect = positional.templateAspect || 68 / 105;

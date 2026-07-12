@@ -56,7 +56,7 @@ function openHeatmap() {
           <div><div class="rs-val">{{ rating.workRate }}<small>/100</small></div><div class="rs-k">Work rate</div></div>
           <div><div class="rs-val">{{ rating.intensity }}<small>/100</small></div><div class="rs-k">Intensity</div></div>
           <div><div class="rs-val">{{ rating.endurance }}<small>/100</small></div><div class="rs-k">Endurance</div></div>
-          <div><div class="rs-val" style="color: var(--accent)">{{ rating.score }}<small>/100</small></div><div class="rs-k">Overall</div></div>
+          <div><div class="rs-val" style="color: var(--accent-ink)">{{ rating.score }}<small>/100</small></div><div class="rs-k">Overall</div></div>
         </div>
       </div>
 
@@ -166,7 +166,7 @@ function openHeatmap() {
   overflow: hidden;
   border-radius: 20px;
   padding: 24px 26px;
-  background: linear-gradient(150deg, #132018 0%, var(--bg-elev) 60%);
+  background: var(--report-grad);
   border: 1px solid var(--accent-tint-strong);
 }
 .report-glow {
@@ -197,7 +197,7 @@ function openHeatmap() {
   font-weight: 700;
   font-size: 78px;
   line-height: 0.9;
-  color: var(--accent);
+  color: var(--accent-ink);
   letter-spacing: -0.03em;
 }
 .report-title {
@@ -252,7 +252,7 @@ function openHeatmap() {
 }
 .cov-link {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--accent-ink);
   cursor: pointer;
 }
 .cov-role {

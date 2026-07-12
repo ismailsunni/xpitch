@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { drawPitch } from '../lib/pitch';
 import type { PitchMode } from '../lib/pitch';
+import { theme } from '../lib/theme';
 
 const props = defineProps<{ positional: any; mode: PitchMode }>();
 const canvas = ref<HTMLCanvasElement>();
@@ -17,6 +18,7 @@ onMounted(() => {
   if (canvas.value?.parentElement) ro.observe(canvas.value.parentElement);
 });
 watch(() => [props.positional, props.mode], draw);
+watch(() => theme.mode, draw); // recolour the pitch on light↔dark switch
 onBeforeUnmount(() => ro?.disconnect());
 </script>
 

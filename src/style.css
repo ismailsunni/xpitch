@@ -13,9 +13,10 @@
   --muted2: #7c8b82;
   --dim: #5a6b60;
 
-  --accent: #c8f751; /* lime */
+  --accent: #c8f751; /* lime — button/badge fills */
   --accent-hover: #d8ff7a;
   --on-accent: #08120a; /* text on lime */
+  --accent-ink: #c8f751; /* text-usable accent (links, active nav); darkens in light mode */
   --accent2: #3fe6a0; /* mint — positive / won */
 
   /* Categorical data palette */
@@ -38,6 +39,13 @@
   --accent-tint: rgba(200, 247, 81, 0.12);
   --accent-tint-strong: rgba(200, 247, 81, 0.4);
 
+  /* Chart + misc surfaces (theme-aware; charts.ts reads these) */
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-tick: rgba(230, 235, 245, 0.65);
+  --chart-accent: #c8f751;
+  --code-bg: rgba(255, 255, 255, 0.08);
+  --report-grad: linear-gradient(150deg, #132018 0%, var(--bg-elev) 60%);
+
   /* Control metrics — one coherent system.
      Default controls render at 38px, small controls at 32px. */
   --ctl-pad-y: 8px;
@@ -57,6 +65,34 @@
   --sp-3: 14px;
   --sp-4: 18px;
   --sp-5: 22px;
+}
+
+/* Light mode: override the surface/text tokens; keep the lime brand for fills
+   but swap in a darker "ink" lime for text/links so it stays legible on white. */
+:root[data-theme='light'] {
+  --bg: #f2f5ef;
+  --bg-sidebar: #ffffff;
+  --bg-elev: #ffffff;
+  --bg-elev2: #eef1ea;
+  --bg-elev3: #e6ebe0;
+  --border: rgba(20, 40, 30, 0.12);
+  --border-strong: rgba(20, 40, 30, 0.22);
+  --text: #13211b;
+  --muted: #56675c;
+  --muted2: #6a786e;
+  --dim: #91a096;
+  --accent-hover: #bced3d;
+  --accent-ink: #4d7a12;
+  --accent2: #159a5b;
+  --danger: #d63b28;
+  --accent-tint: rgba(120, 170, 20, 0.16);
+  --accent-tint-strong: rgba(120, 170, 20, 0.4);
+  --shadow: 0 10px 30px rgba(20, 40, 30, 0.12);
+  --chart-grid: rgba(20, 40, 30, 0.09);
+  --chart-tick: rgba(20, 40, 30, 0.62);
+  --chart-accent: #5c8f14;
+  --code-bg: rgba(20, 40, 30, 0.07);
+  --report-grad: linear-gradient(150deg, #eaf6d3 0%, var(--bg-elev) 62%);
 }
 
 * {
@@ -102,14 +138,14 @@ h4 {
   letter-spacing: -0.02em;
 }
 code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--code-bg);
   padding: 1px 6px;
   border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 0.85em;
 }
 a {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 a:hover {
   color: var(--accent-hover);
@@ -197,8 +233,8 @@ a:hover {
   background: transparent;
 }
 .btn.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-ink);
+  color: var(--accent-ink);
   background: var(--accent-tint);
 }
 .btn.small {
@@ -213,7 +249,7 @@ a:hover {
 .linkbtn {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--accent-ink);
   cursor: pointer;
   font: inherit;
   padding: 0;
@@ -461,7 +497,7 @@ textarea:focus-visible {
 }
 .card.accent {
   border-color: var(--accent-tint-strong);
-  background: linear-gradient(150deg, #132018 0%, var(--bg-elev) 60%);
+  background: var(--report-grad);
 }
 .card .label {
   font-size: 12px;

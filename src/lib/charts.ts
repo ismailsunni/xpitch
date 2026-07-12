@@ -2,8 +2,19 @@
 import type { ChartConfiguration } from 'chart.js';
 
 const KMH = 3.6;
-const GRID = 'rgba(255,255,255,0.07)';
-const TICK = 'rgba(230,235,245,0.65)';
+
+// Theme-aware chart colours, read from CSS custom properties so charts follow
+// light/dark mode. refreshed() is called at the top of every config builder.
+let GRID = 'rgba(255,255,255,0.07)';
+let TICK = 'rgba(230,235,245,0.65)';
+let ACCENT = '#c8f751';
+function refreshChartColors(): void {
+  if (typeof document === 'undefined') return;
+  const cs = getComputedStyle(document.documentElement);
+  GRID = cs.getPropertyValue('--chart-grid').trim() || GRID;
+  TICK = cs.getPropertyValue('--chart-tick').trim() || TICK;
+  ACCENT = cs.getPropertyValue('--chart-accent').trim() || ACCENT;
+}
 
 function fmtTime(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -12,6 +23,7 @@ function fmtTime(sec: number): string {
 }
 
 function base(extra: any = {}): any {
+  refreshChartColors();
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -107,6 +119,7 @@ export function hrZonesConfig(zones: any[]): ChartConfiguration {
 }
 
 export function workRateConfig(bins: any[]): ChartConfiguration {
+  refreshChartColors();
   return {
     type: 'bar',
     data: {
@@ -115,7 +128,7 @@ export function workRateConfig(bins: any[]): ChartConfiguration {
         {
           label: 'Distance per minute (m)',
           data: bins.map((b) => Math.round(b.distance)),
-          backgroundColor: '#c8f751',
+          backgroundColor: ACCENT,
           borderRadius: 3,
           order: 2,
         },
@@ -168,6 +181,7 @@ export function fatigueConfig(segments: any[]): ChartConfiguration {
 }
 
 export function speedProfileConfig(samples: any[]): ChartConfiguration {
+  refreshChartColors();
   const step = Math.max(1, Math.floor(samples.length / 1200));
   const data: any[] = [];
   for (let i = 0; i < samples.length; i += step) {
@@ -180,7 +194,7 @@ export function speedProfileConfig(samples: any[]): ChartConfiguration {
         {
           label: 'Speed (km/h)',
           data,
-          borderColor: '#c8f751',
+          borderColor: ACCENT,
           backgroundColor: 'rgba(200,247,81,0.16)',
           borderWidth: 1.2,
           pointRadius: 0,

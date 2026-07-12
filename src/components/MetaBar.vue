@@ -42,7 +42,7 @@ const calories = computed(() => session.value.total_calories ?? null);
   <section class="metabar" v-if="meta">
     <div class="mi" v-if="viewing">
       <span class="k">Viewing</span>
-      <span class="val" style="color: var(--accent)">{{ viewing }}</span>
+      <span class="val" style="color: var(--accent-ink)">{{ viewing }}</span>
     </div>
     <div class="mi" v-if="when">
       <span class="k">When</span>
