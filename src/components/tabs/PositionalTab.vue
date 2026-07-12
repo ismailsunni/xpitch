@@ -51,6 +51,7 @@ const preferredSide = computed(() => {
         <div class="panel">
           <h3>Zone occupancy (time %)</h3>
           <PitchCanvas :positional="p" mode="zones" />
+          <p class="hint">% of time spent in each zone (6 × 3). Darker red = more time; 0% = barely visited.</p>
         </div>
         <div class="panel">
           <h3>Positioning breakdown</h3>

@@ -272,13 +272,12 @@ function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
       ctx.fillRect(x, y, cw, ch);
       ctx.strokeStyle = 'rgba(255,255,255,0.3)';
       ctx.strokeRect(x, y, cw, ch);
-      // Skip the label on empty cells at a fine grid to reduce clutter.
-      if (pct > 0.004 || nx <= 3) {
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${fontPx}px system-ui`;
-        ctx.textAlign = 'center';
-        ctx.fillText(Math.round(pct * 100) + '%', x + cw / 2, y + ch / 2 + fontPx * 0.35);
-      }
+      // Label every cell so empty zones read as "0%", not a gap. Faint cells
+      // get dimmed text to keep the busy zones readable.
+      ctx.fillStyle = pct < 0.01 ? 'rgba(255,255,255,0.4)' : '#fff';
+      ctx.font = `bold ${fontPx}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.round(pct * 100) + '%', x + cw / 2, y + ch / 2 + fontPx * 0.35);
     }
   }
   drawAttackArrow(ctx, w, h, margin);
