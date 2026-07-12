@@ -109,18 +109,20 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
   if (mErr) throw mErr;
 
   // 3. Insert one session row per non-combined segment (with cached summary)
-  const rows = segs.map((seg, i) => {
+  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, nearField?.id ?? null));
+  if (sErr) throw sErr;
+
+  return shortId;
+}
+
+// Build the session rows for the current in-memory analysis (used by both
+// create and update). Recomputes each segment with the current options so the
+// cached summary/role reflect the latest edits.
+function buildSessionRows(matchId: string, uid: string, fieldId: string | null) {
+  return nonCombinedSegments().map((seg, i) => {
     const dirs = dirsForSegment(seg);
     const a = compute(
-      {
-        records: seg.records,
-        sessions: seg.session ? [seg.session] : [],
-        laps: [],
-        events: [],
-        activity: null,
-        file_id: null,
-        other: {},
-      },
+      { records: seg.records, sessions: seg.session ? [seg.session] : [], laps: [], events: [], activity: null, file_id: null, other: {} },
       {
         age: store.options.age,
         maxHR: store.options.maxHR,
@@ -132,10 +134,10 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       }
     );
     return {
-      match_id: match.id,
+      match_id: matchId,
       owner_id: uid,
       seq: i + 1,
-      field_id: nearField?.id ?? null,
+      field_id: fieldId,
       label: seg.label,
       kind: seg.kind,
       start_time: fitTimestampToDate(seg.startTime)?.toISOString() ?? null,
@@ -156,10 +158,39 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       },
     };
   });
-  const { error: sErr } = await sb.from('sessions').insert(rows);
-  if (sErr) throw sErr;
+}
 
-  return shortId;
+// Persist edits to an existing match: match-level options + rebuilt sessions
+// (delete + re-insert cleanly handles a changed manual split). Returns the new
+// session id/seq pairs so callers can refresh their seq→id map.
+export async function updateMatchFromCurrent(matchId: string): Promise<{ id: string; seq: number }[]> {
+  const sb = requireClient();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('Sign in to save changes.');
+  if (!store.analytics) throw new Error('Nothing to save.');
+  const meta = store.analytics.meta;
+  const nearField =
+    meta.startLat != null && meta.startLon != null ? await resolveNearestFieldId(meta.startLat, meta.startLon) : null;
+
+  const { error: mErr } = await sb
+    .from('matches')
+    .update({
+      format: store.options.format,
+      group_gap_min: store.options.groupGapMin,
+      manual_splits: store.manualSplits,
+      primary_field_id: nearField?.id ?? null,
+    })
+    .eq('id', matchId);
+  if (mErr) throw mErr;
+
+  const { error: dErr } = await sb.from('sessions').delete().eq('match_id', matchId);
+  if (dErr) throw dErr;
+  const { data: inserted, error: sErr } = await sb
+    .from('sessions')
+    .insert(buildSessionRows(matchId, uid, nearField?.id ?? null))
+    .select('id,seq');
+  if (sErr) throw sErr;
+  return inserted || [];
 }
 
 export interface LoadedMatch {

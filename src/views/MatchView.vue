@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   getMatch,
   toCloudSessions,
   updateSessionDirs,
+  updateMatchFromCurrent,
   setMatchVisibility,
   updateMatchTitle,
   deleteMatch,
@@ -34,6 +35,28 @@ let ownerId = '';
 
 const isOwner = () => !!auth.user && auth.user.id === ownerId;
 const owned = computed(() => state.value === 'ready' && isOwner());
+
+// Unsaved analysis edits (format, age, sprint, manual split, applied pitch).
+const dirty = ref(false);
+const saving = ref(false);
+const savedFlash = ref(false);
+
+async function onSaveChanges() {
+  if (!matchRow.value || saving.value) return;
+  saving.value = true;
+  try {
+    const rows = await updateMatchFromCurrent(matchRow.value.id);
+    sessionIdBySeq = {};
+    rows.forEach((s) => (sessionIdBySeq[s.seq] = s.id));
+    dirty.value = false;
+    savedFlash.value = true;
+    setTimeout(() => (savedFlash.value = false), 2500);
+  } catch (e: any) {
+    alert('Could not save changes: ' + (e?.message || e));
+  } finally {
+    saving.value = false;
+  }
+}
 
 async function onTitle(e: Event) {
   const title = (e.target as HTMLInputElement).value.trim();
@@ -85,6 +108,8 @@ async function load() {
       seq,
     });
     state.value = 'ready';
+    // Options just set by loadFromCloud shouldn't count as edits.
+    void nextTick(() => (dirty.value = false));
   } catch (e: any) {
     state.value = 'error';
     errMsg.value = e?.message || String(e);
@@ -103,6 +128,23 @@ watch(
     const idx = seq ? parseInt(seq as string, 10) - 1 : 0;
     if (segs[idx] && segs[idx].id !== store.activeSegmentId) selectSegment(segs[idx].id);
   }
+);
+
+// Mark the match dirty when the owner edits analysis options / split / pitch.
+// (Flips persist on their own via the watch below, so they're excluded here.)
+watch(
+  () => [
+    store.options.format,
+    store.options.age,
+    store.options.maxHR,
+    store.options.sprintKmh,
+    store.manualSplits,
+    store.appliedFieldId,
+  ],
+  () => {
+    if (state.value === 'ready' && isOwner()) dirty.value = true;
+  },
+  { deep: true }
 );
 
 // Owner-only: persist flips to the active session (debounced).
@@ -148,6 +190,9 @@ watch(
             <option value="private">Private (only me)</option>
           </select>
         </label>
+        <button class="btn primary small" :disabled="saving || !dirty" @click="onSaveChanges">
+          {{ saving ? 'Saving…' : savedFlash ? 'Saved ✓' : dirty ? '💾 Save changes' : 'Saved' }}
+        </button>
         <button class="btn ghost small ob-del" @click="onDelete">🗑 Delete</button>
       </div>
       <Dashboard />
