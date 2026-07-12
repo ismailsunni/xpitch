@@ -75,6 +75,53 @@ function drawPitchLines(ctx: CanvasRenderingContext2D, w: number, h: number, mar
   dot(ctx, margin + pw - penW * 0.72, margin + ph / 2, 2.5);
 }
 
+// A right-pointing arrow across the pitch showing the attacking direction
+// (data is always oriented so attacking is to the right). Placed in the upper
+// band so it clears the centre circle and the average-position marker.
+function drawAttackArrow(ctx: CanvasRenderingContext2D, w: number, h: number, margin: number) {
+  const pw = w - 2 * margin;
+  const ph = h - 2 * margin;
+  const y = margin + ph * 0.3;
+  const x1 = margin + pw * 0.38;
+  const x2 = margin + pw * 0.62;
+  const head = Math.max(10, ph * 0.05);
+  const FILL = '#f2fff4';
+  const OUTLINE = 'rgba(4,20,10,0.55)';
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // Shaft (dark halo under a light stroke for contrast on any overlay).
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  ctx.lineTo(x2 - head * 0.55, y);
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 7;
+  ctx.stroke();
+  ctx.strokeStyle = FILL;
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+  // Arrowhead.
+  ctx.beginPath();
+  ctx.moveTo(x2, y);
+  ctx.lineTo(x2 - head, y - head * 0.62);
+  ctx.lineTo(x2 - head, y + head * 0.62);
+  ctx.closePath();
+  ctx.fillStyle = FILL;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
+  // Label.
+  ctx.font = 'bold 10px system-ui';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = OUTLINE;
+  ctx.fillStyle = FILL;
+  ctx.strokeText('ATTACKING', (x1 + x2) / 2, y - head * 1.05);
+  ctx.fillText('ATTACKING', (x1 + x2) / 2, y - head * 1.05);
+  ctx.restore();
+}
+
 function drawDirectionLabels(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -188,6 +235,7 @@ function drawHeatmap(canvas: HTMLCanvasElement, positional: any, aspect: number)
     ctx.textAlign = 'center';
     ctx.fillText('AVG', p.x, p.y - 12);
   }
+  drawAttackArrow(ctx, w, h, margin);
   drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
@@ -212,6 +260,7 @@ function drawTrail(canvas: HTMLCanvasElement, positional: any, aspect: number) {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
+  drawAttackArrow(ctx, w, h, margin);
   drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
@@ -241,6 +290,7 @@ function drawZones(canvas: HTMLCanvasElement, positional: any, aspect: number) {
       ctx.fillText(Math.round(pct * 100) + '%', x + pw / 6, y + ph / 6 + 5);
     }
   }
+  drawAttackArrow(ctx, w, h, margin);
   drawDirectionLabels(ctx, w, h, margin, positional.compass);
 }
 
