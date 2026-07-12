@@ -176,76 +176,113 @@ watch(
     </p>
     <p v-else-if="state === 'error'" class="error" style="padding: 48px; text-align: center">{{ errMsg }}</p>
     <template v-else>
-      <div class="sharebar">
-        <span class="sb-label">Share this match</span>
-        <ShareButtons :url="shareUrl" :title="shareTitle" />
-      </div>
-      <div v-if="owned" class="ownerbar">
-        <input class="ob-title" :value="matchRow.title || ''" placeholder="Untitled match" @change="onTitle" />
-        <label class="ob-vis">
-          Visibility
-          <select :value="matchRow.visibility" @change="onVisibility">
-            <option value="unlisted">Unlisted (link only)</option>
-            <option value="public">Public (on profile)</option>
-            <option value="private">Private (only me)</option>
-          </select>
-        </label>
-        <button class="btn primary small" :disabled="saving || !dirty" @click="onSaveChanges">
-          {{ saving ? 'Saving…' : savedFlash ? 'Saved ✓' : dirty ? '💾 Save changes' : 'Saved' }}
-        </button>
-        <button class="btn ghost small ob-del" @click="onDelete">🗑 Delete</button>
-      </div>
+      <header class="match-head">
+        <div class="mh-title">
+          <input
+            v-if="owned"
+            class="mh-title-input"
+            :value="matchRow.title || ''"
+            placeholder="Untitled match"
+            aria-label="Match title"
+            @change="onTitle"
+          />
+          <h1 v-else>{{ matchRow.title || 'Untitled match' }}</h1>
+        </div>
+        <div class="mh-actions">
+          <label v-if="owned" class="mh-vis">
+            <span class="mh-vis-k">Visibility</span>
+            <select :value="matchRow.visibility" @change="onVisibility">
+              <option value="unlisted">Unlisted (link only)</option>
+              <option value="public">Public (on profile)</option>
+              <option value="private">Private (only me)</option>
+            </select>
+          </label>
+          <button
+            v-if="owned"
+            class="btn primary small"
+            :disabled="saving || !dirty"
+            @click="onSaveChanges"
+          >
+            {{ saving ? 'Saving…' : savedFlash ? 'Saved ✓' : dirty ? '💾 Save changes' : '✓ Saved' }}
+          </button>
+          <ShareButtons :url="shareUrl" :title="shareTitle" />
+          <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
+        </div>
+      </header>
       <Dashboard />
     </template>
   </main>
 </template>
 
 <style scoped>
-.sharebar {
+/* Unified match header: title on the left, action cluster on the right.
+   Emerald accent wash + left bar so it reads as the page header, not another dark strip. */
+.match-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 16px;
   flex-wrap: wrap;
-  padding: 10px 22px;
+  padding: 16px 22px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.015);
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, rgba(22, 192, 96, 0.13), rgba(22, 192, 96, 0.02) 55%, transparent);
 }
-.sb-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
-}
-.ownerbar {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 12px 22px;
-  border-bottom: 1px solid var(--border);
-}
-.ob-title {
+.mh-title {
+  min-width: 0;
   flex: 1;
-  min-width: 180px;
-  background: var(--bg-elev2);
-  border: 1px solid var(--border);
+}
+.mh-title h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Editable title styled like a heading, not a boxy full-width field. */
+.mh-title-input {
+  width: 100%;
+  max-width: 460px;
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text);
   border-radius: var(--ctl-radius);
-  padding: var(--ctl-pad-y) var(--ctl-pad-x);
-  line-height: var(--ctl-line);
-  font-size: 15px;
-  font-weight: 600;
+  padding: 4px 8px;
+  margin-left: -8px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  transition: 0.15s;
 }
-.ob-vis {
+.mh-title-input:hover {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+.mh-title-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elev2);
+}
+.mh-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mh-vis {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.mh-vis-k {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
 }
-.ob-vis select {
+.mh-vis select {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -253,12 +290,23 @@ watch(
   padding: var(--ctl-pad-y-sm) 10px;
   line-height: var(--ctl-line-sm);
   font-size: 13px;
-  text-transform: none;
-  letter-spacing: 0;
+  cursor: pointer;
 }
-.ob-del:hover {
+.mh-del:hover {
   border-color: var(--danger);
   color: var(--danger);
+}
+@media (max-width: 640px) {
+  .match-head {
+    padding: 14px;
+  }
+  .mh-title h1,
+  .mh-title-input {
+    font-size: 20px;
+  }
+  .mh-vis-k {
+    display: none;
+  }
 }
 </style>
 
