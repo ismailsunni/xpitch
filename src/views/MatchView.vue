@@ -299,6 +299,10 @@ watch(
 @media (max-width: 640px) {
   .match-head {
     padding: 14px;
+    gap: 12px;
+  }
+  .mh-title {
+    flex-basis: 100%;
   }
   .mh-title h1,
   .mh-title-input {
@@ -306,6 +310,16 @@ watch(
   }
   .mh-vis-k {
     display: none;
+  }
+  /* Actions drop to their own full-width row and space out evenly. */
+  .mh-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .mh-vis,
+  .mh-vis select {
+    flex: 1;
+    min-width: 0;
   }
 }
 </style>

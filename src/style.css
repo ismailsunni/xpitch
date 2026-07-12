@@ -678,23 +678,40 @@ textarea:focus-visible {
 
 /* Responsive */
 @media (max-width: 640px) {
-  .topbar {
-    padding: 12px 14px;
-  }
-  .topbar h1 {
-    font-size: 17px;
-  }
-  .tagline {
-    display: none;
-  }
   .controls,
   .metabar,
-  .tabpane {
+  .tabpane,
+  .segbar {
     padding-left: 14px;
     padding-right: 14px;
   }
-  .ctl input {
-    width: 84px;
+  /* Controls + meta read as tidy 2-column grids on phones rather than a dense,
+     ragged flex-wrap. Fields fill their cell. */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 14px;
+    align-items: start;
+  }
+  .metabar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 16px;
+  }
+  .controls .ctl,
+  .metabar .mi {
+    min-width: 0;
+  }
+  .ctl input,
+  .ctl-select {
+    width: 100%;
+    min-width: 0;
+  }
+  .ctl .val {
+    overflow-wrap: anywhere;
+  }
+  .segbar {
+    gap: 16px;
   }
   .chart-box {
     height: 260px;
