@@ -6,9 +6,9 @@
  * v in [0,1] across width. Rendered onto a canonical 105x68 template.
  */
 
-const GREEN_DARK = '#1c7a3e';
-const GREEN_LIGHT = '#2a9350';
-const LINE = 'rgba(255,255,255,0.75)';
+const GREEN_DARK = '#0b1c11';
+const GREEN_LIGHT = '#0f2416';
+const LINE = 'rgba(255,255,255,0.55)';
 
 export type PitchMode = 'heatmap' | 'trail' | 'zones';
 

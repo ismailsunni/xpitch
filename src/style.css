@@ -1,31 +1,55 @@
 :root {
-  /* Neutral near-black base (FotMob-style), emerald primary, blue secondary. */
-  --bg: #0a0b0d;
-  --bg-elev: #16181c;
-  --bg-elev2: #1f2228;
-  --border: #2a2e35;
-  --text: #f2f4f7;
-  --muted: #9aa3af;
-  --accent: #16c060;
-  --accent2: #37e07f;
-  --accent-blue: #4a9eff;
-  --danger: #ef4444;
-  --radius: 14px;
-  --shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  /* xPitch design system — near-black base, lime/chartreuse primary,
+     data palette of blue→mint→amber→coral→red. */
+  --bg: #080c0a;
+  --bg-sidebar: #0b110e;
+  --bg-elev: #0e1712; /* cards */
+  --bg-elev2: #111a15; /* inputs / inner rows */
+  --bg-elev3: #141f18; /* chips / nested */
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #eaf2ed;
+  --muted: #8a968f;
+  --muted2: #7c8b82;
+  --dim: #5a6b60;
 
-  /* Accent tints (emerald) — reused across chrome */
-  --accent-tint: rgba(22, 192, 96, 0.14);
-  --accent-tint-strong: rgba(22, 192, 96, 0.42);
+  --accent: #c8f751; /* lime */
+  --accent-hover: #d8ff7a;
+  --on-accent: #08120a; /* text on lime */
+  --accent2: #3fe6a0; /* mint — positive / won */
+
+  /* Categorical data palette */
+  --c-blue: #2b6cff;
+  --c-mint: #3fe6a0;
+  --c-amber: #ffb01e;
+  --c-coral: #ff6a4d;
+  --c-red: #ff2d1e;
+  --danger: #ff6a4d;
+
+  /* Typography */
+  --font-head: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+
+  --radius: 18px;
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+
+  /* Accent tints (lime) — reused across chrome */
+  --accent-tint: rgba(200, 247, 81, 0.12);
+  --accent-tint-strong: rgba(200, 247, 81, 0.4);
 
   /* Control metrics — one coherent system.
      Default controls render at 38px, small controls at 32px. */
   --ctl-pad-y: 8px;
   --ctl-pad-x: 12px;
   --ctl-line: 20px;
-  --ctl-radius: 10px;
+  --ctl-radius: 11px;
   --ctl-pad-y-sm: 6px;
   --ctl-pad-x-sm: 12px;
   --ctl-line-sm: 18px;
+
+  /* Sidebar width (main grid) */
+  --sidebar-w: 248px;
 
   /* Spacing steps */
   --sp-1: 6px;
@@ -44,24 +68,63 @@ body {
   padding: 0;
 }
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: radial-gradient(1200px 600px at 80% -10%, #14171c 0%, var(--bg) 55%);
+  font-family: var(--font-body);
+  background: var(--bg);
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
 }
 #app {
   min-height: 100vh;
 }
+/* App shell: fixed-width sidebar + fluid main. Collapses to one column on mobile,
+   where the sidebar becomes an off-canvas drawer (see AppSidebar.vue). */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+.shell-main {
+  min-width: 0; /* let charts/tables shrink and scroll inside the column */
+}
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+}
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-head);
+  letter-spacing: -0.02em;
+}
 code {
   background: rgba(255, 255, 255, 0.08);
   padding: 1px 6px;
   border-radius: 6px;
-  font-size: 0.9em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
 }
 a {
-  color: var(--accent-blue);
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-hover);
+}
+/* Themed scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2a23;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Top bar */
@@ -121,12 +184,14 @@ a {
   border-color: var(--accent);
 }
 .btn.primary {
-  background: linear-gradient(180deg, #1fd873, #12a552);
+  background: var(--accent);
   border-color: transparent;
-  color: #052012;
+  color: var(--on-accent);
+  font-weight: 700;
 }
 .btn.primary:hover {
-  filter: brightness(1.06);
+  background: var(--accent-hover);
+  border-color: transparent;
 }
 .btn.ghost {
   background: transparent;
@@ -184,7 +249,7 @@ textarea:focus-visible {
   padding: 24px;
 }
 .dropzone.drag {
-  background: rgba(22, 192, 96, 0.06);
+  background: rgba(200, 247, 81, 0.06);
 }
 .dz-inner {
   text-align: center;
@@ -323,7 +388,7 @@ textarea:focus-visible {
   border-color: var(--accent);
 }
 .pill-btn.active {
-  background: linear-gradient(180deg, rgba(22, 192, 96, 0.25), rgba(22, 192, 96, 0.12));
+  background: linear-gradient(180deg, rgba(200, 247, 81, 0.22), rgba(200, 247, 81, 0.1));
   border-color: var(--accent);
 }
 .pill-btn .sub {
@@ -335,12 +400,11 @@ textarea:focus-visible {
   color: var(--text);
 }
 
-/* Tabs */
+/* Tabs — segmented pill row (match sections) */
 .tabs {
   display: flex;
-  gap: 4px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  padding: 16px 22px 4px;
   overflow-x: auto;
   position: sticky;
   top: 0;
@@ -348,22 +412,26 @@ textarea:focus-visible {
   z-index: 10;
 }
 .tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 11px;
   color: var(--muted);
-  padding: 14px 16px;
+  padding: 8px 15px;
   cursor: pointer;
-  font-size: 14px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
+  transition: 0.15s;
 }
 .tab:hover {
   color: var(--text);
+  border-color: var(--border-strong);
 }
 .tab.active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: transparent;
 }
 
 /* Panes */
@@ -388,47 +456,48 @@ textarea:focus-visible {
 .card {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-  box-shadow: var(--shadow);
+  border-radius: 16px;
+  padding: 18px;
 }
 .card.accent {
   border-color: var(--accent-tint-strong);
+  background: linear-gradient(150deg, #132018 0%, var(--bg-elev) 60%);
 }
 .card .label {
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
+  font-size: 12px;
+  color: var(--muted2);
 }
 .card .value {
-  font-size: 25px;
+  font-family: var(--font-head);
+  font-size: 32px;
   font-weight: 700;
-  margin-top: 4px;
+  letter-spacing: -0.02em;
+  margin-top: 8px;
 }
 .card .value small {
-  font-size: 13px;
-  color: var(--muted);
+  font-size: 14px;
+  color: var(--dim);
   font-weight: 500;
 }
 .card .sub {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted2);
+  margin-top: 4px;
 }
 
 /* Panel */
 .panel {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px;
+  border-radius: 20px;
+  padding: 20px 22px;
   margin-bottom: 18px;
-  box-shadow: var(--shadow);
 }
 .panel h3 {
-  margin: 0 0 14px;
-  font-size: 15px;
+  margin: 0 0 16px;
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 600;
 }
 .chart-box {
   position: relative;
@@ -527,7 +596,7 @@ textarea:focus-visible {
   font-weight: 800;
   padding: 14px 22px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(22, 192, 96, 0.22), rgba(55, 224, 127, 0.16));
+  background: linear-gradient(150deg, rgba(200, 247, 81, 0.18), rgba(63, 230, 160, 0.12));
   border: 1px solid var(--accent-tint-strong);
 }
 .role-conf {

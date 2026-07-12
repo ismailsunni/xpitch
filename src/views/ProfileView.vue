@@ -132,7 +132,7 @@ async function saveProfile() {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(22, 192, 96, 0.3), rgba(55, 224, 127, 0.2));
+  background: linear-gradient(180deg, rgba(200, 247, 81, 0.28), rgba(63, 230, 160, 0.18));
   border: 1px solid var(--border);
   display: flex;
   align-items: center;

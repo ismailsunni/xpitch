@@ -55,8 +55,8 @@ export function hrGraphConfig(series: any[]): ChartConfiguration {
         {
           label: 'Heart rate (bpm)',
           data: series,
-          borderColor: '#ef4444',
-          backgroundColor: 'rgba(239,68,68,0.12)',
+          borderColor: '#ff6a4d',
+          backgroundColor: 'rgba(255,106,77,0.14)',
           borderWidth: 1.5,
           pointRadius: 0,
           fill: true,
@@ -115,7 +115,7 @@ export function workRateConfig(bins: any[]): ChartConfiguration {
         {
           label: 'Distance per minute (m)',
           data: bins.map((b) => Math.round(b.distance)),
-          backgroundColor: '#16c060',
+          backgroundColor: '#c8f751',
           borderRadius: 3,
           order: 2,
         },
@@ -123,7 +123,7 @@ export function workRateConfig(bins: any[]): ChartConfiguration {
           label: 'Avg HR (bpm)',
           data: bins.map((b) => (b.avgHR ? Math.round(b.avgHR) : null)),
           type: 'line',
-          borderColor: '#f87171',
+          borderColor: '#ff6a4d',
           backgroundColor: 'transparent',
           borderWidth: 1.5,
           pointRadius: 0,
@@ -140,8 +140,8 @@ export function workRateConfig(bins: any[]): ChartConfiguration {
         y1: {
           position: 'right',
           grid: { drawOnChartArea: false },
-          ticks: { color: '#f87171' },
-          title: { display: true, text: 'bpm', color: '#f87171' },
+          ticks: { color: '#ff6a4d' },
+          title: { display: true, text: 'bpm', color: '#ff6a4d' },
         },
       },
     }),
@@ -154,8 +154,8 @@ export function fatigueConfig(segments: any[]): ChartConfiguration {
     data: {
       labels: segments.map((s) => s.label),
       datasets: [
-        { label: 'Total distance (m)', data: segments.map((s) => Math.round(s.distance)), backgroundColor: '#818cf8', borderRadius: 4 },
-        { label: 'High-intensity distance (m)', data: segments.map((s) => Math.round(s.hi)), backgroundColor: '#fb923c', borderRadius: 4 },
+        { label: 'Total distance (m)', data: segments.map((s) => Math.round(s.distance)), backgroundColor: '#2b6cff', borderRadius: 4 },
+        { label: 'High-intensity distance (m)', data: segments.map((s) => Math.round(s.hi)), backgroundColor: '#ff6a4d', borderRadius: 4 },
       ],
     },
     options: base({
@@ -180,8 +180,8 @@ export function speedProfileConfig(samples: any[]): ChartConfiguration {
         {
           label: 'Speed (km/h)',
           data,
-          borderColor: '#34d399',
-          backgroundColor: 'rgba(52,211,153,0.12)',
+          borderColor: '#c8f751',
+          backgroundColor: 'rgba(200,247,81,0.16)',
           borderWidth: 1.2,
           pointRadius: 0,
           fill: true,

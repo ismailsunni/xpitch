@@ -27,6 +27,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <!-- Landing here comes from the Import .fit action; a plain drop zone if visited empty. -->
   <FileDrop v-if="!store.analytics" />
   <main v-else>
     <div v-if="store.cloud.mode === 'local' && isSaveable()" class="savebar">
@@ -45,7 +46,7 @@ onMounted(() => {
   gap: 14px;
   flex-wrap: wrap;
   padding: 12px 22px;
-  background: rgba(22, 192, 96, 0.08);
+  background: rgba(200, 247, 81, 0.08);
   border-bottom: 1px solid var(--border);
 }
 .sb-text {

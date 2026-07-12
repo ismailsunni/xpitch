@@ -226,7 +226,7 @@ watch(
   padding: 16px 22px;
   border-bottom: 1px solid var(--border);
   border-left: 3px solid var(--accent);
-  background: linear-gradient(90deg, rgba(22, 192, 96, 0.13), rgba(22, 192, 96, 0.02) 55%, transparent);
+  background: linear-gradient(90deg, rgba(200, 247, 81, 0.12), rgba(200, 247, 81, 0.02) 55%, transparent);
 }
 .mh-title {
   min-width: 0;

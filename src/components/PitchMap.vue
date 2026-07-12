@@ -55,8 +55,8 @@ onMounted(() => {
       new VectorLayer({
         source: new VectorSource({ features: [new Feature(new Polygon([ring]))] }),
         style: new Style({
-          stroke: new Stroke({ color: '#16c060', width: 2 }),
-          fill: new Fill({ color: 'rgba(22,192,96,0.10)' }),
+          stroke: new Stroke({ color: '#c8f751', width: 2 }),
+          fill: new Fill({ color: 'rgba(200,247,81,0.10)' }),
         }),
       })
     );

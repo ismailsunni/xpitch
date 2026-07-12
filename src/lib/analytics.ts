@@ -50,11 +50,11 @@ function resolveFormat(
 
 // Football speed zones (km/h). Distance & time accumulate per zone.
 export const SPEED_ZONES = [
-  { name: 'Walking', min: 0, max: 7, color: '#3b82f6' },
-  { name: 'Jogging', min: 7, max: 14.4, color: '#16c060' },
-  { name: 'Running', min: 14.4, max: 19.8, color: '#eab308' },
-  { name: 'High speed', min: 19.8, max: 25.2, color: '#f97316' },
-  { name: 'Sprint', min: 25.2, max: Infinity, color: '#ef4444' },
+  { name: 'Walking', min: 0, max: 7, color: '#2b6cff' },
+  { name: 'Jogging', min: 7, max: 14.4, color: '#3fe6a0' },
+  { name: 'Running', min: 14.4, max: 19.8, color: '#ffb01e' },
+  { name: 'High speed', min: 19.8, max: 25.2, color: '#ff6a4d' },
+  { name: 'Sprint', min: 25.2, max: Infinity, color: '#ff2d1e' },
 ];
 
 export interface AnalyticsOptions {
@@ -390,11 +390,11 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
     const avgHR = mean(hrSamples.map((s) => s.hr));
 
     const zoneDefs = [
-      { name: 'Z1 Recovery', min: 0, max: 0.6, color: '#3b82f6' },
-      { name: 'Z2 Aerobic', min: 0.6, max: 0.7, color: '#16c060' },
-      { name: 'Z3 Tempo', min: 0.7, max: 0.8, color: '#eab308' },
-      { name: 'Z4 Threshold', min: 0.8, max: 0.9, color: '#f97316' },
-      { name: 'Z5 Max', min: 0.9, max: Infinity, color: '#ef4444' },
+      { name: 'Z1 Recovery', min: 0, max: 0.6, color: '#2b6cff' },
+      { name: 'Z2 Aerobic', min: 0.6, max: 0.7, color: '#3fe6a0' },
+      { name: 'Z3 Tempo', min: 0.7, max: 0.8, color: '#ffb01e' },
+      { name: 'Z4 Threshold', min: 0.8, max: 0.9, color: '#ff6a4d' },
+      { name: 'Z5 Max', min: 0.9, max: Infinity, color: '#ff2d1e' },
     ];
     const hrZones = zoneDefs.map((z) => ({
       ...z,
