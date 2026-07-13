@@ -52,6 +52,7 @@ export interface AppState {
   fields: SavedField[];
   appliedFieldId: string | null;
   fieldEditorOpen: boolean;
+  settingsOpen: boolean; // analysis-settings panel (toggled by the gear in the match line)
   editFieldTarget: SavedField | null; // pitch to preload into the editor (Edit pitch)
   // Attacking direction (length) and side (left/right, width) per view
   // ("<segmentId>:<period>" -> +1 | -1). Not global: ends switch at half-time,
@@ -143,6 +144,7 @@ export const store = reactive<AppState>({
   fields: loadStoredFields(),
   appliedFieldId: null,
   fieldEditorOpen: false,
+  settingsOpen: false,
   editFieldTarget: null,
   attackDirs: {},
   sideDirs: {},

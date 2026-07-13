@@ -1,24 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, selectSegment, selectPeriod, activeSegment, setGroupGap } from '../store';
-import { auth } from '../lib/auth';
+import { store, selectSegment, selectPeriod, activeSegment } from '../store';
 
+// Pure chooser: pick a session / period. Grouping and manual split are config
+// (in the gear settings), not part of choosing.
 const seg = computed(() => activeSegment());
-const multiFile = computed(() => store.files.length > 1);
-const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
-const showBar = computed(
-  () => store.segments.length > 1 || (seg.value?.periods.length || 0) > 0 || multiFile.value
-);
-
-function onGap(e: Event) {
-  const n = parseFloat((e.target as HTMLInputElement).value);
-  if (isFinite(n) && n >= 0) setGroupGap(n);
-}
+const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.length || 0) > 0);
 </script>
 
 <template>
   <section v-if="showBar" class="segbar">
-    <div class="seg-group" v-if="store.segments.length > 1">
+    <div class="seg-group session-pills" v-if="store.segments.length > 1">
       <span class="k">Session</span>
       <div class="seg-pills">
         <button
@@ -33,16 +25,22 @@ function onGap(e: Event) {
       </div>
     </div>
 
+    <!-- Mobile: the session pills become a dropdown to save space. -->
+    <div class="seg-group session-select" v-if="store.segments.length > 1">
+      <span class="k">Session</span>
+      <select
+        class="seg-dropdown"
+        :value="store.activeSegmentId"
+        @change="selectSegment(($event.target as HTMLSelectElement).value)"
+      >
+        <option v-for="s in store.segments" :key="s.id" :value="s.id">{{ s.label }} · {{ s.sublabel }}</option>
+      </select>
+    </div>
+
     <div class="seg-group" v-if="seg && seg.periods.length">
       <span class="k">Period</span>
       <div class="seg-pills">
-        <button
-          class="pill-btn"
-          :class="{ active: store.activePeriod === -1 }"
-          @click="selectPeriod(-1)"
-        >
-          Full
-        </button>
+        <button class="pill-btn" :class="{ active: store.activePeriod === -1 }" @click="selectPeriod(-1)">Full</button>
         <button
           v-for="p in seg.periods"
           :key="p.index"
@@ -54,27 +52,11 @@ function onGap(e: Event) {
         </button>
       </div>
     </div>
-
-    <div class="seg-group" v-if="multiFile && !readOnly">
-      <span class="k">Group within</span>
-      <input
-        type="number"
-        class="gap-input"
-        min="0"
-        max="120"
-        step="1"
-        :value="store.options.groupGapMin"
-        @change="onGap"
-        title="Recordings closer than this become one session"
-      />
-      <span class="k">min</span>
-    </div>
   </section>
 </template>
 
 <style scoped>
-.gap-input {
-  width: 58px;
+.seg-dropdown {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -82,5 +64,19 @@ function onGap(e: Event) {
   padding: var(--ctl-pad-y-sm) 10px;
   line-height: var(--ctl-line-sm);
   font-size: 13px;
+  cursor: pointer;
+  max-width: 100%;
+}
+/* Pills on desktop, dropdown on mobile. */
+.session-select {
+  display: none;
+}
+@media (max-width: 640px) {
+  .session-pills {
+    display: none;
+  }
+  .session-select {
+    display: flex;
+  }
 }
 </style>

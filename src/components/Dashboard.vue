@@ -4,6 +4,7 @@ import { store } from '../store';
 import ControlsBar from './ControlsBar.vue';
 import MetaBar from './MetaBar.vue';
 import SegmentBar from './SegmentBar.vue';
+import SessionBar from './SessionBar.vue';
 import OverviewTab from './tabs/OverviewTab.vue';
 import PositionalTab from './tabs/PositionalTab.vue';
 import RunningTab from './tabs/RunningTab.vue';
@@ -23,8 +24,13 @@ const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.co
 
 <template>
   <div>
-    <!-- Activity-local section nav (this level is the match detail's own nav,
-         separate from the global sidebar — Strava keeps the two apart). -->
+    <!-- Order: match info → analysis settings → session chooser → this session,
+         then the section nav sits directly above the content it switches. -->
+    <MetaBar />
+    <ControlsBar />
+    <SegmentBar />
+    <SessionBar />
+
     <nav class="tabs">
       <button
         v-for="t in TABS"
@@ -36,10 +42,16 @@ const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.co
         {{ t.label }}
       </button>
     </nav>
-
-    <ControlsBar />
-    <MetaBar />
-    <SegmentBar />
+    <!-- Mobile: the section tabs become a dropdown. -->
+    <div class="tabs-mobile">
+      <select
+        class="tabs-select"
+        :value="store.activeTab"
+        @change="store.activeTab = ($event.target as HTMLSelectElement).value"
+      >
+        <option v-for="t in TABS" :key="t.id" :value="t.id">{{ t.label }}</option>
+      </select>
+    </div>
 
     <component :is="activeComp" :key="store.activeTab" />
 
@@ -48,3 +60,34 @@ const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.co
     </footer>
   </div>
 </template>
+
+<style scoped>
+/* Section nav: pills on desktop, a dropdown on mobile. */
+.tabs-mobile {
+  display: none;
+}
+.tabs-select {
+  width: 100%;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--ctl-radius);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .tabs {
+    display: none;
+  }
+  .tabs-mobile {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    padding: 12px 14px;
+  }
+}
+</style>

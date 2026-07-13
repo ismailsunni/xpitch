@@ -1,158 +1,172 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, recompute, flipAttack, flipSides, setFormat, appliedField, currentAttackDir, currentSideDir } from '../store';
+import { store, recompute, setGroupGap } from '../store';
 import { auth } from '../lib/auth';
-import { FORMATS } from '../lib/analytics';
 
-const flipped = computed(() => currentAttackDir() === -1);
-const sidesFlipped = computed(() => currentSideDir() === -1);
-// A saved match you don't own is read-only (no editing controls).
+// Revealed by the gear in the match line. Holds the analysis parameters plus
+// the session-structure config (how the upload is grouped / split). Owner-only.
 const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
-const metaFormatLabel = computed(() => store.analytics?.meta?.formatLabel || '');
+const multiFile = computed(() => store.files.length > 1);
 
 function num(v: string): number | null {
   const n = parseFloat(v);
   return isFinite(n) ? n : null;
 }
-
-const hasGPS = computed(() => !!store.analytics?.meta?.hasGPS);
-const usingField = computed(() => !!store.analytics?.positional?.hasField);
-const fieldName = computed(() => appliedField()?.name || '');
-const fieldSlug = computed(() => appliedField()?.slug || '');
-
-const formatOptions = Object.values(FORMATS);
-// When 'auto', show what it resolved to (e.g. "Auto → Mini-soccer").
-const resolvedFormat = computed(() => {
-  const m = store.analytics?.meta;
-  if (!m) return '';
-  if (store.options.format === 'auto') return 'Auto → ' + (FORMATS[m.format]?.short || m.format);
-  return FORMATS[m.format]?.short || '';
-});
+function onGap(e: Event) {
+  const n = parseFloat((e.target as HTMLInputElement).value);
+  if (isFinite(n) && n >= 0) setGroupGap(n);
+}
 </script>
 
 <template>
-  <section class="controls">
-    <div class="ctl">
-      <span class="ctl-label">File</span>
-      <span class="val" style="font-weight: 600; font-size: 13.5px">{{ store.fileName }}</span>
-    </div>
+  <section v-show="store.settingsOpen && !readOnly" class="settings">
+    <span class="stitle">Analysis settings</span>
+    <div class="settings-body">
+      <div class="fld">
+        <label for="age">Age</label>
+        <input
+          id="age"
+          type="number"
+          min="8"
+          max="90"
+          placeholder="—"
+          title="Used to estimate max HR for heart-rate zones"
+          :value="store.options.age ?? ''"
+          @change="store.options.age = num(($event.target as HTMLInputElement).value); recompute()"
+        />
+      </div>
+      <div class="fld">
+        <label for="maxhr">Max HR</label>
+        <input
+          id="maxhr"
+          type="number"
+          min="120"
+          max="230"
+          placeholder="auto"
+          :value="store.options.maxHR ?? ''"
+          @change="store.options.maxHR = num(($event.target as HTMLInputElement).value); recompute()"
+        />
+      </div>
+      <div class="fld">
+        <label for="sprint">Sprint ≥</label>
+        <div class="with-unit">
+          <input
+            id="sprint"
+            type="number"
+            min="12"
+            max="35"
+            step="0.1"
+            :value="store.options.sprintKmh"
+            @change="store.options.sprintKmh = num(($event.target as HTMLInputElement).value) ?? 19.8; recompute()"
+          />
+          <span class="unit">km/h</span>
+        </div>
+      </div>
 
-    <!-- Read-only summary for a shared match you don't own -->
-    <template v-if="readOnly">
-      <div class="ctl">
-        <span class="ctl-label">Format</span>
-        <span class="val">{{ metaFormatLabel }}</span>
-      </div>
-      <div class="ctl" v-if="usingField && fieldName">
-        <span class="ctl-label">Pitch</span>
-        <span class="val">
-          <RouterLink v-if="fieldSlug" :to="`/field/${fieldSlug}`">{{ fieldName }}</RouterLink>
-          <template v-else>{{ fieldName }}</template>
-        </span>
-      </div>
-      <div class="ctl">
-        <span class="ctl-label">View</span>
-        <span class="hint" style="margin: 0">Read-only shared match</span>
-      </div>
-    </template>
+      <div class="sep"></div>
 
-    <template v-else>
-    <div class="ctl">
-      <label for="format">Format</label>
-      <select
-        id="format"
-        class="ctl-select"
-        :value="store.options.format"
-        @change="setFormat(($event.target as HTMLSelectElement).value as any)"
-      >
-        <option v-for="f in formatOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
-      </select>
-      <span class="hint" style="margin: 2px 0 0">{{ resolvedFormat }}</span>
-    </div>
-    <div class="ctl">
-      <label for="age">Age</label>
-      <input
-        id="age"
-        type="number"
-        min="8"
-        max="90"
-        placeholder="—"
-        :value="store.options.age ?? ''"
-        @change="store.options.age = num(($event.target as HTMLInputElement).value); recompute()"
-      />
-    </div>
-    <div class="ctl">
-      <label for="maxhr">Max HR</label>
-      <input
-        id="maxhr"
-        type="number"
-        min="120"
-        max="230"
-        placeholder="auto"
-        :value="store.options.maxHR ?? ''"
-        @change="store.options.maxHR = num(($event.target as HTMLInputElement).value); recompute()"
-      />
-    </div>
-    <div class="ctl">
-      <label for="sprint">Sprint ≥ (km/h)</label>
-      <input
-        id="sprint"
-        type="number"
-        min="12"
-        max="35"
-        step="0.1"
-        :value="store.options.sprintKmh"
-        @change="store.options.sprintKmh = num(($event.target as HTMLInputElement).value) ?? 19.8; recompute()"
-      />
-    </div>
-    <div class="ctl">
-      <span class="ctl-label">Orient</span>
-      <div style="display: flex; gap: 6px">
-        <button
-          class="btn ghost small"
-          :class="{ on: flipped }"
-          title="Switch which end you attacked — rotates the pitch 180° (ends and wings together). Selected match/half only."
-          @click="flipAttack"
-        >
-          {{ flipped ? 'Attacking ◀' : '▶ Attacking' }}
-        </button>
-        <button
-          v-if="!usingField"
-          class="btn ghost small"
-          :class="{ on: sidesFlipped }"
-          title="Mirror left/right (width). Only needed without a defined pitch, where left/right is guessed."
-          @click="flipSides"
-        >
-          ⇅ Swap sides
-        </button>
+      <div class="fld" v-if="multiFile">
+        <label for="gap">Group within</label>
+        <div class="with-unit">
+          <input
+            id="gap"
+            type="number"
+            min="0"
+            max="120"
+            step="1"
+            title="Recordings closer together than this become one session"
+            :value="store.options.groupGapMin"
+            @change="onGap"
+          />
+          <span class="unit">min</span>
+        </div>
+      </div>
+      <div class="fld">
+        <span class="lbl">Sessions</span>
+        <div class="with-unit">
+          <button class="btn ghost small" @click="store.manualSplitOpen = true">✂ Split manually</button>
+          <span v-if="store.manualSplits" class="ok">manual ✓</span>
+        </div>
       </div>
     </div>
-
-    <div class="ctl" v-if="hasGPS">
-      <span class="ctl-label">Pitch</span>
-      <div style="display: flex; gap: 8px; align-items: center">
-        <button class="btn ghost small" @click="store.fieldEditorOpen = true">
-          📐 {{ usingField ? 'Edit pitches' : 'Set field' }}
-        </button>
-        <span class="hint" style="margin: 0">
-          <template v-if="usingField && fieldName">
-            <RouterLink v-if="fieldSlug" :to="`/field/${fieldSlug}`">{{ fieldName }}</RouterLink>
-            <template v-else>{{ fieldName }}</template>
-            ✓
-          </template>
-          <template v-else-if="usingField">custom ✓</template>
-          <template v-else>auto-inferred</template>
-        </span>
-      </div>
-    </div>
-
-    <div class="ctl">
-      <span class="ctl-label">Split</span>
-      <div style="display: flex; gap: 8px; align-items: center">
-        <button class="btn ghost small" @click="store.manualSplitOpen = true">✂ Split manually</button>
-        <span v-if="store.manualSplits" class="hint" style="margin: 0">manual ✓</span>
-      </div>
-    </div>
-    </template>
   </section>
 </template>
+
+<style scoped>
+.settings {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.stitle {
+  display: block;
+  padding: 12px 22px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.settings-body {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 22px 16px;
+}
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fld label,
+.fld .lbl {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.fld input {
+  width: 92px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  line-height: var(--ctl-line);
+  font-size: 13px;
+}
+.with-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.with-unit input {
+  width: 72px;
+}
+.unit {
+  font-size: 12px;
+  color: var(--muted2);
+}
+.ok {
+  font-size: 12px;
+  color: var(--accent-ink);
+}
+.sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 2px 0;
+}
+@media (max-width: 640px) {
+  .stitle {
+    padding: 12px 14px 0;
+  }
+  .settings-body {
+    padding: 12px 14px 16px;
+    gap: 14px;
+  }
+  .sep {
+    display: none;
+  }
+}
+</style>
