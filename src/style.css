@@ -128,6 +128,9 @@ body {
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
+    /* Header sizes to content; main fills the rest. Without this the two auto
+       rows stretch to split 100vh and the top bar balloons. */
+    grid-template-rows: auto 1fr;
   }
 }
 h1,

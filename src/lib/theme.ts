@@ -15,8 +15,8 @@ function initial(): Mode {
   } catch {
     /* storage blocked */
   }
-  if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: light)').matches) return 'light';
-  return 'dark';
+  // Light by default; users who prefer dark can toggle (their choice is saved).
+  return 'light';
 }
 
 export const theme = reactive({ mode: initial() as Mode });
