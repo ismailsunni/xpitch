@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import { store, activeSegment, flipAttack, flipSides, currentAttackDir, currentSideDir } from '../store';
 import { auth } from '../lib/auth';
 import { fmtDur } from '../lib/format';
+import { METRICS } from '../lib/metrics';
+import InfoTip from './InfoTip.vue';
 
 // Everything about the currently-selected session/period. Shown right after the
 // session chooser so the flow reads match → session → this session's detail.
@@ -30,19 +32,19 @@ const viewing = computed(() => {
 <template>
   <section class="sessionbar" v-if="meta">
     <div class="mi lead">
-      <span class="k">Viewing</span>
+      <span class="k">Viewing<InfoTip :text="METRICS.viewing.desc" /></span>
       <span class="val" style="color: var(--accent-ink)">{{ viewing }}</span>
     </div>
     <div class="mi">
-      <span class="k">Duration</span>
+      <span class="k">Duration<InfoTip :text="METRICS.duration.desc" /></span>
       <span class="val">{{ fmtDur(meta.durationS) }}</span>
     </div>
     <div class="mi" v-if="calories">
-      <span class="k">Calories</span>
+      <span class="k">Calories<InfoTip :text="METRICS.calories.desc" /></span>
       <span class="val">{{ Math.round(calories) }} kcal</span>
     </div>
     <div class="mi">
-      <span class="k">Data</span>
+      <span class="k">Data<InfoTip :text="METRICS.data.desc" /></span>
       <span class="val"
         >{{ meta.sampleCount.toLocaleString() }} samples · {{ meta.hasGPS ? 'GPS' : 'no GPS' }} ·
         {{ meta.hasHR ? 'HR' : 'no HR' }}</span
@@ -50,7 +52,7 @@ const viewing = computed(() => {
     </div>
 
     <div class="mi orient" v-if="!readOnly">
-      <span class="k">Orientation</span>
+      <span class="k">Orientation<InfoTip :text="METRICS.orientation.desc" /></span>
       <div class="orient-btns">
         <button
           class="btn ghost small"

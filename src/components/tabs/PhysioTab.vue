@@ -5,6 +5,7 @@ import StatCard from '../StatCard.vue';
 import ChartPanel from '../ChartPanel.vue';
 import { hrGraphConfig, hrZonesConfig } from '../../lib/charts';
 import { fmtDur, fmtClock } from '../../lib/format';
+import { METRICS } from '../../lib/metrics';
 
 const a = computed<any>(() => store.analytics);
 const ph = computed<any>(() => a.value.physio);
@@ -25,15 +26,16 @@ const refSource = computed(() =>
     </p>
     <template v-else>
       <div class="cards">
-        <StatCard label="Average HR" :value="ph.avgHR" unit="bpm" accent />
-        <StatCard label="Max HR" :value="ph.maxHR" unit="bpm" />
-        <StatCard label="Reference max" :value="ph.refMax" unit="bpm" :sub="refSource" />
+        <StatCard label="Average HR" :value="ph.avgHR" unit="bpm" :info="METRICS.avgHR.desc" accent />
+        <StatCard label="Max HR" :value="ph.maxHR" unit="bpm" :info="METRICS.maxHR.desc" />
+        <StatCard label="Reference max" :value="ph.refMax" unit="bpm" :sub="refSource" :info="METRICS.refMax.desc" />
         <StatCard
           label="Most time in"
           :value="topZone.name.replace(/^Z\d /, '')"
           :sub="fmtDur(topZone.time)"
+          :info="METRICS.hrZones.desc"
         />
-        <StatCard label="Recovery periods" :value="ph.recoveries.length" sub="HR drops while resting" />
+        <StatCard label="Recovery periods" :value="ph.recoveries.length" sub="HR drops while resting" :info="METRICS.recoveries.desc" />
       </div>
 
       <div class="panel">

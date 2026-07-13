@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
+import { METRIC_SECTIONS } from '../lib/metrics';
 </script>
 
 <template>
@@ -54,6 +55,23 @@ import { RouterLink } from 'vue-router';
       yours; nothing is posted anywhere unless you share the link.
     </p>
 
+    <h3>6 · What the numbers mean</h3>
+    <p>
+      Every stat in the app has a small <span class="idot">i</span> you can hover for a quick
+      definition. Here’s the full glossary:
+    </p>
+    <div class="glossary">
+      <section v-for="sec in METRIC_SECTIONS" :key="sec.title" class="gsec">
+        <h4>{{ sec.title }}</h4>
+        <dl>
+          <template v-for="m in sec.items" :key="m.key">
+            <dt>{{ m.term }}</dt>
+            <dd>{{ m.desc }}</dd>
+          </template>
+        </dl>
+      </section>
+    </div>
+
     <p class="hint" style="margin-top: 24px">
       Privacy: files are parsed in your browser. Saving uploads the file to your private storage;
       matches default to <em>unlisted</em>. GPS reveals real locations — keep sensitive matches
@@ -85,5 +103,44 @@ import { RouterLink } from 'vue-router';
 }
 .help strong {
   color: var(--text);
+}
+.glossary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 8px 28px;
+  margin-top: 10px;
+}
+.gsec h4 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  color: var(--accent-ink);
+}
+.gsec dl {
+  margin: 0;
+}
+.gsec dt {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13.5px;
+  margin-top: 8px;
+}
+.gsec dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.idot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: var(--muted2);
+  font-size: 9px;
+  font-weight: 700;
+  font-style: italic;
 }
 </style>

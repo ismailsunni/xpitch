@@ -5,6 +5,7 @@ import StatCard from '../StatCard.vue';
 import ChartPanel from '../ChartPanel.vue';
 import { speedZonesConfig } from '../../lib/charts';
 import { fmtDist, fmtClock, kmh } from '../../lib/format';
+import { METRICS } from '../../lib/metrics';
 
 const a = computed<any>(() => store.analytics);
 const r = computed(() => a.value.running);
@@ -18,17 +19,18 @@ const hiDist = computed(() =>
 <template>
   <section class="tabpane">
     <div class="cards">
-      <StatCard label="Total distance" :value="fmtDist(s.totalDistance)" accent />
-      <StatCard label="Sprints" :value="r.sprints.length" :sub="'≥ ' + a.options.sprintKmh + ' km/h'" />
+      <StatCard label="Total distance" :value="fmtDist(s.totalDistance)" :info="METRICS.totalDistance.desc" accent />
+      <StatCard label="Sprints" :value="r.sprints.length" :sub="'≥ ' + a.options.sprintKmh + ' km/h'" :info="METRICS.sprints.desc" />
       <StatCard
         label="High-intensity runs"
         :value="r.highIntensityRuns.length"
         :sub="'≥ ' + a.options.highIntensityKmh + ' km/h'"
+        :info="METRICS.highIntensityRuns.desc"
       />
-      <StatCard label="High-speed distance" :value="fmtDist(hiDist)" sub="running + faster" />
-      <StatCard label="Top speed" :value="kmh(s.topSpeed)" unit="km/h" />
-      <StatCard label="Accelerations" :value="r.accelEvents.accelerations.length" sub="≥ 2 m/s²" />
-      <StatCard label="Decelerations" :value="r.accelEvents.decelerations.length" sub="≤ -2 m/s²" />
+      <StatCard label="High-speed distance" :value="fmtDist(hiDist)" sub="running + faster" :info="METRICS.highSpeedDistance.desc" />
+      <StatCard label="Top speed" :value="kmh(s.topSpeed)" unit="km/h" :info="METRICS.topSpeed.desc" />
+      <StatCard label="Accelerations" :value="r.accelEvents.accelerations.length" sub="≥ 2 m/s²" :info="METRICS.accelerations.desc" />
+      <StatCard label="Decelerations" :value="r.accelEvents.decelerations.length" sub="≤ -2 m/s²" :info="METRICS.decelerations.desc" />
     </div>
 
     <div class="grid2">

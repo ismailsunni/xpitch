@@ -3,9 +3,11 @@ import { computed } from 'vue';
 import { store } from '../../store';
 import ChartPanel from '../ChartPanel.vue';
 import RoleCard from '../RoleCard.vue';
+import InfoTip from '../InfoTip.vue';
 import { speedProfileConfig } from '../../lib/charts';
 import { fmtDur, fmtDist, kmh } from '../../lib/format';
 import { deriveRating, deriveHighlights } from '../../lib/rating';
+import { METRICS } from '../../lib/metrics';
 
 const a = computed<any>(() => store.analytics);
 const s = computed(() => a.value.summary);
@@ -44,7 +46,7 @@ function openHeatmap() {
     <div class="ov-top">
       <div class="report">
         <div class="report-glow"></div>
-        <div class="report-kicker">Match rating</div>
+        <div class="report-kicker">Match rating<InfoTip :text="METRICS.rating.desc" /></div>
         <div class="report-hero">
           <div class="grade">{{ rating.grade }}</div>
           <div>
@@ -53,16 +55,16 @@ function openHeatmap() {
           </div>
         </div>
         <div class="report-scores">
-          <div><div class="rs-val">{{ rating.workRate }}<small>/100</small></div><div class="rs-k">Work rate</div></div>
-          <div><div class="rs-val">{{ rating.intensity }}<small>/100</small></div><div class="rs-k">Intensity</div></div>
-          <div><div class="rs-val">{{ rating.endurance }}<small>/100</small></div><div class="rs-k">Endurance</div></div>
+          <div><div class="rs-val">{{ rating.workRate }}<small>/100</small></div><div class="rs-k">Work rate<InfoTip :text="METRICS.workRate.desc" /></div></div>
+          <div><div class="rs-val">{{ rating.intensity }}<small>/100</small></div><div class="rs-k">Intensity<InfoTip :text="METRICS.intensity.desc" /></div></div>
+          <div><div class="rs-val">{{ rating.endurance }}<small>/100</small></div><div class="rs-k">Endurance<InfoTip :text="METRICS.endurance.desc" /></div></div>
           <div><div class="rs-val" style="color: var(--accent-ink)">{{ rating.score }}<small>/100</small></div><div class="rs-k">Overall</div></div>
         </div>
       </div>
 
       <div class="coverage card">
         <div class="cov-head">
-          <div class="cov-title">Position &amp; coverage</div>
+          <div class="cov-title">Position &amp; coverage<InfoTip :text="METRICS.coverage.desc" /></div>
           <a v-if="coverage != null" class="cov-link" @click="openHeatmap">Open heatmap →</a>
         </div>
         <div v-if="a.football.role" class="cov-role">{{ a.football.role.top }}</div>
@@ -76,27 +78,27 @@ function openHeatmap() {
     <!-- Row 2: key tiles -->
     <div class="tiles">
       <div class="tile">
-        <div class="tile-k">Total distance</div>
+        <div class="tile-k">Total distance<InfoTip :text="METRICS.totalDistance.desc" /></div>
         <div class="tile-v">{{ fmtDist(s.totalDistance) }}</div>
         <div class="tile-s">over {{ fmtDur(s.durationS) }}</div>
       </div>
       <div class="tile">
-        <div class="tile-k">Top speed</div>
+        <div class="tile-k">Top speed<InfoTip :text="METRICS.topSpeed.desc" /></div>
         <div class="tile-v">{{ kmh(s.topSpeed) }} <small>km/h</small></div>
         <div class="tile-s">avg {{ kmh(s.avgSpeedMoving) }} km/h moving</div>
       </div>
       <div class="tile">
-        <div class="tile-k">Sprints</div>
+        <div class="tile-k">Sprints<InfoTip :text="METRICS.sprints.desc" /></div>
         <div class="tile-v">{{ a.running.sprints.length }}</div>
         <div class="tile-s">{{ a.running.highIntensityRuns.length }} high-intensity runs</div>
       </div>
       <div class="tile" v-if="a.physio">
-        <div class="tile-k">Avg heart rate</div>
+        <div class="tile-k">Avg heart rate<InfoTip :text="METRICS.avgHR.desc" /></div>
         <div class="tile-v" style="color: var(--c-coral)">{{ a.physio.avgHR }} <small>bpm</small></div>
         <div class="tile-s">peak {{ a.physio.maxHR }} bpm</div>
       </div>
       <div class="tile" v-else>
-        <div class="tile-k">Moving time</div>
+        <div class="tile-k">Moving time<InfoTip :text="METRICS.movingTime.desc" /></div>
         <div class="tile-v">{{ fmtDur(s.movingTime) }}</div>
         <div class="tile-s">of {{ fmtDur(s.durationS) }}</div>
       </div>
@@ -105,7 +107,7 @@ function openHeatmap() {
     <!-- Row 3: distance by intensity + highlights -->
     <div class="ov-split">
       <div class="card">
-        <div class="card-title">Distance by intensity</div>
+        <div class="card-title">Distance by intensity<InfoTip :text="METRICS.speedZones.desc" /></div>
         <div class="bars">
           <div class="bar-row" v-for="z in zones" :key="z.name">
             <div class="bl"><span>{{ z.name }}</span><span class="mono">{{ fmtDist(z.dist) }}</span></div>

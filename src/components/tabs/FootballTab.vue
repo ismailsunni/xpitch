@@ -5,6 +5,7 @@ import StatCard from '../StatCard.vue';
 import ChartPanel from '../ChartPanel.vue';
 import RoleCard from '../RoleCard.vue';
 import { workRateConfig, fatigueConfig } from '../../lib/charts';
+import { METRICS } from '../../lib/metrics';
 
 const a = computed<any>(() => store.analytics);
 const f = computed(() => a.value.football);
@@ -31,11 +32,12 @@ const verdictClass = computed(() => (fa.value.distanceDropPct < -12 ? 'warn' : '
         label="High-intensity runs"
         :value="a.running.highIntensityRuns.length"
         :sub="'≥ ' + a.options.highIntensityKmh + ' km/h'"
+        :info="METRICS.highIntensityRuns.desc"
         accent
       />
-      <StatCard label="Repeated-sprint bouts" :value="f.rse.length" sub="≥3 sprints in quick succession" />
-      <StatCard label="2nd-half work rate" :value="dropStr" sub="vs 1st half (m/min)" />
-      <StatCard label="Sprints 1st / 2nd" :value="fa.sprintsFirst + ' / ' + fa.sprintsSecond" />
+      <StatCard label="Repeated-sprint bouts" :value="f.rse.length" sub="≥3 sprints in quick succession" :info="METRICS.rse.desc" />
+      <StatCard label="2nd-half work rate" :value="dropStr" sub="vs 1st half (m/min)" :info="METRICS.secondHalfWorkRate.desc" />
+      <StatCard label="Sprints 1st / 2nd" :value="fa.sprintsFirst + ' / ' + fa.sprintsSecond" :info="METRICS.sprintsSplit.desc" />
     </div>
 
     <div class="panel">
