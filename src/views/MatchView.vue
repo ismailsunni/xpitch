@@ -105,6 +105,8 @@ async function load() {
       options: res.sessions[0]?.analysis_options || { format: res.match.format },
       sessions: toCloudSessions(res.sessions),
       manualSplits: res.match.manual_splits || null,
+      selectedFieldId: res.match.primary_field_id || null,
+      breakFiles: res.match.break_files || [],
       seq,
     });
     state.value = 'ready';
@@ -323,4 +325,3 @@ watch(
   }
 }
 </style>
-

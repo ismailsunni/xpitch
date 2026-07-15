@@ -59,6 +59,8 @@ export const SPEED_ZONES = [
 
 export interface AnalyticsOptions {
   maxHR?: number | null;
+  // Distinguishes the guided setup's common fallback from a user-entered value.
+  maxHRSource?: 'entered' | 'default' | null;
   restHR?: number;
   age?: number | null;
   attackingDir?: number;
@@ -120,6 +122,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
   const opt = Object.assign(
     {
       maxHR: null,
+      maxHRSource: null,
       restHR: 60,
       age: null,
       attackingDir: 1,

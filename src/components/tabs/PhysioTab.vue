@@ -15,7 +15,7 @@ const topZone = computed(() =>
   ph.value ? ph.value.hrZones.reduce((x: any, y: any) => (y.time > x.time ? y : x)) : null
 );
 const refSource = computed(() =>
-  a.value.options.maxHR ? 'entered' : a.value.options.age ? '220 − age' : 'observed'
+  a.value.options.maxHRSource === 'default' ? 'default 190 bpm' : a.value.options.maxHR ? 'entered' : a.value.options.age ? '220 − age' : 'observed'
 );
 </script>
 

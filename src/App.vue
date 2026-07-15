@@ -9,6 +9,7 @@ import { loadMyFields } from './lib/api';
 const FieldEditor = defineAsyncComponent(() => import('./components/FieldEditor.vue'));
 const UsernameGate = defineAsyncComponent(() => import('./components/UsernameGate.vue'));
 const ManualSplitEditor = defineAsyncComponent(() => import('./components/ManualSplitEditor.vue'));
+const UploadSetupWizard = defineAsyncComponent(() => import('./components/UploadSetupWizard.vue'));
 
 // Keep the user's saved pitches loaded (for auto-matching) across sign in/out.
 watch(
@@ -25,5 +26,6 @@ watch(
   </div>
   <FieldEditor v-if="store.fieldEditorOpen" />
   <ManualSplitEditor v-if="store.manualSplitOpen" />
+  <UploadSetupWizard v-if="store.uploadWizardOpen" />
   <UsernameGate v-if="auth.ready && needsUsername()" />
 </template>

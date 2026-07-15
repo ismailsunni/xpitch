@@ -15,6 +15,7 @@ import {
   getRawFiles,
   nonCombinedSegments,
   dirsForSegment,
+  isPredefined,
   type CloudSession,
 } from '../store';
 
@@ -86,6 +87,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
     meta.startLat != null && meta.startLon != null
       ? await resolveNearestFieldId(meta.startLat, meta.startLon)
       : null;
+  const selectedFieldId = store.selectedFieldId && !isPredefined(store.selectedFieldId) ? store.selectedFieldId : nearField?.id ?? null;
   const { data: match, error: mErr } = await sb
     .from('matches')
     .insert({
@@ -99,8 +101,9 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       location_label: store.location,
       centroid_lat: meta.startLat ?? null,
       centroid_lon: meta.startLon ?? null,
-      primary_field_id: nearField?.id ?? null,
+      primary_field_id: selectedFieldId,
       file_names: store.files,
+      break_files: store.breakFiles,
       manual_splits: store.manualSplits,
       visibility: opts.visibility ?? 'unlisted',
     })
@@ -109,7 +112,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
   if (mErr) throw mErr;
 
   // 3. Insert one session row per non-combined segment (with cached summary)
-  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, nearField?.id ?? null));
+  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, selectedFieldId));
   if (sErr) throw sErr;
 
   return shortId;
@@ -126,6 +129,7 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
       {
         age: store.options.age,
         maxHR: store.options.maxHR,
+        maxHRSource: store.options.maxHRSource,
         sprintKmh: store.options.sprintKmh,
         highIntensityKmh: store.options.highIntensityKmh,
         attackingDir: dirs.attacking_dir,
@@ -152,6 +156,7 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
       analysis_options: {
         age: store.options.age,
         maxHR: store.options.maxHR,
+        maxHRSource: store.options.maxHRSource,
         sprintKmh: store.options.sprintKmh,
         highIntensityKmh: store.options.highIntensityKmh,
         format: store.options.format,
@@ -172,13 +177,15 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
   const nearField =
     meta.startLat != null && meta.startLon != null ? await resolveNearestFieldId(meta.startLat, meta.startLon) : null;
 
+  const selectedFieldId = store.selectedFieldId && !isPredefined(store.selectedFieldId) ? store.selectedFieldId : nearField?.id ?? null;
   const { error: mErr } = await sb
     .from('matches')
     .update({
       format: store.options.format,
       group_gap_min: store.options.groupGapMin,
       manual_splits: store.manualSplits,
-      primary_field_id: nearField?.id ?? null,
+      break_files: store.breakFiles,
+      primary_field_id: selectedFieldId,
     })
     .eq('id', matchId);
   if (mErr) throw mErr;
@@ -187,7 +194,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
   if (dErr) throw dErr;
   const { data: inserted, error: sErr } = await sb
     .from('sessions')
-    .insert(buildSessionRows(matchId, uid, nearField?.id ?? null))
+    .insert(buildSessionRows(matchId, uid, selectedFieldId))
     .select('id,seq');
   if (sErr) throw sErr;
   return inserted || [];

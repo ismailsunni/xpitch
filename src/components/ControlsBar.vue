@@ -32,7 +32,7 @@ function onGap(e: Event) {
           placeholder="—"
           title="Used to estimate max HR for heart-rate zones"
           :value="store.options.age ?? ''"
-          @change="store.options.age = num(($event.target as HTMLInputElement).value); recompute()"
+          @change="store.options.age = num(($event.target as HTMLInputElement).value); if (store.options.maxHRSource === 'default') { store.options.maxHR = null; store.options.maxHRSource = null; } recompute()"
         />
       </div>
       <div class="fld">
@@ -44,7 +44,7 @@ function onGap(e: Event) {
           max="230"
           placeholder="auto"
           :value="store.options.maxHR ?? ''"
-          @change="store.options.maxHR = num(($event.target as HTMLInputElement).value); recompute()"
+          @change="store.options.maxHR = num(($event.target as HTMLInputElement).value); store.options.maxHRSource = store.options.maxHR ? 'entered' : null; recompute()"
         />
       </div>
       <div class="fld">
@@ -66,6 +66,10 @@ function onGap(e: Event) {
       <div class="sep"></div>
 
       <div class="fld" v-if="multiFile">
+        <span class="lbl">Files</span>
+        <span class="ok">each file is a session</span>
+      </div>
+      <div class="fld" v-else>
         <label for="gap">Group within</label>
         <div class="with-unit">
           <input
@@ -85,6 +89,7 @@ function onGap(e: Event) {
         <span class="lbl">Sessions</span>
         <div class="with-unit">
           <button class="btn ghost small" @click="store.manualSplitOpen = true">✂ Split manually</button>
+          <button class="btn ghost small" @click="store.uploadWizardOpen = true">Complete setup</button>
           <span v-if="store.manualSplits" class="ok">manual ✓</span>
         </div>
       </div>

@@ -16,7 +16,7 @@ import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import type { MapBrowserEvent } from 'ol';
 import { computed } from 'vue';
-import { store, addField, updateField, removeField, appliedField, PREDEFINED_FIELDS } from '../store';
+import { store, addField, updateField, removeField, appliedField, PREDEFINED_FIELDS, setSelectedField } from '../store';
 import { auth } from '../lib/auth';
 import { upsertFieldCloud, deleteFieldCloud } from '../lib/api';
 
@@ -178,20 +178,26 @@ async function save() {
   }
   const corners = cornersLL.value.map((c) => ({ lat: c[1], lon: c[0] }));
   const name = fieldName.value.trim() || 'Field ' + (userFields.value.length + 1);
+  let savedId: string | null = null;
   try {
     if (auth.user) {
       // Editing an existing cloud pitch updates it; otherwise create a new one.
       const cloudId = store.cloudFields.some((f) => f.id === editingId.value) ? editingId.value! : undefined;
-      await upsertFieldCloud({ id: cloudId, name, corners, visibility: visibility.value });
+      const saved = await upsertFieldCloud({ id: cloudId, name, corners, visibility: visibility.value });
+      savedId = saved.id;
     } else {
       const isUser = store.fields.some((f) => f.id === editingId.value);
-      if (editingId.value && isUser) updateField(editingId.value, name, corners);
-      else addField(name, corners);
+      if (editingId.value && isUser) {
+        updateField(editingId.value, name, corners);
+        savedId = editingId.value;
+      }
+      else savedId = addField(name, corners);
     }
   } catch (e: any) {
     err.value = e?.message || 'Could not save pitch';
     return;
   }
+  if (store.uploadWizardOpen && savedId) setSelectedField(savedId);
   close();
 }
 
@@ -372,7 +378,8 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   background: rgba(4, 8, 14, 0.72);
-  z-index: 100;
+  /* The upload wizard can launch this editor; it must remain actionable above it. */
+  z-index: 130;
   display: flex;
   align-items: center;
   justify-content: center;

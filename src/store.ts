@@ -5,7 +5,7 @@ import type { FitResult, RecordSample } from './lib/fit-parser';
 import { compute, FORMATS } from './lib/analytics';
 import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
-import { buildSegments, buildSegmentsManual, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
+import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
 import type { Segment, ParsedFile } from './lib/segmentation';
 import { reverseGeocode, deriveAge } from './lib/format';
 import { auth } from './lib/auth';
@@ -51,6 +51,10 @@ export interface AppState {
   activePeriod: number; // -1 = whole segment
   fields: SavedField[];
   appliedFieldId: string | null;
+  // Explicit pitch chosen during the upload setup. Null keeps nearest-pitch matching.
+  selectedFieldId: string | null;
+  breakFiles: string[];
+  uploadWizardOpen: boolean;
   fieldEditorOpen: boolean;
   settingsOpen: boolean; // analysis-settings panel (toggled by the gear in the match line)
   editFieldTarget: SavedField | null; // pitch to preload into the editor (Edit pitch)
@@ -71,6 +75,7 @@ export interface AppState {
   options: {
     age: number | null;
     maxHR: number | null;
+    maxHRSource: 'entered' | 'default' | null;
     sprintKmh: number;
     highIntensityKmh: number;
     format: FormatKey;
@@ -143,6 +148,9 @@ export const store = reactive<AppState>({
   activePeriod: -1,
   fields: loadStoredFields(),
   appliedFieldId: null,
+  selectedFieldId: null,
+  breakFiles: [],
+  uploadWizardOpen: false,
   fieldEditorOpen: false,
   settingsOpen: false,
   editFieldTarget: null,
@@ -155,6 +163,7 @@ export const store = reactive<AppState>({
   options: {
     age: null,
     maxHR: null,
+    maxHRSource: null,
     sprintKmh: 19.8,
     highIntensityKmh: 14.4,
     format: loadStoredFormat(),
@@ -188,6 +197,7 @@ export function allFields(): SavedField[] {
 
 // Nearest field to a set of records, within FIELD_MATCH_M.
 function resolveField(recs: RecordSample[]): SavedField | null {
+  if (store.selectedFieldId) return allFields().find((f) => f.id === store.selectedFieldId) || null;
   const gc = centroid(recordsToLatLon(recs));
   if (!gc) return null;
   let best: SavedField | null = null;
@@ -205,6 +215,19 @@ function resolveField(recs: RecordSample[]): SavedField | null {
 }
 
 export const activeSegment = () => store.segments.find((s) => s.id === store.activeSegmentId) || store.segments[0] || null;
+
+function buildUploadSegments(fit: FitResult): Segment[] {
+  return store.files.length > 1 ? buildSegmentsPerFile(fit, store.breakFiles) : buildSegments(fit, store.options.groupGapMin * 60);
+}
+
+function fitWithoutBreaks(fit: FitResult): FitResult {
+  if (!store.breakFiles.length) return fit;
+  return { ...fit, records: fit.records.filter((r) => !store.breakFiles.includes(String(r._fileName || ''))) };
+}
+
+function recordingStartTime(fit: FitResult): number | undefined {
+  return fit.records.find((r) => r.timestamp != null)?.timestamp as number | undefined;
+}
 
 export function recompute(): void {
   const seg = activeSegment();
@@ -231,6 +254,7 @@ export function recompute(): void {
   const a = compute(pseudo, {
     age: effectiveAge,
     maxHR: store.options.maxHR,
+    maxHRSource: store.options.maxHRSource || undefined,
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,
     attackingDir: currentAttackDir(),
@@ -266,11 +290,14 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.sideDirs = {};
     store.cloud = { mode: 'local', matchShortId: null, ownerId: null };
     store.manualSplits = null;
+    store.selectedFieldId = null;
+    store.breakFiles = [];
+    store.uploadWizardOpen = false;
   }
   store.activeTab = 'overview';
   store.segments = store.manualSplits
-    ? buildSegmentsManual(fit, store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks)
-    : buildSegments(fit, store.options.groupGapMin * 60);
+    ? buildSegmentsManual(fitWithoutBreaks(fit), store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks, recordingStartTime(fit))
+    : buildUploadSegments(fit);
   // Default to the first real match, not the combined "whole file" view.
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
@@ -335,6 +362,9 @@ export async function loadFiles(fileList: File[]): Promise<void> {
     const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     const label = parsed.length === 1 ? parsed[0].name : `${parsed.length} files`;
     loadFit(merged, label);
+    // Only an actual user file upload starts guided setup. Samples and developer
+    // hooks intentionally retain their immediate-dashboard behaviour.
+    store.uploadWizardOpen = !!store.analytics;
   } catch (e: any) {
     store.error = 'Could not parse: ' + (e?.message || e);
     store.analytics = null;
@@ -389,7 +419,7 @@ export async function loadFromUrls(urls: string[]): Promise<void> {
 
 export function setGroupGap(min: number): void {
   store.options.groupGapMin = min;
-  if (!currentFit || store.manualSplits) return;
+  if (!currentFit || store.manualSplits || store.files.length > 1) return;
   store.segments = buildSegments(currentFit, min * 60);
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
@@ -414,13 +444,40 @@ export function setManualSplits(sessionBreaks: number[], halfBreaks: number[]): 
   store.attackDirs = {};
   store.sideDirs = {};
   store.segments = store.manualSplits
-    ? buildSegmentsManual(currentFit, sessionBreaks, halfBreaks)
-    : buildSegments(currentFit, store.options.groupGapMin * 60);
+    ? buildSegmentsManual(fitWithoutBreaks(currentFit), sessionBreaks, halfBreaks, recordingStartTime(currentFit))
+    : buildUploadSegments(currentFit);
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
   store.activePeriod = -1;
   recompute();
   geocodeCurrent();
+}
+
+export function setSelectedField(id: string | null): void {
+  store.selectedFieldId = id;
+  recompute();
+}
+
+export function setBreakFiles(names: string[]): boolean {
+  if (!currentFit || names.length >= store.files.length) return false;
+  store.breakFiles = names;
+  store.manualSplits = null;
+  store.attackDirs = {};
+  store.sideDirs = {};
+  store.segments = buildUploadSegments(currentFit);
+  const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
+  store.activeSegmentId = first?.id || '';
+  store.activePeriod = -1;
+  recompute();
+  geocodeCurrent();
+  return true;
+}
+
+export function setDefaultMaxHR(): void {
+  store.options.age = null;
+  store.options.maxHR = 190;
+  store.options.maxHRSource = 'default';
+  recompute();
 }
 
 export function clearManualSplits(): void {
@@ -521,12 +578,15 @@ export interface CloudLoadMeta {
   options: {
     age?: number | null;
     maxHR?: number | null;
+    maxHRSource?: 'entered' | 'default' | null;
     sprintKmh?: number;
     highIntensityKmh?: number;
     format?: FormatKey;
   };
   sessions: CloudSession[];
   cloudFields?: SavedField[];
+  selectedFieldId?: string | null;
+  breakFiles?: string[];
   manualSplits?: { sessionBreaks: number[]; halfBreaks: number[] } | null;
   seq?: number;
 }
@@ -541,6 +601,7 @@ export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   if (o.format) store.options.format = o.format;
   if (o.age !== undefined) store.options.age = o.age ?? null;
   if (o.maxHR !== undefined) store.options.maxHR = o.maxHR ?? null;
+  if (o.maxHRSource !== undefined) store.options.maxHRSource = o.maxHRSource;
   if (o.sprintKmh != null) store.options.sprintKmh = o.sprintKmh;
   if (o.highIntensityKmh != null) store.options.highIntensityKmh = o.highIntensityKmh;
   store.options.groupGapMin = meta.groupGapMin;
@@ -549,6 +610,8 @@ export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   store.sideDirs = {};
   store.cloud = { mode: 'cloud', matchShortId: meta.shortId, ownerId: meta.ownerId };
   store.manualSplits = meta.manualSplits ?? null;
+  store.selectedFieldId = meta.selectedFieldId ?? null;
+  store.breakFiles = meta.breakFiles ?? [];
   loadFit(fit, meta.fileNames.length === 1 ? meta.fileNames[0] : `${meta.fileNames.length} files`, false);
 
   const segs = nonCombinedSegments();

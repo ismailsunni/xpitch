@@ -27,6 +27,7 @@ export interface Segment {
   records: RecordSample[];
   session: SessionMessage | null;
   periods: Period[];
+  sourceFile?: string;
 }
 
 export interface ParsedFile {
@@ -212,17 +213,53 @@ export function buildSegments(fit: FitResult, groupGapS = DEFAULT_GROUP_GAP_MIN 
   return segs;
 }
 
+// A multi-file upload represents a deliberate match/session boundary at every
+// file boundary. Do not infer or group across those boundaries, even if their
+// timestamps are close together.
+export function buildSegmentsPerFile(fit: FitResult, breakFiles: string[] = []): Segment[] {
+  const recs = fit.records.filter((r) => r.timestamp != null).sort((a, b) => ts(a) - ts(b));
+  const byFile = new Map<string, RecordSample[]>();
+  for (const r of recs) {
+    const name = typeof r._fileName === 'string' ? r._fileName : null;
+    if (!name) return buildSegments(fit);
+    const group = byFile.get(name) || [];
+    group.push(r);
+    byFile.set(name, group);
+  }
+  const files = [...byFile.entries()]
+    .map(([name, records]) => ({ name, records, start: ts(records[0]), end: ts(records[records.length - 1]) }))
+    .sort((a, b) => a.start - b.start);
+  if (files.length < 2) return buildSegments(fit);
+  const activeFiles = files.filter((file) => !breakFiles.includes(file.name));
+  if (!activeFiles.length) return [];
+  const activeRecords = activeFiles.flatMap((file) => file.records).sort((a, b) => ts(a) - ts(b));
+  const segs: Segment[] = activeFiles.map((file, i) => ({
+    id: 'f' + i,
+    label: 'Session ' + (i + 1),
+    sublabel: sublabel(file.start, file.end),
+    kind: 'session',
+    startTime: file.start,
+    endTime: file.end,
+    records: file.records,
+    session: null,
+    periods: [],
+    sourceFile: file.name,
+  }));
+  return [combinedSeg(activeRecords, 'Whole upload'), ...segs];
+}
+
 // Manual splitting: carve the recording into sessions at `sessionBreaksSec`
 // and each session into periods (halves) at `halfBreaksSec`. Break times are
 // seconds from the recording's first record.
 export function buildSegmentsManual(
   fit: FitResult,
   sessionBreaksSec: number[],
-  halfBreaksSec: number[]
+  halfBreaksSec: number[],
+  recordingStartTime?: number
 ): Segment[] {
   const recs = fit.records.filter((r) => r.timestamp != null).sort((a, b) => ts(a) - ts(b));
   if (!recs.length) return [];
-  const firstTs = ts(recs[0]);
+  const firstTs = recordingStartTime ?? ts(recs[0]);
   const lastTs = ts(recs[recs.length - 1]);
   const toTs = (sec: number) => firstTs + sec;
 
