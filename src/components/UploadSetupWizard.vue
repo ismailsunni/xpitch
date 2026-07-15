@@ -10,21 +10,23 @@ import {
   getCurrentFit,
   nonCombinedSegments,
   recordingDurationSec,
+  recordingStartOffsetBase,
   recompute,
   setDefaultMaxHR,
-  setBreakFiles,
+  setBreakSessionStarts,
   setManualSplits,
   setSelectedField,
+  sessionStartOffsets,
   store,
 } from '../store';
 
 type Step = 'pitch' | 'split' | 'orientation' | 'hr';
 const step = ref<Step>('pitch');
-const newBreak = ref('');
 const birthDate = ref('');
 const error = ref('');
 const savingBirthDate = ref(false);
-const sessionBreaks = ref<number[]>([...(store.manualSplits?.sessionBreaks || [])].sort((a, b) => a - b));
+const sessionBreaks = ref<number[]>([...(store.manualSplits?.sessionBreaks || sessionStartOffsets().slice(1))].sort((a, b) => a - b));
+const breakSessionStarts = ref<number[]>([...store.breakSessionStarts]);
 
 const hasGps = computed(() => !!store.analytics?.meta?.hasGPS);
 const hasHr = computed(() => !!getCurrentFit()?.records.some((r) => r.heart_rate != null && r.heart_rate > 0));
@@ -52,6 +54,14 @@ const minHr = computed(() => Math.min(...series.value.map((p) => p.hr), 50));
 const maxHr = computed(() => Math.max(...series.value.map((p) => p.hr), minHr.value + 1));
 const polyline = computed(() => series.value.map((p) => `${(p.t / maxTime.value) * 100},${100 - ((p.hr - minHr.value) / (maxHr.value - minHr.value)) * 100}`).join(' '));
 const splitPreview = computed(() => [0, ...sessionBreaks.value, maxTime.value]);
+const resultSessions = computed(() => {
+  const base = recordingStartOffsetBase() || 0;
+  return splitPreview.value.slice(0, -1).map((start, i) => ({
+    start,
+    end: splitPreview.value[i + 1],
+    key: (base || 0) + start,
+  }));
+});
 const selectedField = computed(() => allFields().find((f) => f.id === store.selectedFieldId) || null);
 
 function trackPoints(seg: any): string {
@@ -81,38 +91,34 @@ function trackPoints(seg: any): string {
   return out.join(' ');
 }
 
-function parseTime(value: string): number | null {
-  const v = value.trim();
-  if (!v) return null;
-  if (v.includes(':')) {
-    const [m, s] = v.split(':').map(Number);
-    return isFinite(m) && isFinite(s) ? m * 60 + s : null;
-  }
-  const min = Number(v);
-  return isFinite(min) ? Math.round(min * 60) : null;
-}
-function addBreak(value?: number) {
-  const t = value ?? parseTime(newBreak.value);
-  error.value = '';
-  if (t == null || t <= 0 || t >= maxTime.value) {
-    error.value = `Enter a time between 0:00 and ${fmtClock(maxTime.value)}.`;
-    return;
-  }
-  if (!sessionBreaks.value.includes(t)) sessionBreaks.value = [...sessionBreaks.value, t].sort((a, b) => a - b);
-  newBreak.value = '';
-}
 function onTimelineClick(e: MouseEvent) {
   const box = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-  addBreak(Math.round(((e.clientX - box.left) / box.width) * maxTime.value));
+  const t = Math.round(((e.clientX - box.left) / box.width) * maxTime.value);
+  if (t > 0 && t < maxTime.value && !sessionBreaks.value.includes(t)) {
+    sessionBreaks.value = [...sessionBreaks.value, t].sort((a, b) => a - b);
+  }
 }
 function applySplits() {
   setManualSplits(sessionBreaks.value, []);
+  setBreakSessionStarts(breakSessionStarts.value);
 }
-function toggleBreak(file: string) {
+function toggleSession(start: number) {
   error.value = '';
-  const next = store.breakFiles.includes(file) ? store.breakFiles.filter((x) => x !== file) : [...store.breakFiles, file];
-  if (!setBreakFiles(next)) error.value = 'Keep at least one file as a match session.';
-  else sessionBreaks.value = [];
+  const next = breakSessionStarts.value.includes(start)
+    ? breakSessionStarts.value.filter((x) => x !== start)
+    : [...breakSessionStarts.value, start];
+  if (next.length >= resultSessions.value.length) error.value = 'Keep at least one session set to Play.';
+  else breakSessionStarts.value = next;
+}
+function deleteSession(index: number) {
+  if (resultSessions.value.length <= 1) return;
+  const base = recordingStartOffsetBase() || 0;
+  const removed = resultSessions.value[index];
+  const removedBoundary = index === 0 ? sessionBreaks.value[0] : sessionBreaks.value[index - 1];
+  // The first section also consumes the following boundary when merged.
+  const mergedStart = index === 0 ? base + (sessionBreaks.value[0] || 0) : removed.key;
+  breakSessionStarts.value = breakSessionStarts.value.filter((x) => x !== removed.key && x !== mergedStart);
+  sessionBreaks.value = sessionBreaks.value.filter((x) => x !== removedBoundary);
 }
 function setOrientation(segmentId: string, dir: number) {
   store.attackDirs[`${segmentId}:-1`] = dir;
@@ -199,23 +205,27 @@ function previous() {
 
       <div v-else-if="step === 'split'" class="wizard-body">
         <p class="hint">{{ store.files.length }} source file{{ store.files.length === 1 ? '' : 's' }} loaded · {{ nonCombinedSegments().length }} session{{ nonCombinedSegments().length === 1 ? '' : 's' }} detected. Add a boundary where one match ends and the next begins.</p>
-        <div v-if="store.files.length > 1" class="file-sessions">
-          <span class="timeline-label">Uploaded files — mark a rest/break to exclude it from this match</span>
-          <div v-for="(file, i) in store.files" :key="file" class="file-session" :class="{ break: store.breakFiles.includes(file) }"><strong>Session {{ i + 1 }}</strong><span>{{ file }}</span><button class="btn ghost small" @click="toggleBreak(file)">{{ store.breakFiles.includes(file) ? 'Include' : 'Mark break' }}</button></div>
-        </div>
         <template v-if="series.length">
-          <p class="timeline-label">Heart rate — click the trace to add a session boundary</p>
+          <p class="timeline-label">Heart rate — click the trace to create a session boundary</p>
           <svg class="timeline" viewBox="0 0 100 100" preserveAspectRatio="none" @click="onTimelineClick">
+            <rect
+              v-for="session in resultSessions"
+              :key="session.key"
+              :x="(session.start / maxTime) * 100"
+              y="0"
+              :width="((session.end - session.start) / maxTime) * 100"
+              height="100"
+              :class="breakSessionStarts.includes(session.key) ? 'rest-band' : 'play-band'"
+            />
             <polyline :points="polyline" fill="none" stroke="var(--c-coral)" stroke-width="1.2" vector-effect="non-scaling-stroke" />
             <line v-for="t in sessionBreaks" :key="t" :x1="(t / maxTime) * 100" :x2="(t / maxTime) * 100" y1="0" y2="100" stroke="var(--accent)" stroke-width="1" vector-effect="non-scaling-stroke" />
           </svg>
         </template>
-        <p v-else class="hint">No HR data is available. Add session boundaries by elapsed time if automatic grouping is not right.</p>
-        <div class="break-add"><input v-model="newBreak" placeholder="e.g. 27:00" @keyup.enter="addBreak()" /><button class="btn ghost small" @click="addBreak()">Add break</button></div>
-        <div class="chips"><span v-for="t in sessionBreaks" :key="t" class="chip">{{ fmtClock(t) }} <button @click="sessionBreaks = sessionBreaks.filter((x) => x !== t)">×</button></span><span v-if="!sessionBreaks.length" class="hint">No manual boundaries</span></div>
-        <div class="split-preview" aria-label="Session timeline preview">
-          <div v-for="(_, i) in splitPreview.slice(0, -1)" :key="i" class="split-block" :style="{ flex: Math.max(1, splitPreview[i + 1] - splitPreview[i]) }">
-            <strong>Session {{ i + 1 }}</strong><span>{{ fmtClock(splitPreview[i]) }}–{{ fmtClock(splitPreview[i + 1]) }}</span>
+        <p v-else class="hint">No HR data is available. Existing file sessions are shown below; you can revise boundaries from the manual split editor later.</p>
+        <div class="chips"><span v-for="t in sessionBreaks" :key="t" class="chip">{{ fmtClock(t) }} <button @click="sessionBreaks = sessionBreaks.filter((x) => x !== t)">×</button></span><span v-if="!sessionBreaks.length" class="hint">No extra boundaries</span></div>
+        <div class="split-preview" aria-label="Session results">
+          <div v-for="(session, i) in resultSessions" :key="session.key" class="split-block" :class="{ break: breakSessionStarts.includes(session.key) }" :style="{ flex: Math.max(1, session.end - session.start) }">
+            <strong>{{ breakSessionStarts.includes(session.key) ? 'Rest' : 'Session' }} {{ i + 1 }}</strong><span>{{ fmtClock(session.start) }}–{{ fmtClock(session.end) }}</span><label class="session-switch"><input type="checkbox" :checked="!breakSessionStarts.includes(session.key)" :aria-label="`Session ${i + 1} is ${breakSessionStarts.includes(session.key) ? 'rest' : 'play'}`" @change="toggleSession(session.key)" /><span class="switch-track"></span><span>{{ breakSessionStarts.includes(session.key) ? 'Rest' : 'Play' }}</span></label><button class="delete-session" :disabled="resultSessions.length === 1" title="Delete this split and merge with the neighbouring section" @click="deleteSession(i)">×</button>
           </div>
         </div>
       </div>
@@ -237,5 +247,5 @@ function previous() {
 </template>
 
 <style scoped>
-.wizard-overlay{position:fixed;inset:0;z-index:120;background:rgba(4,8,14,.72);display:grid;place-items:center;padding:18px}.wizard{width:min(620px,100%);max-height:calc(100vh - 36px);overflow:auto}.wizard-head{display:flex;justify-content:space-between;gap:12px;align-items:start}.wizard h2{margin:3px 0 0}.eyebrow,.timeline-label{font:11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.wizard-body{display:grid;gap:14px;margin:18px 0}.wizard-body p{margin:0}.wizard label{display:grid;gap:6px;font-size:13px;font-weight:600}.wizard input,.wizard select{background:var(--bg-elev2);border:1px solid var(--border);border-radius:var(--ctl-radius);color:var(--text);padding:8px 10px;font:inherit}.timeline{height:180px;width:100%;background:var(--bg-elev2);border:1px solid var(--border);border-radius:10px;cursor:crosshair}.break-add{display:flex;gap:8px}.break-add input{width:130px}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:4px 9px;border-radius:16px;background:var(--bg-elev2);font-size:13px}.chip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}.file-sessions{display:grid;gap:6px}.file-session{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:9px;font-size:12px}.file-session span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-session.break{opacity:.55;background:var(--bg-elev2);text-decoration:line-through}.file-session.break button{text-decoration:none}.split-preview{display:flex;gap:4px;min-height:52px}.split-block{min-width:60px;padding:7px;border-radius:8px;background:var(--accent-tint);border:1px solid var(--accent-tint-strong);display:grid;gap:3px;font-size:11px;overflow:hidden}.split-block span{color:var(--muted);white-space:nowrap}.orient-list{display:grid;gap:8px}.orient-row{display:grid;grid-template-columns:190px 1fr;gap:12px;padding:10px;border:1px solid var(--border);border-radius:10px}.orientation-preview svg{display:block;width:100%;background:#1f5c39;border-radius:8px;overflow:hidden}.pl-edge{fill:none;stroke:rgba(255,255,255,.6);stroke-width:1}.pl-track{fill:none;stroke:var(--accent);stroke-width:1;stroke-opacity:.7;stroke-linejoin:round;stroke-linecap:round}.orientation-controls{display:grid;align-content:center;gap:5px}.orientation-controls>div{display:flex;gap:6px;flex-wrap:wrap}.btn.on{border-color:var(--accent);color:var(--accent-ink)}.wizard-foot{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:18px}@media(max-width:540px){.orient-row{grid-template-columns:1fr}.wizard-head{flex-direction:column}.timeline{height:140px}.file-session{grid-template-columns:1fr auto}.file-session span{grid-column:1/-1;grid-row:2}}
+.wizard-overlay{position:fixed;inset:0;z-index:120;background:rgba(4,8,14,.72);display:grid;place-items:center;padding:18px}.wizard{width:min(620px,100%);max-height:calc(100vh - 36px);overflow:auto}.wizard-head{display:flex;justify-content:space-between;gap:12px;align-items:start}.wizard h2{margin:3px 0 0}.eyebrow,.timeline-label{font:11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.wizard-body{display:grid;gap:14px;margin:18px 0}.wizard-body p{margin:0}.wizard label{display:grid;gap:6px;font-size:13px;font-weight:600}.wizard input,.wizard select{background:var(--bg-elev2);border:1px solid var(--border);border-radius:var(--ctl-radius);color:var(--text);padding:8px 10px;font:inherit}.timeline{height:180px;width:100%;background:var(--bg-elev2);border:1px solid var(--border);border-radius:10px;cursor:crosshair}.play-band{fill:rgba(200,247,81,.1)}.rest-band{fill:rgba(255,106,77,.16)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:4px 9px;border-radius:16px;background:var(--bg-elev2);font-size:13px}.chip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}.split-preview{display:grid;gap:7px;min-height:52px}.split-block{padding:9px 10px;border-radius:8px;background:var(--accent-tint);border:1px solid var(--accent-tint-strong);display:grid;grid-template-columns:100px 1fr auto auto;align-items:center;gap:10px;font-size:12px}.split-block>span{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.split-block.break{opacity:.65;background:var(--bg-elev2)}.session-switch{display:flex!important;grid-auto-flow:column;align-items:center;gap:6px;font-size:11px!important;cursor:pointer}.session-switch input{position:absolute;opacity:0;pointer-events:none}.switch-track{width:30px;height:17px;border-radius:10px;background:var(--c-coral);position:relative;transition:.15s}.switch-track::after{content:'';position:absolute;width:13px;height:13px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.15s}.session-switch input:checked+.switch-track{background:var(--accent)}.session-switch input:checked+.switch-track::after{transform:translateX(13px)}.delete-session{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:3px 5px}.delete-session:hover{color:var(--danger)}.delete-session:disabled{opacity:.35;cursor:not-allowed}.orient-list{display:grid;gap:8px}.orient-row{display:grid;grid-template-columns:190px 1fr;gap:12px;padding:10px;border:1px solid var(--border);border-radius:10px}.orientation-preview svg{display:block;width:100%;background:#1f5c39;border-radius:8px;overflow:hidden}.pl-edge{fill:none;stroke:rgba(255,255,255,.6);stroke-width:1}.pl-track{fill:none;stroke:var(--accent);stroke-width:1;stroke-opacity:.7;stroke-linejoin:round;stroke-linecap:round}.orientation-controls{display:grid;align-content:center;gap:5px}.orientation-controls>div{display:flex;gap:6px;flex-wrap:wrap}.btn.on{border-color:var(--accent);color:var(--accent-ink)}.wizard-foot{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:18px}@media(max-width:540px){.orient-row{grid-template-columns:1fr}.wizard-head{flex-direction:column}.timeline{height:140px}.split-block{grid-template-columns:1fr auto auto}.split-block>span{grid-column:1/-1;grid-row:2}}
 </style>

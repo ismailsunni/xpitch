@@ -104,6 +104,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       primary_field_id: selectedFieldId,
       file_names: store.files,
       break_files: store.breakFiles,
+      break_session_starts: store.breakSessionStarts,
       manual_splits: store.manualSplits,
       visibility: opts.visibility ?? 'unlisted',
     })
@@ -185,6 +186,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
       group_gap_min: store.options.groupGapMin,
       manual_splits: store.manualSplits,
       break_files: store.breakFiles,
+      break_session_starts: store.breakSessionStarts,
       primary_field_id: selectedFieldId,
     })
     .eq('id', matchId);

@@ -107,6 +107,7 @@ async function load() {
       manualSplits: res.match.manual_splits || null,
       selectedFieldId: res.match.primary_field_id || null,
       breakFiles: res.match.break_files || [],
+      breakSessionStarts: res.match.break_session_starts || [],
       seq,
     });
     state.value = 'ready';

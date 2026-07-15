@@ -54,6 +54,7 @@ export interface AppState {
   // Explicit pitch chosen during the upload setup. Null keeps nearest-pitch matching.
   selectedFieldId: string | null;
   breakFiles: string[];
+  breakSessionStarts: number[];
   uploadWizardOpen: boolean;
   fieldEditorOpen: boolean;
   settingsOpen: boolean; // analysis-settings panel (toggled by the gear in the match line)
@@ -150,6 +151,7 @@ export const store = reactive<AppState>({
   appliedFieldId: null,
   selectedFieldId: null,
   breakFiles: [],
+  breakSessionStarts: [],
   uploadWizardOpen: false,
   fieldEditorOpen: false,
   settingsOpen: false,
@@ -216,8 +218,24 @@ function resolveField(recs: RecordSample[]): SavedField | null {
 
 export const activeSegment = () => store.segments.find((s) => s.id === store.activeSegmentId) || store.segments[0] || null;
 
-function buildUploadSegments(fit: FitResult): Segment[] {
+function baseUploadSegments(fit: FitResult): Segment[] {
   return store.files.length > 1 ? buildSegmentsPerFile(fit, store.breakFiles) : buildSegments(fit, store.options.groupGapMin * 60);
+}
+
+function applySessionBreaks(segs: Segment[]): Segment[] {
+  if (!store.breakSessionStarts.length) return segs;
+  const real = segs.filter((s) => s.kind !== 'combined');
+  const kept = real.filter((s) => !store.breakSessionStarts.includes(s.startTime));
+  if (!kept.length) return segs;
+  if (kept.length === 1) return kept;
+  const combined = segs.find((s) => s.kind === 'combined');
+  if (!combined) return kept;
+  const records = kept.flatMap((s) => s.records).sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
+  return [{ ...combined, startTime: kept[0].startTime, endTime: kept[kept.length - 1].endTime, records }, ...kept];
+}
+
+function buildUploadSegments(fit: FitResult): Segment[] {
+  return applySessionBreaks(baseUploadSegments(fit));
 }
 
 function fitWithoutBreaks(fit: FitResult): FitResult {
@@ -225,8 +243,8 @@ function fitWithoutBreaks(fit: FitResult): FitResult {
   return { ...fit, records: fit.records.filter((r) => !store.breakFiles.includes(String(r._fileName || ''))) };
 }
 
-function recordingStartTime(fit: FitResult): number | undefined {
-  return fit.records.find((r) => r.timestamp != null)?.timestamp as number | undefined;
+function recordingStartTime(fit: FitResult | null): number | undefined {
+  return fit?.records.find((r) => r.timestamp != null)?.timestamp as number | undefined;
 }
 
 export function recompute(): void {
@@ -292,11 +310,12 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.manualSplits = null;
     store.selectedFieldId = null;
     store.breakFiles = [];
+    store.breakSessionStarts = [];
     store.uploadWizardOpen = false;
   }
   store.activeTab = 'overview';
   store.segments = store.manualSplits
-    ? buildSegmentsManual(fitWithoutBreaks(fit), store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks, recordingStartTime(fit))
+    ? applySessionBreaks(buildSegmentsManual(fitWithoutBreaks(fit), store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks, recordingStartTime(fit)))
     : buildUploadSegments(fit);
   // Default to the first real match, not the combined "whole file" view.
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
@@ -441,10 +460,11 @@ export function setManualSplits(sessionBreaks: number[], halfBreaks: number[]): 
   if (!currentFit) return;
   const active = sessionBreaks.length || halfBreaks.length;
   store.manualSplits = active ? { sessionBreaks, halfBreaks } : null;
+  store.breakSessionStarts = [];
   store.attackDirs = {};
   store.sideDirs = {};
   store.segments = store.manualSplits
-    ? buildSegmentsManual(fitWithoutBreaks(currentFit), sessionBreaks, halfBreaks, recordingStartTime(currentFit))
+    ? applySessionBreaks(buildSegmentsManual(fitWithoutBreaks(currentFit), sessionBreaks, halfBreaks, recordingStartTime(currentFit)))
     : buildUploadSegments(currentFit);
   const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
   store.activeSegmentId = first ? first.id : '';
@@ -461,6 +481,7 @@ export function setSelectedField(id: string | null): void {
 export function setBreakFiles(names: string[]): boolean {
   if (!currentFit || names.length >= store.files.length) return false;
   store.breakFiles = names;
+  store.breakSessionStarts = [];
   store.manualSplits = null;
   store.attackDirs = {};
   store.sideDirs = {};
@@ -471,6 +492,35 @@ export function setBreakFiles(names: string[]): boolean {
   recompute();
   geocodeCurrent();
   return true;
+}
+
+export function setBreakSessionStarts(starts: number[]): boolean {
+  if (!currentFit) return false;
+  const real = store.segments.filter((s) => s.kind !== 'combined');
+  if (starts.length >= real.length) return false;
+  store.breakSessionStarts = starts;
+  store.attackDirs = {};
+  store.sideDirs = {};
+  const base = store.manualSplits
+    ? buildSegmentsManual(fitWithoutBreaks(currentFit), store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks, recordingStartTime(currentFit))
+    : baseUploadSegments(currentFit);
+  store.segments = applySessionBreaks(base);
+  const first = store.segments.find((s) => s.kind !== 'combined') || store.segments[0];
+  store.activeSegmentId = first?.id || '';
+  store.activePeriod = -1;
+  recompute();
+  geocodeCurrent();
+  return true;
+}
+
+export function sessionStartOffsets(): number[] {
+  const start = recordingStartTime(currentFit);
+  if (start == null) return [];
+  return nonCombinedSegments().map((s) => s.startTime - start).sort((a, b) => a - b);
+}
+
+export function recordingStartOffsetBase(): number | null {
+  return recordingStartTime(currentFit) ?? null;
 }
 
 export function setDefaultMaxHR(): void {
@@ -587,6 +637,7 @@ export interface CloudLoadMeta {
   cloudFields?: SavedField[];
   selectedFieldId?: string | null;
   breakFiles?: string[];
+  breakSessionStarts?: number[];
   manualSplits?: { sessionBreaks: number[]; halfBreaks: number[] } | null;
   seq?: number;
 }
@@ -612,6 +663,7 @@ export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   store.manualSplits = meta.manualSplits ?? null;
   store.selectedFieldId = meta.selectedFieldId ?? null;
   store.breakFiles = meta.breakFiles ?? [];
+  store.breakSessionStarts = meta.breakSessionStarts ?? [];
   loadFit(fit, meta.fileNames.length === 1 ? meta.fileNames[0] : `${meta.fileNames.length} files`, false);
 
   const segs = nonCombinedSegments();
