@@ -157,6 +157,11 @@ function loadSaved(f: { id: string; name: string; corners: { lat: number; lon: n
   fitTo(cornersLL.value.map((c) => fromLonLat(c)));
 }
 
+function useSaved(id: string) {
+  setSelectedField(id);
+  close();
+}
+
 async function deleteSaved(id: string) {
   try {
     if (auth.user) await deleteFieldCloud(id);
@@ -197,7 +202,7 @@ async function save() {
     err.value = e?.message || 'Could not save pitch';
     return;
   }
-  if (store.uploadWizardOpen && savedId) setSelectedField(savedId);
+  if (savedId) setSelectedField(savedId);
   close();
 }
 
@@ -320,16 +325,15 @@ onBeforeUnmount(() => {
         <span
           v-for="f in PREDEFINED_FIELDS"
           :key="f.id"
-          class="pill-btn"
+          class="pitch-pill"
           :class="{ active: editingId === f.id }"
-          title="Built-in pitch"
-          style="cursor: pointer"
-          @click="loadSaved(f)"
         >
-          🏟 {{ f.name }}
+          <button type="button" class="pill-main" title="Preview pitch" @click="loadSaved(f)">🏟 {{ f.name }}</button>
+          <button type="button" class="pill-use" title="Use this pitch for this match" @click="useSaved(f.id)">Use</button>
         </span>
-        <span v-for="f in userFields" :key="f.id" class="pill-btn" :class="{ active: editingId === f.id }">
-          <span style="cursor: pointer" @click="loadSaved(f)">{{ f.name }}</span>
+        <span v-for="f in userFields" :key="f.id" class="pitch-pill" :class="{ active: editingId === f.id }">
+          <button type="button" class="pill-main" title="Preview/edit pitch" @click="loadSaved(f)">{{ f.name }}</button>
+          <button type="button" class="pill-use" title="Use this pitch for this match" @click="useSaved(f.id)">Use</button>
           <span class="del" title="Delete" @click="deleteSaved(f.id)">✕</span>
         </span>
       </div>
@@ -423,10 +427,36 @@ onBeforeUnmount(() => {
   letter-spacing: 0.5px;
   color: var(--muted);
 }
-.fe-saved .pill-btn {
+.fe-saved .pitch-pill {
   display: inline-flex;
-  gap: 8px;
   align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elev2);
+  padding: 4px 6px 4px 10px;
+  font-size: 12px;
+}
+.fe-saved .pitch-pill.active {
+  border-color: var(--accent);
+}
+.pill-main,
+.pill-use {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.pill-main {
+  font-weight: 700;
+}
+.pill-use {
+  border-left: 1px solid var(--border);
+  color: var(--accent-ink);
+  padding-left: 6px;
+  font-weight: 700;
 }
 .fe-saved .del {
   color: var(--muted);

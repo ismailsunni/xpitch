@@ -10,7 +10,8 @@ import {
   updateMatchTitle,
   deleteMatch,
 } from '../lib/api';
-import { store, loadFromCloud, nonCombinedSegments, dirsForSegment, selectSegment } from '../store';
+import { store, loadFromCloud, nonCombinedSegments, dirsForSegment, selectSegment, setFormat, setSelectedField } from '../store';
+import type { FormatKey } from '../lib/analytics';
 import * as FitParser from '../lib/fit-parser';
 import { mergeFiles } from '../lib/segmentation';
 import { auth } from '../lib/auth';
@@ -40,15 +41,44 @@ const owned = computed(() => state.value === 'ready' && isOwner());
 const dirty = ref(false);
 const saving = ref(false);
 const savedFlash = ref(false);
+const editMode = ref(false);
+const draftTitle = ref('');
+const draftVisibility = ref('unlisted');
+let editSnapshot: { title: string; visibility: string; format: FormatKey; selectedFieldId: string | null } | null = null;
+
+function beginEdit() {
+  if (!matchRow.value) return;
+  editSnapshot = {
+    title: matchRow.value.title || '',
+    visibility: matchRow.value.visibility || 'unlisted',
+    format: store.options.format,
+    selectedFieldId: store.selectedFieldId,
+  };
+  draftTitle.value = editSnapshot.title;
+  draftVisibility.value = editSnapshot.visibility;
+  editMode.value = true;
+}
 
 async function onSaveChanges() {
   if (!matchRow.value || saving.value) return;
   saving.value = true;
   try {
+    const title = draftTitle.value.trim();
+    if (title !== (matchRow.value.title || '')) {
+      await updateMatchTitle(matchRow.value.id, title);
+      matchRow.value.title = title;
+      store.matchTitle = title;
+    }
+    if (draftVisibility.value !== matchRow.value.visibility) {
+      await setMatchVisibility(matchRow.value.id, draftVisibility.value);
+      matchRow.value.visibility = draftVisibility.value;
+    }
     const rows = await updateMatchFromCurrent(matchRow.value.id);
     sessionIdBySeq = {};
     rows.forEach((s) => (sessionIdBySeq[s.seq] = s.id));
     dirty.value = false;
+    editMode.value = false;
+    editSnapshot = null;
     savedFlash.value = true;
     setTimeout(() => (savedFlash.value = false), 2500);
   } catch (e: any) {
@@ -58,15 +88,19 @@ async function onSaveChanges() {
   }
 }
 
-async function onTitle(e: Event) {
-  const title = (e.target as HTMLInputElement).value.trim();
-  matchRow.value.title = title;
-  await updateMatchTitle(matchRow.value.id, title);
-}
-async function onVisibility(e: Event) {
-  const v = (e.target as HTMLSelectElement).value;
-  matchRow.value.visibility = v;
-  await setMatchVisibility(matchRow.value.id, v);
+function cancelEdit() {
+  if (!editSnapshot || !matchRow.value) {
+    editMode.value = false;
+    return;
+  }
+  draftTitle.value = editSnapshot.title;
+  draftVisibility.value = editSnapshot.visibility;
+  store.matchTitle = editSnapshot.title;
+  setFormat(editSnapshot.format);
+  setSelectedField(editSnapshot.selectedFieldId);
+  editMode.value = false;
+  editSnapshot = null;
+  void nextTick(() => (dirty.value = false));
 }
 async function onDelete() {
   if (!matchRow.value) return;
@@ -90,6 +124,9 @@ async function load() {
       return;
     }
     matchRow.value = res.match;
+    store.matchTitle = res.match.title || '';
+    draftTitle.value = res.match.title || '';
+    draftVisibility.value = res.match.visibility || 'unlisted';
     ownerId = res.match.owner_id;
     sessionIdBySeq = {};
     res.sessions.forEach((s: any) => (sessionIdBySeq[s.seq] = s.id));
@@ -182,37 +219,40 @@ watch(
       <header class="match-head">
         <div class="mh-title">
           <input
-            v-if="owned"
+            v-if="owned && editMode"
             class="mh-title-input"
-            :value="matchRow.title || ''"
+            v-model="draftTitle"
             placeholder="Untitled match"
             aria-label="Match title"
-            @change="onTitle"
           />
           <h1 v-else>{{ matchRow.title || 'Untitled match' }}</h1>
         </div>
         <div class="mh-actions">
-          <label v-if="owned" class="mh-vis">
+          <label v-if="owned && editMode" class="mh-vis">
             <span class="mh-vis-k">Visibility</span>
-            <select :value="matchRow.visibility" @change="onVisibility">
+            <select v-model="draftVisibility">
               <option value="unlisted">Unlisted (link only)</option>
               <option value="public">Public (on profile)</option>
               <option value="private">Private (only me)</option>
             </select>
           </label>
+          <span v-else-if="owned" class="mh-vis-read">{{ matchRow.visibility }}</span>
+          <button v-if="owned && !editMode" class="btn ghost small" @click="beginEdit">Edit match</button>
+          <button v-if="owned && editMode" class="btn ghost small" :disabled="saving" @click="cancelEdit">Cancel</button>
           <button
-            v-if="owned"
+            v-if="owned && editMode"
             class="btn primary small"
-            :disabled="saving || !dirty"
+            :disabled="saving"
             @click="onSaveChanges"
           >
-            {{ saving ? 'Saving…' : savedFlash ? 'Saved ✓' : dirty ? '💾 Save changes' : '✓ Saved' }}
+            {{ saving ? 'Saving…' : 'Save changes' }}
           </button>
+          <span v-else-if="owned && savedFlash" class="saved-note">Saved ✓</span>
           <ShareButtons :url="shareUrl" :title="shareTitle" />
           <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
         </div>
       </header>
-      <Dashboard />
+      <Dashboard :editing-match="editMode" />
     </template>
   </main>
 </template>
@@ -278,6 +318,11 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+.mh-vis-read {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: capitalize;
 }
 .mh-vis-k {
   font-size: 11px;

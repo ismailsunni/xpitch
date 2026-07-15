@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, setFormat, appliedField } from '../store';
+import { store, setFormat, appliedField, allFields, setSelectedField } from '../store';
 import { auth } from '../lib/auth';
 import { FORMATS } from '../lib/analytics';
+
+const props = defineProps<{ editing?: boolean }>();
 
 // A one-line, natural-language summary of the match. Format and pitch are
 // edited inline here (they define how the match reads), so the settings gear
 // only carries the remaining analysis params.
 const meta = computed(() => store.analytics?.meta);
 const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
+const canEditInline = computed(() => !readOnly.value && (props.editing || store.cloud.mode === 'local'));
 const hasGPS = computed(() => !!meta.value?.hasGPS);
 const usingField = computed(() => !!store.analytics?.positional?.hasField);
 const field = computed(() => appliedField());
@@ -46,12 +49,16 @@ const placeName = computed(() => {
   return null;
 });
 const fieldSlug = computed(() => (usingField.value ? field.value?.slug || '' : ''));
+const pitchOptions = computed(() => allFields());
 
 const formatOptions = Object.values(FORMATS);
 const resolvedShort = computed(() => (meta.value ? FORMATS[meta.value.format]?.short || meta.value.format : ''));
 const autoLabel = computed(() =>
   store.options.format === 'auto' && resolvedShort.value ? `Auto-detect → ${resolvedShort.value}` : 'Auto-detect'
 );
+function choosePitch(value: string) {
+  setSelectedField(value || null);
+}
 </script>
 
 <template>
@@ -59,7 +66,7 @@ const autoLabel = computed(() =>
     <p class="sentence">
       <!-- Format (inline editable for owners) -->
       <select
-        v-if="!readOnly"
+        v-if="canEditInline"
         class="inline-select"
         :value="store.options.format"
         aria-label="Match format"
@@ -74,12 +81,24 @@ const autoLabel = computed(() =>
       <!-- Pitch / place -->
       <template v-if="placeName">
         <span class="conj">in</span>
-        <RouterLink v-if="fieldSlug" :to="`/field/${fieldSlug}`" class="place">{{ placeName }}</RouterLink>
-        <span v-else class="place">{{ placeName }}</span>
+        <template v-if="!canEditInline || !hasGPS">
+          <RouterLink v-if="fieldSlug" :to="`/field/${fieldSlug}`" class="place">{{ placeName }}</RouterLink>
+          <span v-else class="place">{{ placeName }}</span>
+        </template>
+        <select
+          v-if="canEditInline && hasGPS"
+          class="pitch-select"
+          :value="store.selectedFieldId || store.appliedFieldId || ''"
+          aria-label="Select pitch"
+          @change="choosePitch(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">Auto pitch</option>
+          <option v-for="p in pitchOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
         <button
-          v-if="!readOnly && hasGPS"
+          v-if="canEditInline && hasGPS"
           class="pitch-edit"
-          :title="usingField ? 'Edit pitch' : 'Set the pitch'"
+          :title="usingField ? 'Edit or create pitch' : 'Create pitch'"
           @click="store.fieldEditorOpen = true"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -100,7 +119,7 @@ const autoLabel = computed(() =>
     </p>
 
     <button
-      v-if="!readOnly"
+      v-if="canEditInline"
       class="gear"
       :class="{ on: store.settingsOpen }"
       :aria-expanded="store.settingsOpen"
@@ -178,6 +197,21 @@ a.place:hover {
 .inline-select:hover {
   border-color: var(--border);
   background: var(--bg-elev2);
+}
+.pitch-select {
+  max-width: 220px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+.pitch-select:hover {
+  border-color: var(--border-strong);
 }
 .pitch-edit {
   display: inline-flex;

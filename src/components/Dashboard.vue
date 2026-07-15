@@ -20,13 +20,14 @@ const TABS = [
 ];
 
 const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.comp || OverviewTab);
+defineProps<{ editingMatch?: boolean }>();
 </script>
 
 <template>
   <div>
     <!-- Order: match info → analysis settings → session chooser → this session,
          then the section nav sits directly above the content it switches. -->
-    <MetaBar />
+    <MetaBar :editing="editingMatch" />
     <ControlsBar />
     <SegmentBar />
     <SessionBar />

@@ -93,7 +93,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
     .insert({
       short_id: shortId,
       owner_id: uid,
-      title: opts.title ?? null,
+      title: opts.title ?? (store.matchTitle.trim() || null),
       sport: typeof meta.sport === 'string' ? meta.sport : null,
       format: store.options.format,
       group_gap_min: store.options.groupGapMin,

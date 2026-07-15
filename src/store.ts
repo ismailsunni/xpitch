@@ -45,6 +45,7 @@ export interface AppState {
   loading: boolean;
   activeTab: string;
   location: string | null;
+  matchTitle: string;
   files: string[];
   segments: Segment[];
   activeSegmentId: string;
@@ -143,6 +144,7 @@ export const store = reactive<AppState>({
   loading: false,
   activeTab: 'overview',
   location: null,
+  matchTitle: '',
   files: [],
   segments: [],
   activeSegmentId: '',
@@ -346,6 +348,7 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.cloud = { mode: 'local', matchShortId: null, ownerId: null };
     store.manualSplits = null;
     store.selectedFieldId = null;
+    store.matchTitle = '';
     store.breakFiles = [];
     store.breakSessionStarts = [];
     store.uploadWizardOpen = false;

@@ -4,7 +4,7 @@ import PitchCanvas from './PitchCanvas.vue';
 import { auth } from '../lib/auth';
 import { updateProfile } from '../lib/api';
 import { deriveAge, fmtClock } from '../lib/format';
-import { compute } from '../lib/analytics';
+import { compute, FORMATS, type FormatKey } from '../lib/analytics';
 import { suggestSessionBreaksFromHR } from '../lib/segmentation';
 import type { RecordSample } from '../lib/fit-parser';
 import {
@@ -17,6 +17,7 @@ import {
   recompute,
   setDefaultMaxHR,
   setBreakSessionStarts,
+  setFormat,
   setManualSplits,
   setSelectedField,
   sessionStartOffsets,
@@ -43,8 +44,9 @@ const steps = computed<Step[]>(() => [
 ]);
 const stepIndex = computed(() => steps.value.indexOf(step.value));
 const title = computed(() => ({
-  pitch: 'Choose your pitch', split: 'Split the recording', orientation: 'Set attack direction', hr: 'Heart-rate setup',
+  pitch: 'Match details', split: 'Split the recording', orientation: 'Set attack direction', hr: 'Heart-rate setup',
 }[step.value]));
+const formatOptions = computed(() => Object.values(FORMATS).filter((f) => f.key !== 'auto'));
 const series = computed(() => {
   const all = (getCurrentFit()?.records || []).filter((r) => r.timestamp != null);
   const records = all.filter((r) => r.heart_rate != null && r.heart_rate > 0);
@@ -259,6 +261,9 @@ function setOrientation(segmentId: string, dir: number) {
 function flipOrientation(segmentId: string) {
   setOrientation(segmentId, (store.attackDirs[`${segmentId}:-1`] ?? 1) * -1);
 }
+function updateFormat(value: string) {
+  setFormat(value as FormatKey);
+}
 function close() {
   store.uploadWizardOpen = false;
 }
@@ -294,9 +299,14 @@ async function saveHeartRate() {
 }
 function next() {
   error.value = '';
-  // An automatic nearby match becomes this upload's single pitch, ensuring all
-  // session previews and match detail share the same field transform.
-  if (step.value === 'pitch' && !store.selectedFieldId && appliedField()) setSelectedField(appliedField()!.id);
+  if (step.value === 'pitch' && hasGps.value && !store.selectedFieldId) {
+    error.value = 'Select or create the pitch before continuing. Without a pitch, distance and position data are not reliable.';
+    return;
+  }
+  if (step.value === 'pitch' && store.options.format === 'auto') {
+    error.value = 'Choose the game type before continuing.';
+    return;
+  }
   if (step.value === 'split') applySplits();
   const i = stepIndex.value + 1;
   if (i < steps.value.length) step.value = steps.value[i];
@@ -317,16 +327,25 @@ function previous() {
           <span class="eyebrow">Upload setup · {{ stepIndex + 1 }}/{{ steps.length }}</span>
           <h2 id="setup-title">{{ title }}</h2>
         </div>
-        <button class="btn ghost small" @click="skip">Skip for now</button>
+        <button v-if="step !== 'pitch' || !hasGps" class="btn ghost small" @click="skip">Skip for now</button>
       </header>
 
       <div v-if="step === 'pitch'" class="wizard-body">
-        <p v-if="hasGps" class="hint">Pick one pitch for this upload. The nearby match below becomes the pitch used throughout match detail and orientation setup.</p>
+        <label>Match name
+          <input v-model="store.matchTitle" type="text" placeholder="e.g. Tuesday night mini soccer" />
+        </label>
+        <label>Game type
+          <select :value="store.options.format" @change="updateFormat(($event.target as HTMLSelectElement).value)">
+            <option value="auto" disabled>Select game type</option>
+            <option v-for="f in formatOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
+          </select>
+        </label>
+        <p v-if="hasGps" class="hint">Select the pitch used for this upload. The pitch controls the field transform used throughout match detail and orientation setup.</p>
         <p v-else class="hint">This file has no GPS coordinates, so a pitch cannot be mapped to it.</p>
         <template v-if="hasGps">
           <label>Pitch
             <select :value="store.selectedFieldId || ''" @change="setSelectedField(($event.target as HTMLSelectElement).value || null)">
-              <option value="">Automatically matched pitch{{ automaticFieldLabel ? ` (${automaticFieldLabel})` : '' }}</option>
+              <option value="" disabled>Select a pitch{{ automaticFieldLabel ? ` (nearby: ${automaticFieldLabel})` : '' }}</option>
               <option v-for="field in allFields()" :key="field.id" :value="field.id">{{ field.name }}</option>
             </select>
           </label>
