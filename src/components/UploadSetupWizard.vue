@@ -114,6 +114,17 @@ function onTimelineClick(e: MouseEvent) {
     sessionBreaks.value = [...sessionBreaks.value, t].sort((a, b) => a - b);
   }
 }
+function parseSplitTime(value: string): number | null {
+  const text = value.trim();
+  if (!text) return null;
+  if (text.includes(':')) {
+    const parts = text.split(':').map((part) => Number(part));
+    if (parts.length > 3 || parts.some((part) => !Number.isFinite(part) || part < 0)) return null;
+    return Math.round(parts.reduce((total, part) => total * 60 + part, 0));
+  }
+  const minutes = Number(text);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
+}
 function timestamp(r: RecordSample): number {
   return r.timestamp as number;
 }
@@ -158,6 +169,30 @@ function initialSplitState(): { breaks: number[]; restStarts: number[] } {
 function uniqueSorted(values: number[]): number[] {
   const duration = recordingDurationSec() || Number.POSITIVE_INFINITY;
   return [...new Set(values.map((v) => Math.round(v)).filter((v) => v > 0 && v < duration))].sort((a, b) => a - b);
+}
+function updateBoundary(index: number, value: string) {
+  error.value = '';
+  const nextTime = parseSplitTime(value);
+  if (nextTime == null || nextTime <= 0 || nextTime >= maxTime.value) {
+    error.value = 'Enter a split time between 0:00 and ' + fmtClock(maxTime.value) + '.';
+    return;
+  }
+  const oldTime = sessionBreaks.value[index];
+  const base = recordingStartOffsetBase() || 0;
+  const nextBreaks = [...sessionBreaks.value];
+  nextBreaks[index] = nextTime;
+  const sorted = uniqueSorted(nextBreaks);
+  if (sorted.length !== nextBreaks.length) {
+    error.value = 'That split time already exists.';
+    return;
+  }
+  sessionBreaks.value = sorted;
+  breakSessionStarts.value = breakSessionStarts.value.map((start) => start === base + oldTime ? base + nextTime : start);
+}
+function removeBoundary(time: number) {
+  const base = recordingStartOffsetBase() || 0;
+  sessionBreaks.value = sessionBreaks.value.filter((x) => x !== time);
+  breakSessionStarts.value = breakSessionStarts.value.filter((x) => x !== base + time);
 }
 function autoSplitFromHR() {
   const fit = getCurrentFit();
@@ -318,7 +353,13 @@ function previous() {
           </svg>
         </template>
         <p v-else class="hint">No HR data is available. Existing file sessions are shown below; you can revise boundaries from the manual split editor later.</p>
-        <div class="chips"><span v-for="t in sessionBreaks" :key="t" class="chip">{{ fmtClock(t) }} <button @click="sessionBreaks = sessionBreaks.filter((x) => x !== t)">×</button></span><span v-if="!sessionBreaks.length" class="hint">No extra boundaries</span></div>
+        <div class="chips">
+          <span v-for="(t, i) in sessionBreaks" :key="t" class="chip editable-chip">
+            <input :value="fmtClock(t)" aria-label="Split time" @change="updateBoundary(i, ($event.target as HTMLInputElement).value)" @keydown.enter.prevent="($event.target as HTMLInputElement).blur()" />
+            <button @click="removeBoundary(t)">×</button>
+          </span>
+          <span v-if="!sessionBreaks.length" class="hint">No extra boundaries</span>
+        </div>
         <div class="split-preview" aria-label="Session results">
           <div v-for="(session, i) in resultSessions" :key="session.key" class="split-block" :class="{ break: session.isRest }" :style="{ flex: Math.max(1, session.end - session.start) }">
             <strong>{{ session.label }}</strong><span>{{ fmtClock(session.start) }}–{{ fmtClock(session.end) }}</span><label class="session-switch"><input type="checkbox" :checked="!session.isRest" :aria-label="`${session.label} is ${session.isRest ? 'rest' : 'play'}`" @change="toggleSession(session.key)" /><span class="switch-track"></span><span>{{ session.isRest ? 'Rest' : 'Play' }}</span></label><button class="delete-session" :disabled="resultSessions.length === 1" title="Delete this split and merge with the neighbouring section" @click="deleteSession(i)">×</button>
@@ -337,11 +378,11 @@ function previous() {
         <p class="hint">{{ auth.user ? 'It will be saved privately to your profile.' : 'It will be used only for this analysis.' }} If you skip it, we’ll use a common 190 bpm reference maximum.</p>
       </div>
       <p v-if="error" class="error">{{ error }}</p>
-      <footer class="wizard-foot"><button v-if="stepIndex > 0" class="btn ghost" @click="previous">Back</button><span></span><button v-if="step === 'hr'" class="btn primary" :disabled="savingBirthDate" @click="saveHeartRate">{{ savingBirthDate ? 'Saving…' : birthDate ? 'Continue' : 'Use 190 bpm' }}</button><button v-else class="btn primary" @click="next">{{ stepIndex + 1 < steps.length ? 'Continue' : 'Finish setup' }}</button></footer>
+      <footer class="wizard-foot"><div class="wizard-actions"><button class="btn ghost" @click="close">Cancel</button><button v-if="stepIndex > 0" class="btn ghost" @click="previous">Back</button></div><span></span><button v-if="step === 'hr'" class="btn primary" :disabled="savingBirthDate" @click="saveHeartRate">{{ savingBirthDate ? 'Saving…' : birthDate ? 'Continue' : 'Use 190 bpm' }}</button><button v-else class="btn primary" @click="next">{{ stepIndex + 1 < steps.length ? 'Continue' : 'Finish setup' }}</button></footer>
     </section>
   </div>
 </template>
 
 <style scoped>
-.wizard-overlay{position:fixed;inset:0;z-index:120;background:rgba(4,8,14,.72);display:grid;place-items:center;padding:18px}.wizard{width:min(620px,100%);max-height:calc(100vh - 36px);overflow:auto}.wizard-head{display:flex;justify-content:space-between;gap:12px;align-items:start}.wizard h2{margin:3px 0 0}.eyebrow,.timeline-label{font:11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.wizard-body{display:grid;gap:14px;margin:18px 0}.wizard-body p{margin:0}.wizard label{display:grid;gap:6px;font-size:13px;font-weight:600}.wizard input,.wizard select{background:var(--bg-elev2);border:1px solid var(--border);border-radius:var(--ctl-radius);color:var(--text);padding:8px 10px;font:inherit}.timeline-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.timeline{height:180px;width:100%;background:var(--bg-elev2);border:1px solid var(--border);border-radius:10px;cursor:crosshair}.play-band{fill:rgba(200,247,81,.1)}.rest-band{fill:rgba(255,106,77,.16)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:4px 9px;border-radius:16px;background:var(--bg-elev2);font-size:13px}.chip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}.split-preview{display:grid;gap:7px;min-height:52px}.split-block{padding:9px 10px;border-radius:8px;background:var(--accent-tint);border:1px solid var(--accent-tint-strong);display:grid;grid-template-columns:100px 1fr auto auto;align-items:center;gap:10px;font-size:12px}.split-block>span{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.split-block.break{opacity:.65;background:var(--bg-elev2)}.session-switch{display:flex!important;grid-auto-flow:column;align-items:center;gap:6px;font-size:11px!important;cursor:pointer}.session-switch input{position:absolute;opacity:0;pointer-events:none}.switch-track{width:30px;height:17px;border-radius:10px;background:var(--c-coral);position:relative;transition:.15s}.switch-track::after{content:'';position:absolute;width:13px;height:13px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.15s}.session-switch input:checked+.switch-track{background:var(--accent)}.session-switch input:checked+.switch-track::after{transform:translateX(13px)}.delete-session{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:3px 5px}.delete-session:hover{color:var(--danger)}.delete-session:disabled{opacity:.35;cursor:not-allowed}.orient-list{display:grid;gap:8px}.orient-row{display:grid;grid-template-columns:190px 1fr;gap:12px;padding:10px;border:1px solid var(--border);border-radius:10px}.orientation-preview svg{display:block;width:100%;background:#1f5c39;border-radius:8px;overflow:hidden}.pl-edge{fill:none;stroke:rgba(255,255,255,.6);stroke-width:1}.pl-track{fill:none;stroke:var(--accent);stroke-width:1;stroke-opacity:.7;stroke-linejoin:round;stroke-linecap:round}.orientation-controls{display:grid;align-content:center;gap:5px}.orientation-controls>div{display:flex;gap:6px;flex-wrap:wrap}.btn.on{border-color:var(--accent);color:var(--accent-ink)}.wizard-foot{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:18px}@media(max-width:540px){.orient-row{grid-template-columns:1fr}.wizard-head{flex-direction:column}.timeline-head{align-items:start;flex-direction:column}.timeline{height:140px}.split-block{grid-template-columns:1fr auto auto}.split-block>span{grid-column:1/-1;grid-row:2}}
+.wizard-overlay{position:fixed;inset:0;z-index:120;background:rgba(4,8,14,.72);display:grid;place-items:center;padding:18px}.wizard{width:min(620px,100%);max-height:calc(100vh - 36px);overflow:auto}.wizard-head{display:flex;justify-content:space-between;gap:12px;align-items:start}.wizard h2{margin:3px 0 0}.eyebrow,.timeline-label{font:11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.wizard-body{display:grid;gap:14px;margin:18px 0}.wizard-body p{margin:0}.wizard label{display:grid;gap:6px;font-size:13px;font-weight:600}.wizard input,.wizard select{background:var(--bg-elev2);border:1px solid var(--border);border-radius:var(--ctl-radius);color:var(--text);padding:8px 10px;font:inherit}.timeline-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.timeline{height:180px;width:100%;background:var(--bg-elev2);border:1px solid var(--border);border-radius:10px;cursor:crosshair}.play-band{fill:rgba(200,247,81,.1)}.rest-band{fill:rgba(255,106,77,.16)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:4px 9px;border-radius:16px;background:var(--bg-elev2);font-size:13px}.editable-chip{display:flex;align-items:center;gap:2px;padding:3px 6px}.editable-chip input{width:58px;border:0;background:transparent;padding:2px 3px;font:13px var(--font-mono);text-align:center}.editable-chip input:focus{outline:1px solid var(--accent);border-radius:6px}.chip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}.split-preview{display:grid;gap:7px;min-height:52px}.split-block{padding:9px 10px;border-radius:8px;background:var(--accent-tint);border:1px solid var(--accent-tint-strong);display:grid;grid-template-columns:100px 1fr auto auto;align-items:center;gap:10px;font-size:12px}.split-block>span{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.split-block.break{opacity:.65;background:var(--bg-elev2)}.session-switch{display:flex!important;grid-auto-flow:column;align-items:center;gap:6px;font-size:11px!important;cursor:pointer}.session-switch input{position:absolute;opacity:0;pointer-events:none}.switch-track{width:30px;height:17px;border-radius:10px;background:var(--c-coral);position:relative;transition:.15s}.switch-track::after{content:'';position:absolute;width:13px;height:13px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.15s}.session-switch input:checked+.switch-track{background:var(--accent)}.session-switch input:checked+.switch-track::after{transform:translateX(13px)}.delete-session{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:3px 5px}.delete-session:hover{color:var(--danger)}.delete-session:disabled{opacity:.35;cursor:not-allowed}.orient-list{display:grid;gap:8px}.orient-row{display:grid;grid-template-columns:190px 1fr;gap:12px;padding:10px;border:1px solid var(--border);border-radius:10px}.orientation-preview svg{display:block;width:100%;background:#1f5c39;border-radius:8px;overflow:hidden}.pl-edge{fill:none;stroke:rgba(255,255,255,.6);stroke-width:1}.pl-track{fill:none;stroke:var(--accent);stroke-width:1;stroke-opacity:.7;stroke-linejoin:round;stroke-linecap:round}.orientation-controls{display:grid;align-content:center;gap:5px}.orientation-controls>div{display:flex;gap:6px;flex-wrap:wrap}.btn.on{border-color:var(--accent);color:var(--accent-ink)}.wizard-foot{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:18px}.wizard-actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:540px){.orient-row{grid-template-columns:1fr}.wizard-head{flex-direction:column}.timeline-head{align-items:start;flex-direction:column}.timeline{height:140px}.split-block{grid-template-columns:1fr auto auto}.split-block>span{grid-column:1/-1;grid-row:2}}
 </style>

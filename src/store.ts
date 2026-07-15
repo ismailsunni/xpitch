@@ -222,6 +222,29 @@ function baseUploadSegments(fit: FitResult): Segment[] {
   return store.files.length > 1 ? buildSegmentsPerFile(fit, store.breakFiles) : buildSegments(fit, store.options.groupGapMin * 60);
 }
 
+function compactRecordsForSegments(segs: Segment[]): { records: RecordSample[]; durationS: number } {
+  let cursor = segs[0]?.startTime || 0;
+  const records: RecordSample[] = [];
+  for (const seg of segs) {
+    const shift = cursor - seg.startTime;
+    for (const r of seg.records) {
+      const originalTs = r.timestamp as number | undefined;
+      if (originalTs == null) continue;
+      const timestamp = originalTs + shift;
+      records.push({ ...r, timestamp, date: FitParser.fitTimestampToDate(timestamp) || r.date });
+    }
+    cursor += Math.max(0, seg.endTime - seg.startTime);
+  }
+  return { records, durationS: Math.max(0, cursor - (segs[0]?.startTime || cursor)) };
+}
+
+function combinedSublabel(startTs: number, durationS: number): string {
+  const d = FitParser.fitTimestampToDate(startTs);
+  const clock = d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const mins = Math.max(0, Math.round(durationS / 60));
+  return [clock, mins + ' min'].filter(Boolean).join(' · ');
+}
+
 function applySessionBreaks(segs: Segment[]): Segment[] {
   if (!store.breakSessionStarts.length) return segs;
   const real = segs.filter((s) => s.kind !== 'combined');
@@ -230,8 +253,18 @@ function applySessionBreaks(segs: Segment[]): Segment[] {
   if (kept.length === 1) return kept;
   const combined = segs.find((s) => s.kind === 'combined');
   if (!combined) return kept;
-  const records = kept.flatMap((s) => s.records).sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
-  return [{ ...combined, startTime: kept[0].startTime, endTime: kept[kept.length - 1].endTime, records }, ...kept];
+  const compacted = compactRecordsForSegments(kept);
+  const startTime = kept[0].startTime;
+  return [
+    {
+      ...combined,
+      startTime,
+      endTime: startTime + compacted.durationS,
+      sublabel: combinedSublabel(startTime, compacted.durationS),
+      records: compacted.records,
+    },
+    ...kept,
+  ];
 }
 
 function buildUploadSegments(fit: FitResult): Segment[] {
