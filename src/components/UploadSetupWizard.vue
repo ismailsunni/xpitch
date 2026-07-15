@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import PitchCanvas from './PitchCanvas.vue';
 import { auth } from '../lib/auth';
 import { updateProfile } from '../lib/api';
 import { deriveAge, fmtClock } from '../lib/format';
-import { buildFieldTransform, buildPitchTransform } from '../lib/geo';
+import { compute } from '../lib/analytics';
 import {
   allFields,
   appliedField,
@@ -62,34 +63,23 @@ const resultSessions = computed(() => {
     key: (base || 0) + start,
   }));
 });
-const selectedField = computed(() => allFields().find((f) => f.id === store.selectedFieldId) || null);
-
-function trackPoints(seg: any): string {
-  const gps = seg.records
-    .filter((r: any) => r.position_lat != null && r.position_long != null)
-    .map((r: any) => ({ lat: r.position_lat as number, lon: r.position_long as number }));
-  // The selected/upload-matched field is also what store.recompute() supplies
-  // to match detail, so this preview uses its exact transform.
-  const field = selectedField.value || appliedField();
-  const transform = (field ? buildFieldTransform(field.corners) : null) || buildPitchTransform(gps);
-  if (!transform) return '';
-  const dir = store.attackDirs[`${seg.id}:-1`] ?? 1;
-  const OFF = 0.12; // drop fixes this far beyond a line as GPS error / off-pitch
-  const out: string[] = [];
-  for (const p of gps) {
-    const q = transform.project(p.lat, p.lon);
-    let u = dir === 1 ? q.u : 1 - q.u;
-    let v = dir === 1 ? q.v : 1 - q.v;
-    if (field) {
-      if (u < -OFF || u > 1 + OFF || v < -OFF || v > 1 + OFF) continue;
-      u = Math.min(1, Math.max(0, u));
-      v = Math.min(1, Math.max(0, v));
-    }
-    // Map onto the pitch rect (x 2..98, y 2..62) of the 100×64 viewBox.
-    out.push(`${(2 + u * 96).toFixed(1)},${(2 + v * 60).toFixed(1)}`);
-  }
-  return out.join(' ');
-}
+const orientationPitches = computed(() => {
+  const field = appliedField();
+  return Object.fromEntries(
+    nonCombinedSegments().map((seg) => [
+      seg.id,
+      compute(
+        { records: seg.records, sessions: seg.session ? [seg.session] : [], laps: [], events: [], activity: null, file_id: null, other: {} },
+        {
+          attackingDir: store.attackDirs[`${seg.id}:-1`] ?? 1,
+          sideDir: store.sideDirs[`${seg.id}:-1`] ?? 1,
+          field: field?.corners || null,
+          format: store.options.format,
+        }
+      ).positional,
+    ])
+  ) as Record<string, any>;
+});
 
 function onTimelineClick(e: MouseEvent) {
   const box = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
@@ -127,6 +117,9 @@ function setOrientation(segmentId: string, dir: number) {
   store.activeSegmentId = segmentId;
   store.activePeriod = -1;
   recompute();
+}
+function flipOrientation(segmentId: string) {
+  setOrientation(segmentId, (store.attackDirs[`${segmentId}:-1`] ?? 1) * -1);
 }
 function close() {
   store.uploadWizardOpen = false;
@@ -232,7 +225,7 @@ function previous() {
 
       <div v-else-if="step === 'orientation'" class="wizard-body">
         <p class="hint">For each session, choose the end you attacked. You can fine-tune this later from the match page.</p>
-        <div class="orient-list"><div v-for="(seg, i) in nonCombinedSegments()" :key="seg.id" class="orient-row"><div class="orientation-preview"><svg viewBox="0 0 100 64" preserveAspectRatio="xMidYMid meet" aria-label="GPS track on the pitch"><defs><clipPath :id="'wclip' + i"><rect x="2" y="2" width="96" height="60" rx="3" /></clipPath></defs><rect class="pl-edge" x="2" y="2" width="96" height="60" rx="3" /><path class="pl-edge" d="M50 2V62M2 17h12v30H2M86 17h12v30H86" /><circle class="pl-edge" cx="50" cy="32" r="9" /><polyline class="pl-track" :points="trackPoints(seg)" :clip-path="'url(#wclip' + i + ')'" /></svg></div><div class="orientation-controls"><strong>Session {{ i + 1 }}</strong><span class="hint">{{ seg.sublabel }}</span><div><button class="btn ghost small" :class="{ on: (store.attackDirs[`${seg.id}:-1`] ?? 1) === 1 }" @click="setOrientation(seg.id, 1)">▶ Attacking</button><button class="btn ghost small" :class="{ on: (store.attackDirs[`${seg.id}:-1`] ?? 1) === -1 }" @click="setOrientation(seg.id, -1)">Attacking ◀</button></div></div></div></div>
+        <div class="orient-list"><div v-for="(seg, i) in nonCombinedSegments()" :key="seg.id" class="orient-row"><div class="orientation-preview"><PitchCanvas v-if="orientationPitches[seg.id]" :positional="orientationPitches[seg.id]" mode="trail" /></div><div class="orientation-controls"><strong>Session {{ i + 1 }}</strong><span class="hint">{{ seg.sublabel }}</span><button class="btn ghost small" @click="flipOrientation(seg.id)">{{ (store.attackDirs[`${seg.id}:-1`] ?? 1) === 1 ? '▶ Attacking' : 'Attacking ◀' }} · flip</button></div></div></div>
       </div>
 
       <div v-else class="wizard-body">
