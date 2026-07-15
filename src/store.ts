@@ -223,19 +223,24 @@ function baseUploadSegments(fit: FitResult): Segment[] {
 }
 
 function compactRecordsForSegments(segs: Segment[]): { records: RecordSample[]; durationS: number } {
-  let cursor = segs[0]?.startTime || 0;
+  const firstRecordTs = segs[0]?.records.find((r) => r.timestamp != null)?.timestamp as number | undefined;
+  let cursor = firstRecordTs ?? segs[0]?.startTime ?? 0;
+  const origin = cursor;
   const records: RecordSample[] = [];
   for (const seg of segs) {
-    const shift = cursor - seg.startTime;
-    for (const r of seg.records) {
-      const originalTs = r.timestamp as number | undefined;
-      if (originalTs == null) continue;
+    const sourceRecords = seg.records.filter((r) => r.timestamp != null).sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
+    if (!sourceRecords.length) continue;
+    const sourceStart = sourceRecords[0].timestamp as number;
+    const sourceEnd = sourceRecords[sourceRecords.length - 1].timestamp as number;
+    const shift = cursor - sourceStart;
+    for (const r of sourceRecords) {
+      const originalTs = r.timestamp as number;
       const timestamp = originalTs + shift;
       records.push({ ...r, timestamp, date: FitParser.fitTimestampToDate(timestamp) || r.date });
     }
-    cursor += Math.max(0, seg.endTime - seg.startTime);
+    cursor += Math.max(0, sourceEnd - sourceStart);
   }
-  return { records, durationS: Math.max(0, cursor - (segs[0]?.startTime || cursor)) };
+  return { records, durationS: Math.max(0, cursor - origin) };
 }
 
 function combinedSublabel(startTs: number, durationS: number): string {
