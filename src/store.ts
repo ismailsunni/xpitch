@@ -251,9 +251,8 @@ function combinedSublabel(startTs: number, durationS: number): string {
 }
 
 function applySessionBreaks(segs: Segment[]): Segment[] {
-  if (!store.breakSessionStarts.length) return segs;
   const real = segs.filter((s) => s.kind !== 'combined');
-  const kept = real.filter((s) => !store.breakSessionStarts.includes(s.startTime));
+  const kept = store.breakSessionStarts.length ? real.filter((s) => !store.breakSessionStarts.includes(s.startTime)) : real;
   if (!kept.length) return segs;
   if (kept.length === 1) return kept;
   const combined = segs.find((s) => s.kind === 'combined');
