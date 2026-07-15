@@ -38,6 +38,60 @@ export interface ParsedFile {
 export const DEFAULT_GROUP_GAP_MIN = 10;
 const ATOMIC_GAP_S = 120; // pauses shorter than this stay within one base unit
 
+// Suggest match boundaries from sustained HR recovery valleys. This is only a
+// starting point for the upload wizard: users can add, remove, or move the
+// resulting timestamp boundaries before applying them.
+export function suggestSessionBreaksFromHR(fit: FitResult): number[] {
+  const raw = fit.records
+    .filter((r) => r.timestamp != null && typeof r.heart_rate === 'number' && r.heart_rate > 0)
+    .sort((a, b) => ts(a) - ts(b));
+  if (raw.length < 12) return [];
+  const start = ts(raw[0]);
+  const end = ts(raw[raw.length - 1]);
+  const binS = 30;
+  const bins = new Map<number, number[]>();
+  for (const r of raw) {
+    const bin = Math.floor((ts(r) - start) / binS);
+    const values = bins.get(bin) || [];
+    values.push(r.heart_rate as number);
+    bins.set(bin, values);
+  }
+  const points = [...bins.entries()]
+    .map(([bin, values]) => ({ t: bin * binS, hr: values.reduce((a, b) => a + b, 0) / values.length }))
+    .sort((a, b) => a.t - b.t);
+  if (points.length < 6) return [];
+  const sorted = points.map((p) => p.hr).sort((a, b) => a - b);
+  const baseline = sorted[Math.floor(sorted.length * 0.75)];
+  const low = Math.max(95, baseline * 0.72);
+  const minRecoveryS = 90;
+  const minBetweenS = 8 * 60;
+  const out: number[] = [];
+  let i = 0;
+  while (i < points.length) {
+    if (points[i].hr > low) {
+      i++;
+      continue;
+    }
+    const first = i;
+    while (i + 1 < points.length && points[i + 1].hr <= low) i++;
+    const last = i;
+    const duration = points[last].t - points[first].t + binS;
+    const before = points.slice(Math.max(0, first - 5), first).some((p) => p.hr > low * 1.12);
+    const after = points.slice(last + 1, Math.min(points.length, last + 6)).some((p) => p.hr > low * 1.12);
+    const midpoint = Math.round((points[first].t + points[last].t + binS) / 2);
+    if (
+      duration >= minRecoveryS &&
+      before &&
+      after &&
+      midpoint > 90 &&
+      midpoint < end - start - 90 &&
+      (!out.length || midpoint - out[out.length - 1] >= minBetweenS)
+    ) out.push(midpoint);
+    i++;
+  }
+  return out;
+}
+
 function ts(r: RecordSample): number {
   return r.timestamp as number;
 }
