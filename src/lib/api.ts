@@ -5,7 +5,7 @@
  */
 import { nanoid } from 'nanoid';
 import { supabase } from './supabase';
-import { auth, reloadProfile } from './auth';
+import { auth, isAdmin, reloadProfile } from './auth';
 import { compute } from './analytics';
 import { fitTimestampToDate } from './fit-parser';
 import { centroid, haversine, type LatLon } from './geo';
@@ -341,6 +341,29 @@ export async function listFeed(
   if (error) throw error;
   const matches = await attachAuthors(data || []);
   return { matches, total: count || 0 };
+}
+
+export async function listAdminData(): Promise<{ profiles: any[]; matches: any[]; fields: any[] }> {
+  if (!isAdmin()) throw new Error('Admin access only.');
+  const sb = requireClient();
+  const [profilesRes, matchesRes, fieldsRes] = await Promise.all([
+    sb.from('profiles').select('id, username, display_name, avatar_url, bio, birth_date, created_at, updated_at').order('created_at', { ascending: false }),
+    sb
+      .from('matches')
+      .select(
+        'id, short_id, title, format, started_at, created_at, updated_at, visibility, owner_id, location_label, primary_field_id, file_names, sessions(seq, duration_s, summary)'
+      )
+      .order('created_at', { ascending: false }),
+    sb.from('fields').select('id, slug, name, owner_id, visibility, centroid_lat, centroid_lon, created_at, updated_at').order('created_at', { ascending: false }),
+  ]);
+  if (profilesRes.error) throw profilesRes.error;
+  if (matchesRes.error) throw matchesRes.error;
+  if (fieldsRes.error) throw fieldsRes.error;
+  return {
+    profiles: profilesRes.data || [],
+    matches: await attachAuthors(matchesRes.data || []),
+    fields: fieldsRes.data || [],
+  };
 }
 
 // Public/system + own pitches.

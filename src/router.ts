@@ -7,6 +7,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/fields', name: 'fields', component: () => import('./views/FieldsView.vue') },
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue') },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
+  { path: '/admin', name: 'admin', component: () => import('./views/AdminView.vue') },
   { path: '/help', name: 'help', component: () => import('./views/HelpView.vue') },
   { path: '/match/:shortId/:seq?', name: 'match', component: () => import('./views/MatchView.vue') },
   { path: '/field/:slug', name: 'field', component: () => import('./views/FieldView.vue') },

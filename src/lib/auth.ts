@@ -6,6 +6,8 @@ import { reactive } from 'vue';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseEnabled, appRedirectUrl } from './supabase';
 
+export const ADMIN_EMAIL = 'imajimatika@gmail.com';
+
 export interface Profile {
   id: string;
   username: string | null;
@@ -79,6 +81,10 @@ export async function reloadProfile(): Promise<void> {
 
 export function isLoggedIn(): boolean {
   return !!auth.user;
+}
+
+export function isAdmin(): boolean {
+  return (auth.user?.email || '').toLowerCase() === ADMIN_EMAIL;
 }
 
 // True when signed in but no username yet (first-login gate).

@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { RouterLink, useRouter, useRoute } from 'vue-router';
 import { loadFiles } from '../store';
-import { auth, signOut } from '../lib/auth';
+import { auth, isAdmin, signOut } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { theme, toggleTheme } from '../lib/theme';
 import SaveMatchButton from './SaveMatchButton.vue';
@@ -85,6 +85,10 @@ watch(
       <RouterLink to="/help" class="nav-item" active-class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7" /><circle cx="12" cy="16.5" r="0.6" fill="currentColor" /></svg>
         <span>Help</span>
+      </RouterLink>
+      <RouterLink v-if="isAdmin()" to="/admin" class="nav-item" active-class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 4v5c0 4.2-2.8 7.3-7 9-4.2-1.7-7-4.8-7-9V7l7-4z" /><path d="M9 12l2 2 4-5" /></svg>
+        <span>Admin</span>
       </RouterLink>
     </div>
 
