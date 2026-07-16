@@ -9,7 +9,7 @@ import {
   updateMatchTitle,
   deleteMatch,
 } from '../lib/api';
-import { store, loadFromCloud, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
+import { store, getRawFiles, loadFromCloud, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
 import * as FitParser from '../lib/fit-parser';
 import { mergeFiles } from '../lib/segmentation';
 import { auth } from '../lib/auth';
@@ -60,6 +60,22 @@ const hasDraftChanges = computed(
       draftVisibility.value !== (matchRow.value.visibility || 'unlisted'))
 );
 const hasUnsavedChanges = computed(() => dirty.value || hasDraftChanges.value);
+const fitDownloadLabel = computed(() => (getRawFiles().length > 1 ? 'Download .fit files' : 'Download .fit'));
+
+function downloadFitFiles() {
+  const files = getRawFiles();
+  for (const file of files) {
+    const name = file.name.toLowerCase().endsWith('.fit') ? file.name : `${file.name}.fit`;
+    const url = URL.createObjectURL(new Blob([file.bytes], { type: 'application/octet-stream' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
 
 function beginEdit() {
   if (!matchRow.value) return;
@@ -273,6 +289,9 @@ watch(
             {{ saving ? 'Saving…' : 'Save changes' }}
           </button>
           <span v-else-if="owned && savedFlash" class="saved-note">Saved ✓</span>
+          <button class="btn ghost small" :disabled="!getRawFiles().length" @click="downloadFitFiles">
+            {{ fitDownloadLabel }}
+          </button>
           <ShareButtons :url="shareUrl" :title="shareTitle" />
           <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
         </div>
