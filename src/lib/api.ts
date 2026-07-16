@@ -112,7 +112,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
   if (mErr) throw mErr;
 
   // 3. Insert one session row per non-combined segment (with cached summary)
-  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, selectedFieldId));
+  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid));
   if (sErr) throw sErr;
 
   return shortId;
@@ -121,7 +121,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
 // Build the session rows for the current in-memory analysis (used by both
 // create and update). Recomputes each segment with the current options so the
 // cached summary/role reflect the latest edits.
-function buildSessionRows(matchId: string, uid: string, fieldId: string | null) {
+function buildSessionRows(matchId: string, uid: string) {
   return nonCombinedSegments().map((seg, i) => {
     const dirs = dirsForSegment(seg);
     const a = compute(
@@ -141,7 +141,6 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
       match_id: matchId,
       owner_id: uid,
       seq: i + 1,
-      field_id: fieldId,
       label: seg.label,
       kind: seg.kind,
       start_time: fitTimestampToDate(seg.startTime)?.toISOString() ?? null,
@@ -195,7 +194,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
   if (dErr) throw dErr;
   const { data: inserted, error: sErr } = await sb
     .from('sessions')
-    .insert(buildSessionRows(matchId, uid, selectedFieldId))
+    .insert(buildSessionRows(matchId, uid))
     .select('id,seq');
   if (sErr) throw sErr;
   return inserted || [];

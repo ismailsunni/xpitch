@@ -19,20 +19,3 @@ update public.matches m
 set primary_field_id = (select id from amikom),
     updated_at = now()
 where m.id in (select id from target_matches);
-
-with amikom as (
-  select id
-  from public.fields
-  where slug = 'amikom-soccer-arena'
-  limit 1
-),
-target_matches as (
-  select m.id
-  from public.matches m
-  cross join amikom a
-  where m.primary_field_id = a.id
-)
-update public.sessions s
-set field_id = (select id from amikom)
-where s.field_id is null
-  and s.match_id in (select id from target_matches);
