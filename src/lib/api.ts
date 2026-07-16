@@ -15,7 +15,6 @@ import {
   getRawFiles,
   nonCombinedSegments,
   dirsForSegment,
-  isPredefined,
   type CloudSession,
 } from '../store';
 
@@ -87,7 +86,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
     meta.startLat != null && meta.startLon != null
       ? await resolveNearestFieldId(meta.startLat, meta.startLon)
       : null;
-  const selectedFieldId = store.selectedFieldId && !isPredefined(store.selectedFieldId) ? store.selectedFieldId : nearField?.id ?? null;
+  const selectedFieldId = store.selectedFieldId || nearField?.id || null;
   const { data: match, error: mErr } = await sb
     .from('matches')
     .insert({
@@ -178,7 +177,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
   const nearField =
     meta.startLat != null && meta.startLon != null ? await resolveNearestFieldId(meta.startLat, meta.startLon) : null;
 
-  const selectedFieldId = store.selectedFieldId && !isPredefined(store.selectedFieldId) ? store.selectedFieldId : nearField?.id ?? null;
+  const selectedFieldId = store.selectedFieldId || nearField?.id || null;
   const { error: mErr } = await sb
     .from('matches')
     .update({
@@ -381,7 +380,7 @@ export async function updateProfile(patch: {
 
 // ---- Cloud pitches (Phase 3) ----
 
-// Load the signed-in user's saved pitches into the store (for auto-matching).
+// Load visible DB pitches into the store (public/system + the signed-in user's).
 export async function loadMyFields(): Promise<void> {
   if (!supabase || !auth.user) {
     store.cloudFields = [];
@@ -390,7 +389,7 @@ export async function loadMyFields(): Promise<void> {
   const { data } = await supabase
     .from('fields')
     .select('id, slug, name, corners, visibility')
-    .eq('owner_id', auth.user.id)
+    .or(`visibility.eq.public,owner_id.eq.${auth.user.id}`)
     .order('created_at');
   store.cloudFields = (data || []).map((f: any) => ({
     id: f.id,

@@ -16,7 +16,7 @@ import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import type { MapBrowserEvent } from 'ol';
 import { computed } from 'vue';
-import { store, addField, updateField, removeField, appliedField, PREDEFINED_FIELDS, setSelectedField } from '../store';
+import { store, addField, updateField, removeField, appliedField, setSelectedField } from '../store';
 import { auth } from '../lib/auth';
 import { upsertFieldCloud, deleteFieldCloud } from '../lib/api';
 
@@ -274,7 +274,7 @@ onMounted(() => {
 
 // New-pitch mode: start near a known pitch, else the user's location.
 function centerForNewPitch() {
-  const f = store.cloudFields[0] || PREDEFINED_FIELDS[0];
+  const f = store.cloudFields[0] || store.fields[0];
   if (f && f.corners?.length) {
     fitTo(f.corners.map((c) => fromLonLat([c.lon, c.lat])));
     return;
@@ -320,17 +320,8 @@ onBeforeUnmount(() => {
         <span v-if="err" class="error" style="margin: 0; font-size: 12.5px">{{ err }}</span>
       </div>
 
-      <div v-if="PREDEFINED_FIELDS.length || userFields.length" class="fe-saved">
+      <div v-if="userFields.length" class="fe-saved">
         <span class="k">Pitches</span>
-        <span
-          v-for="f in PREDEFINED_FIELDS"
-          :key="f.id"
-          class="pitch-pill"
-          :class="{ active: editingId === f.id }"
-        >
-          <button type="button" class="pill-main" title="Preview pitch" @click="loadSaved(f)">🏟 {{ f.name }}</button>
-          <button type="button" class="pill-use" title="Use this pitch for this match" @click="useSaved(f.id)">Use</button>
-        </span>
         <span v-for="f in userFields" :key="f.id" class="pitch-pill" :class="{ active: editingId === f.id }">
           <button type="button" class="pill-main" title="Preview/edit pitch" @click="loadSaved(f)">{{ f.name }}</button>
           <button type="button" class="pill-use" title="Use this pitch for this match" @click="useSaved(f.id)">Use</button>

@@ -20,24 +20,6 @@ export interface SavedField {
   visibility?: 'private' | 'unlisted' | 'public';
 }
 
-// Predefined pitches shipped with the app (available to everyone, not deletable).
-export const PREDEFINED_FIELDS: SavedField[] = [
-  {
-    id: 'predef-amikom',
-    name: 'Amikom Soccer Arena',
-    corners: [
-      { lat: -7.7623279322076115, lon: 110.41793171866435 },
-      { lat: -7.762382229525912, lon: 110.41824325775242 },
-      { lat: -7.761906796671553, lon: 110.41834754980765 },
-      { lat: -7.7618485263125905, lon: 110.4180279882538 },
-    ],
-  },
-];
-
-export function isPredefined(id: string | null): boolean {
-  return !!id && PREDEFINED_FIELDS.some((f) => f.id === id);
-}
-
 export interface AppState {
   analytics: MatchAnalytics | null;
   fileName: string;
@@ -193,10 +175,33 @@ function recordsToLatLon(recs: RecordSample[]): LatLon[] {
     .map((r) => ({ lat: r.position_lat as number, lon: r.position_long as number }));
 }
 
-// All fields available for matching: shipped predefined + cloud (logged-in) +
-// guest local pitches.
+function fieldSignature(field: SavedField): string {
+  const name = field.name.trim().toLowerCase();
+  const corners = field.corners
+    .map((corner) => `${corner.lat.toFixed(7)},${corner.lon.toFixed(7)}`)
+    .join('|');
+  return `${name}:${corners}`;
+}
+
+function uniqueFields(fields: SavedField[]): SavedField[] {
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+  const out: SavedField[] = [];
+  for (const field of fields) {
+    if (seenIds.has(field.id)) continue;
+    const signature = fieldSignature(field);
+    if (seenSignatures.has(signature)) continue;
+    seenIds.add(field.id);
+    seenSignatures.add(signature);
+    out.push(field);
+  }
+  return out;
+}
+
+// All fields available for matching. Logged-in users use DB-backed visible
+// pitches; guests use localStorage pitches only.
 export function allFields(): SavedField[] {
-  return [...PREDEFINED_FIELDS, ...store.cloudFields, ...store.fields];
+  return uniqueFields(auth.user ? store.cloudFields : store.fields);
 }
 
 // Nearest field to a set of records, within FIELD_MATCH_M.
