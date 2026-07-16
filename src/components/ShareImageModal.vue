@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { store, appliedField, dirsForSegment, nonCombinedSegments } from '../store';
+import { store, allFields, dirsForSegment, nonCombinedSegments } from '../store';
 import { compute } from '../lib/analytics';
 import { recordsForPeriod } from '../lib/segmentation';
 import { drawPitch, type PitchMode } from '../lib/pitch';
@@ -19,12 +19,15 @@ const selectedSegment = computed(() => sessions.value.find((s) => s.id === selec
 const sizeSpec = computed(() => (size.value === 'story' ? { w: 1080, h: 1920, label: 'Instagram story' } : { w: 1080, h: 1350, label: 'Instagram post' }));
 const title = computed(() => store.matchTitle || store.location || 'Football match');
 const modeLabel = computed(() => ({ heatmap: 'Heatmap', trail: 'Movement trail', zones: 'Zone occupancy' }[mode.value]));
+const selectedPitch = computed(() => {
+  const id = store.selectedFieldId || store.appliedFieldId;
+  return id ? allFields().find((field) => field.id === id) || null : null;
+});
 
 function analyticsForSelection() {
   const seg = selectedSegment.value;
   if (!seg) return null;
   const dirs = dirsForSegment(seg);
-  const field = appliedField();
   return compute(
     {
       records: recordsForPeriod(seg, -1),
@@ -43,7 +46,7 @@ function analyticsForSelection() {
       highIntensityKmh: store.options.highIntensityKmh,
       attackingDir: dirs.attacking_dir,
       sideDir: dirs.side_dir,
-      field: field?.corners || null,
+      field: selectedPitch.value?.corners || null,
       format: store.options.format,
     }
   );
@@ -77,10 +80,12 @@ function drawStat(ctx: CanvasRenderingContext2D, label: string, value: string, x
 
 function makePitchImage(positional: any): HTMLCanvasElement {
   const wrap = document.createElement('div');
+  wrap.className = 'pitch-wrap';
   wrap.style.position = 'fixed';
   wrap.style.left = '-9999px';
   wrap.style.top = '0';
-  wrap.style.width = '900px';
+  wrap.style.width = '980px';
+  wrap.style.border = '0';
   const pitch = document.createElement('canvas');
   wrap.appendChild(pitch);
   document.body.appendChild(wrap);
