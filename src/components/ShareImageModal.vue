@@ -8,14 +8,28 @@ import { fmtDist, fmtDur, kmh } from '../lib/format';
 
 const emit = defineEmits<{ close: [] }>();
 
+const WHOLE_MATCH = '__whole_match__';
 const sessions = computed(() => nonCombinedSegments());
-const selectedSegmentId = ref(store.activeSegmentId || sessions.value[0]?.id || '');
+const wholeSegment = computed(() => store.segments.find((s) => s.kind === 'combined') || sessions.value[0]);
+const activeAtOpen = store.segments.find((s) => s.id === store.activeSegmentId);
+const selectedSegmentId = ref(activeAtOpen?.kind === 'combined' ? WHOLE_MATCH : store.activeSegmentId || WHOLE_MATCH);
 const mode = ref<PitchMode>(store.activeTab === 'positional' ? 'heatmap' : 'heatmap');
 const size = ref<'story' | 'post'>('story');
 const canvas = ref<HTMLCanvasElement>();
 const error = ref('');
 
-const selectedSegment = computed(() => sessions.value.find((s) => s.id === selectedSegmentId.value) || sessions.value[0]);
+const sessionChoices = computed(() => [
+  ...(wholeSegment.value ? [{ id: WHOLE_MATCH, label: 'Whole match', sublabel: wholeSegment.value.sublabel }] : []),
+  ...sessions.value.map((s) => ({ id: s.id, label: s.label, sublabel: s.sublabel })),
+]);
+const selectedSegment = computed(() =>
+  selectedSegmentId.value === WHOLE_MATCH
+    ? wholeSegment.value
+    : sessions.value.find((s) => s.id === selectedSegmentId.value) || wholeSegment.value || sessions.value[0]
+);
+const selectedLabel = computed(() =>
+  selectedSegmentId.value === WHOLE_MATCH ? 'Whole match' : selectedSegment.value?.label || 'Session'
+);
 const sizeSpec = computed(() => (size.value === 'story' ? { w: 1080, h: 1920, label: 'Instagram story' } : { w: 1080, h: 1350, label: 'Instagram post' }));
 const title = computed(() => store.matchTitle || store.location || 'Football match');
 const modeLabel = computed(() => ({ heatmap: 'Heatmap', trail: 'Movement trail', zones: 'Zone occupancy' }[mode.value]));
@@ -129,9 +143,8 @@ async function render() {
   fitText(ctx, title.value, 56, 260, w - 112);
   ctx.fillStyle = '#5b675e';
   ctx.font = '30px Hanken Grotesk, system-ui, sans-serif';
-  const seg = selectedSegment.value;
   const started = a.meta?.startDate ? new Date(a.meta.startDate).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
-  fitText(ctx, [seg?.label, started].filter(Boolean).join(' · '), 56, 312, w - 112);
+  fitText(ctx, [selectedLabel.value, started].filter(Boolean).join(' · '), 56, 312, w - 112);
 
   const pitch = makePitchImage(a.positional);
   const pitchX = 56;
@@ -158,7 +171,7 @@ async function render() {
 
 function fileName() {
   const safe = title.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'match';
-  return `${safe}-${selectedSegment.value?.label || 'session'}-${mode.value}-${size.value}.png`.toLowerCase().replace(/\s+/g, '-');
+  return `${safe}-${selectedLabel.value}-${mode.value}-${size.value}.png`.toLowerCase().replace(/\s+/g, '-');
 }
 
 async function canvasBlob(): Promise<Blob | null> {
@@ -209,7 +222,7 @@ onMounted(() => void render());
       <div class="share-controls">
         <label>Session
           <select v-model="selectedSegmentId">
-            <option v-for="s in sessions" :key="s.id" :value="s.id">{{ s.label }} · {{ s.sublabel }}</option>
+            <option v-for="s in sessionChoices" :key="s.id" :value="s.id">{{ s.label }} · {{ s.sublabel }}</option>
           </select>
         </label>
         <label>Map
