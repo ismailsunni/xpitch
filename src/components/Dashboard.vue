@@ -30,7 +30,7 @@ defineProps<{ editingMatch?: boolean }>();
     <MetaBar :editing="editingMatch" />
     <ControlsBar />
     <SegmentBar />
-    <SessionBar />
+    <SessionBar :editing="editingMatch" />
 
     <nav class="tabs">
       <button

@@ -57,6 +57,7 @@ const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.
 
 <style scoped>
 .seg-dropdown {
+  min-width: 0;
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -77,6 +78,13 @@ const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.
   }
   .session-select {
     display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+  .seg-dropdown {
+    flex: 1;
+    width: 100%;
   }
 }
 </style>

@@ -145,6 +145,7 @@ function openHeatmap() {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  min-width: 0;
 }
 .card-title {
   font-family: var(--font-head);
@@ -170,6 +171,7 @@ function openHeatmap() {
   padding: 24px 26px;
   background: var(--report-grad);
   border: 1px solid var(--accent-tint-strong);
+  min-width: 0;
 }
 .report-glow {
   position: absolute;
@@ -193,6 +195,7 @@ function openHeatmap() {
   align-items: flex-end;
   gap: 20px;
   margin-top: 12px;
+  min-width: 0;
 }
 .grade {
   font-family: var(--font-head);
@@ -206,6 +209,7 @@ function openHeatmap() {
   font-family: var(--font-head);
   font-size: 21px;
   font-weight: 600;
+  min-width: 0;
 }
 .report-blurb {
   font-size: 13px;
@@ -240,6 +244,7 @@ function openHeatmap() {
 .coverage {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 .cov-head {
   display: flex;
@@ -295,6 +300,7 @@ function openHeatmap() {
   padding: 18px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
+  min-width: 0;
 }
 .tile-k {
   color: var(--muted2);
@@ -379,6 +385,49 @@ function openHeatmap() {
   }
   .tiles {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .report {
+    padding: 18px;
+    border-radius: 16px;
+  }
+  .report-hero {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .grade {
+    font-size: 58px;
+    flex: none;
+  }
+  .report-title {
+    font-size: 18px;
+    line-height: 1.15;
+  }
+  .report-blurb {
+    font-size: 12.5px;
+  }
+  .report-scores {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
+  }
+  .tiles {
+    grid-template-columns: 1fr;
+  }
+  .tile-v {
+    font-size: 26px;
+  }
+  .cov-head,
+  .hl {
+    align-items: flex-start;
+  }
+  .cov-head {
+    gap: 8px;
+    flex-direction: column;
+  }
+  .hl-body {
+    min-width: 0;
   }
 }
 </style>

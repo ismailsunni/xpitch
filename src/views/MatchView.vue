@@ -4,14 +4,12 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   getMatch,
   toCloudSessions,
-  updateSessionDirs,
   updateMatchFromCurrent,
   setMatchVisibility,
   updateMatchTitle,
   deleteMatch,
 } from '../lib/api';
-import { store, loadFromCloud, nonCombinedSegments, dirsForSegment, selectSegment, setFormat, setSelectedField } from '../store';
-import type { FormatKey } from '../lib/analytics';
+import { store, loadFromCloud, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
 import * as FitParser from '../lib/fit-parser';
 import { mergeFiles } from '../lib/segmentation';
 import { auth } from '../lib/auth';
@@ -44,15 +42,38 @@ const savedFlash = ref(false);
 const editMode = ref(false);
 const draftTitle = ref('');
 const draftVisibility = ref('unlisted');
-let editSnapshot: { title: string; visibility: string; format: FormatKey; selectedFieldId: string | null } | null = null;
+let editSnapshot: {
+  title: string;
+  visibility: string;
+  options: typeof store.options;
+  selectedFieldId: string | null;
+  manualSplits: typeof store.manualSplits;
+  breakSessionStarts: number[];
+  attackDirs: Record<string, number>;
+  sideDirs: Record<string, number>;
+} | null = null;
+
+const hasDraftChanges = computed(
+  () =>
+    !!matchRow.value &&
+    (draftTitle.value.trim() !== (matchRow.value.title || '') ||
+      draftVisibility.value !== (matchRow.value.visibility || 'unlisted'))
+);
+const hasUnsavedChanges = computed(() => dirty.value || hasDraftChanges.value);
 
 function beginEdit() {
   if (!matchRow.value) return;
   editSnapshot = {
     title: matchRow.value.title || '',
     visibility: matchRow.value.visibility || 'unlisted',
-    format: store.options.format,
+    options: { ...store.options },
     selectedFieldId: store.selectedFieldId,
+    manualSplits: store.manualSplits
+      ? { sessionBreaks: [...store.manualSplits.sessionBreaks], halfBreaks: [...store.manualSplits.halfBreaks] }
+      : null,
+    breakSessionStarts: [...store.breakSessionStarts],
+    attackDirs: { ...store.attackDirs },
+    sideDirs: { ...store.sideDirs },
   };
   draftTitle.value = editSnapshot.title;
   draftVisibility.value = editSnapshot.visibility;
@@ -96,8 +117,15 @@ function cancelEdit() {
   draftTitle.value = editSnapshot.title;
   draftVisibility.value = editSnapshot.visibility;
   store.matchTitle = editSnapshot.title;
-  setFormat(editSnapshot.format);
+  Object.assign(store.options, editSnapshot.options);
   setSelectedField(editSnapshot.selectedFieldId);
+  store.manualSplits = editSnapshot.manualSplits
+    ? { sessionBreaks: [...editSnapshot.manualSplits.sessionBreaks], halfBreaks: [...editSnapshot.manualSplits.halfBreaks] }
+    : null;
+  store.breakSessionStarts = [...editSnapshot.breakSessionStarts];
+  store.attackDirs = { ...editSnapshot.attackDirs };
+  store.sideDirs = { ...editSnapshot.sideDirs };
+  recompute();
   editMode.value = false;
   editSnapshot = null;
   void nextTick(() => (dirty.value = false));
@@ -141,6 +169,17 @@ async function load() {
       groupGapMin: res.match.group_gap_min ?? 10,
       options: res.sessions[0]?.analysis_options || { format: res.match.format },
       sessions: toCloudSessions(res.sessions),
+      cloudFields: res.primaryField
+        ? [
+            {
+              id: res.primaryField.id,
+              slug: res.primaryField.slug,
+              name: res.primaryField.name,
+              corners: res.primaryField.corners,
+              visibility: res.primaryField.visibility,
+            },
+          ]
+        : undefined,
       manualSplits: res.match.manual_splits || null,
       selectedFieldId: res.match.primary_field_id || null,
       breakFiles: res.match.break_files || [],
@@ -170,39 +209,24 @@ watch(
   }
 );
 
-// Mark the match dirty when the owner edits analysis options / split / pitch.
-// (Flips persist on their own via the watch below, so they're excluded here.)
+// Mark the match dirty when the owner edits analysis options, split, pitch, or orientation.
 watch(
   () => [
     store.options.format,
     store.options.age,
     store.options.maxHR,
+    store.options.maxHRSource,
     store.options.sprintKmh,
+    store.options.highIntensityKmh,
     store.manualSplits,
+    store.breakSessionStarts,
     store.appliedFieldId,
+    store.selectedFieldId,
+    store.attackDirs,
+    store.sideDirs,
   ],
   () => {
-    if (state.value === 'ready' && isOwner()) dirty.value = true;
-  },
-  { deep: true }
-);
-
-// Owner-only: persist flips to the active session (debounced).
-let t: ReturnType<typeof setTimeout>;
-watch(
-  () => [store.attackDirs, store.sideDirs],
-  () => {
-    if (store.cloud.mode !== 'cloud' || !isOwner()) return;
-    clearTimeout(t);
-    t = setTimeout(() => {
-      const segs = nonCombinedSegments();
-      const idx = segs.findIndex((s) => s.id === store.activeSegmentId);
-      if (idx < 0) return;
-      const sid = sessionIdBySeq[idx + 1];
-      if (!sid) return;
-      const d = dirsForSegment(segs[idx]);
-      void updateSessionDirs(sid, d.attacking_dir, d.side_dir, d.flips);
-    }, 800);
+    if (state.value === 'ready' && isOwner() && editMode.value) dirty.value = true;
   },
   { deep: true }
 );
@@ -237,12 +261,13 @@ watch(
             </select>
           </label>
           <span v-else-if="owned" class="mh-vis-read">{{ matchRow.visibility }}</span>
+          <span v-if="owned && editMode && hasUnsavedChanges" class="unsaved-note">Unsaved changes</span>
           <button v-if="owned && !editMode" class="btn ghost small" @click="beginEdit">Edit match</button>
           <button v-if="owned && editMode" class="btn ghost small" :disabled="saving" @click="cancelEdit">Cancel</button>
           <button
             v-if="owned && editMode"
             class="btn primary small"
-            :disabled="saving"
+            :disabled="saving || !hasUnsavedChanges"
             @click="onSaveChanges"
           >
             {{ saving ? 'Saving…' : 'Save changes' }}
@@ -323,6 +348,15 @@ watch(
   color: var(--muted);
   font-size: 12.5px;
   text-transform: capitalize;
+}
+.unsaved-note {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-tint-strong);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
 }
 .mh-vis-k {
   font-size: 11px;

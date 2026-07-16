@@ -206,6 +206,7 @@ export interface LoadedMatch {
   match: any;
   sessions: any[];
   rawFiles: { name: string; bytes: ArrayBuffer }[];
+  primaryField: any | null;
 }
 
 // Fetch a saved match + sessions and download its .fit files from Storage.
@@ -215,6 +216,9 @@ export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
   if (error) throw error;
   if (!match) return null;
   const { data: sessions } = await sb.from('sessions').select('*').eq('match_id', match.id).order('seq');
+  const { data: primaryField } = match.primary_field_id
+    ? await sb.from('fields').select('id, slug, name, corners, visibility, owner_id').eq('id', match.primary_field_id).maybeSingle()
+    : { data: null };
   const names: string[] = match.file_names || [];
   const rawFiles: { name: string; bytes: ArrayBuffer }[] = [];
   for (const name of names) {
@@ -223,7 +227,7 @@ export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
     if (dErr) throw dErr;
     rawFiles.push({ name, bytes: await data.arrayBuffer() });
   }
-  return { match, sessions: sessions || [], rawFiles };
+  return { match, sessions: sessions || [], rawFiles, primaryField: primaryField ?? null };
 }
 
 // Map DB session rows → the store's CloudSession shape.
@@ -262,7 +266,7 @@ export async function listMatches(username: string): Promise<ProfileMatches | nu
   let q = sb
     .from('matches')
     .select(
-      'short_id, title, sport, format, started_at, created_at, visibility, location_label, sessions(seq, duration_s, summary)'
+      'short_id, title, sport, format, started_at, created_at, visibility, location_label, primary_field_id, sessions(seq, duration_s, summary)'
     )
     .eq('owner_id', profile.id)
     .order('started_at', { ascending: false, nullsFirst: false });
@@ -325,7 +329,7 @@ export async function listFeed(
   let q = sb
     .from('matches')
     .select(
-      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, sessions(seq, duration_s, summary)',
+      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, primary_field_id, sessions(seq, duration_s, summary)',
       { count: 'exact' }
     )
     .order('started_at', { ascending: false, nullsFirst: false })
@@ -448,7 +452,7 @@ export async function listMatchesByField(fieldId: string): Promise<any[]> {
   const sb = requireClient();
   const { data } = await sb
     .from('matches')
-    .select('short_id, title, format, started_at, created_at, visibility, owner_id, location_label, sessions(seq, duration_s, summary)')
+    .select('short_id, title, format, started_at, created_at, visibility, owner_id, location_label, primary_field_id, sessions(seq, duration_s, summary)')
     .eq('primary_field_id', fieldId)
     .order('started_at', { ascending: false, nullsFirst: false });
   return (data || []).filter((m: any) => m.visibility === 'public' || m.owner_id === auth.user?.id);

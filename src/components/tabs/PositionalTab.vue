@@ -7,6 +7,9 @@ const PitchMap = defineAsyncComponent(() => import('../PitchMap.vue'));
 
 const a = computed<any>(() => store.analytics);
 const p = computed<any>(() => a.value.positional);
+const realPitchMapKey = computed(
+  () => `${store.activeSegmentId}:${store.activePeriod}:${store.selectedFieldId || ''}:${store.appliedFieldId || ''}`
+);
 
 const thirdLabels = ['Defensive third', 'Middle third', 'Attacking third'];
 const thirdColors = ['#2b6cff', '#c8f751', '#ffb01e'];
@@ -85,7 +88,7 @@ const preferredSide = computed(() => {
 
       <div class="panel">
         <h3>On the real pitch</h3>
-        <PitchMap :key="store.activeSegmentId + ':' + store.activePeriod" />
+        <PitchMap :key="realPitchMapKey" />
         <p class="hint">
           Your GPS track on satellite imagery.
           <span v-if="p.hasField">Green outline = the defined pitch.</span>

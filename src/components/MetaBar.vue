@@ -50,6 +50,13 @@ const placeName = computed(() => {
 });
 const fieldSlug = computed(() => (usingField.value ? field.value?.slug || '' : ''));
 const pitchOptions = computed(() => allFields());
+const pitchValue = computed(() => store.selectedFieldId || store.appliedFieldId || '');
+const hasPitchOption = computed(() => !pitchValue.value || pitchOptions.value.some((p) => p.id === pitchValue.value));
+const pitchStatus = computed(() => {
+  if (usingField.value) return { label: 'Pitch set', tone: 'ok' };
+  if (hasGPS.value) return { label: 'GPS only', tone: 'warn' };
+  return { label: 'No GPS', tone: 'muted' };
+});
 
 const formatOptions = Object.values(FORMATS);
 const resolvedShort = computed(() => (meta.value ? FORMATS[meta.value.format]?.short || meta.value.format : ''));
@@ -88,11 +95,12 @@ function choosePitch(value: string) {
         <select
           v-if="canEditInline && hasGPS"
           class="pitch-select"
-          :value="store.selectedFieldId || store.appliedFieldId || ''"
+          :value="pitchValue"
           aria-label="Select pitch"
           @change="choosePitch(($event.target as HTMLSelectElement).value)"
         >
           <option value="">Auto pitch</option>
+          <option v-if="!hasPitchOption" :value="pitchValue">Selected pitch</option>
           <option v-for="p in pitchOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <button
@@ -116,6 +124,7 @@ function choosePitch(value: string) {
       </template>
 
       <span v-if="store.files.length > 1" class="files">· {{ store.files.length }} files</span>
+      <span class="pitch-status" :class="pitchStatus.tone">{{ pitchStatus.label }}</span>
     </p>
 
     <button
@@ -180,6 +189,24 @@ a.place:hover {
 .maplink {
   font-size: 12.5px;
   font-weight: 500;
+}
+.pitch-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.pitch-status.ok {
+  color: var(--accent-ink);
+  border-color: var(--accent-tint-strong);
+  background: var(--accent-tint);
+}
+.pitch-status.warn {
+  color: var(--c-amber);
 }
 /* Format select styled to sit inside the sentence like editable text. */
 .inline-select {
@@ -268,6 +295,14 @@ a.place:hover {
 @media (max-width: 640px) {
   .matchline {
     padding: 12px 14px;
+  }
+  .sentence {
+    gap: 5px;
+    font-size: 14px;
+  }
+  .inline-select,
+  .pitch-select {
+    max-width: 100%;
   }
   .gear {
     margin-left: 0;

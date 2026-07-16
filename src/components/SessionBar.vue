@@ -6,6 +6,8 @@ import { fmtDur } from '../lib/format';
 import { METRICS } from '../lib/metrics';
 import InfoTip from './InfoTip.vue';
 
+const props = defineProps<{ editing?: boolean }>();
+
 // Everything about the currently-selected session/period. Shown right after the
 // session chooser so the flow reads match → session → this session's detail.
 const meta = computed(() => store.analytics?.meta);
@@ -13,6 +15,7 @@ const session = computed<any>(() => meta.value?.session || {});
 const calories = computed(() => session.value.total_calories ?? null);
 
 const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
+const canEditOrientation = computed(() => !readOnly.value && (props.editing || store.cloud.mode === 'local'));
 const flipped = computed(() => currentAttackDir() === -1);
 const sidesFlipped = computed(() => currentSideDir() === -1);
 const usingField = computed(() => !!store.analytics?.positional?.hasField);
@@ -51,7 +54,7 @@ const viewing = computed(() => {
       >
     </div>
 
-    <div class="mi orient" v-if="!readOnly">
+    <div class="mi orient" v-if="canEditOrientation">
       <span class="k">Orientation<InfoTip :text="METRICS.orientation.desc" /></span>
       <div class="orient-btns">
         <button

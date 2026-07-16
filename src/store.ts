@@ -687,7 +687,10 @@ export interface CloudLoadMeta {
 export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   currentRawFiles = meta.rawFiles;
   store.files = meta.fileNames;
-  if (meta.cloudFields) store.cloudFields = meta.cloudFields;
+  if (meta.cloudFields) {
+    const byId = new Map([...store.cloudFields, ...meta.cloudFields].map((field) => [field.id, field]));
+    store.cloudFields = [...byId.values()];
+  }
   const o = meta.options || {};
   if (o.format) store.options.format = o.format;
   if (o.age !== undefined) store.options.age = o.age ?? null;
