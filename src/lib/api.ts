@@ -404,15 +404,20 @@ export async function updateProfile(patch: {
 
 // Load visible DB pitches into the store (public/system + the signed-in user's).
 export async function loadMyFields(): Promise<void> {
-  if (!supabase || !auth.user) {
+  if (!supabase) {
     store.cloudFields = [];
     return;
   }
-  const { data } = await supabase
+  let q = supabase
     .from('fields')
     .select('id, slug, name, corners, visibility')
-    .or(`visibility.eq.public,owner_id.eq.${auth.user.id}`)
     .order('created_at');
+  q = auth.user ? q.or(`visibility.eq.public,owner_id.eq.${auth.user.id}`) : q.eq('visibility', 'public');
+  const { data, error } = await q;
+  if (error) {
+    console.warn('Could not load pitches', error);
+    return;
+  }
   store.cloudFields = (data || []).map((f: any) => ({
     id: f.id,
     slug: f.slug,

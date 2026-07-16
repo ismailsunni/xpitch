@@ -198,10 +198,10 @@ function uniqueFields(fields: SavedField[]): SavedField[] {
   return out;
 }
 
-// All fields available for matching. Logged-in users use DB-backed visible
-// pitches; guests use localStorage pitches only.
+// All fields available for matching. DB-backed visible pitches are preferred,
+// with localStorage pitches kept as a fallback for older local/guest data.
 export function allFields(): SavedField[] {
-  return uniqueFields(auth.user ? store.cloudFields : store.fields);
+  return uniqueFields([...store.cloudFields, ...store.fields]);
 }
 
 // Nearest field to a set of records, within FIELD_MATCH_M.
