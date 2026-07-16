@@ -16,6 +16,7 @@ import { auth } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import Dashboard from '../components/Dashboard.vue';
 import ShareButtons from '../components/ShareButtons.vue';
+import ShareImageModal from '../components/ShareImageModal.vue';
 
 const shareUrl = computed(
   () => window.location.origin + import.meta.env.BASE_URL + 'match/' + (route.params.shortId as string)
@@ -40,6 +41,7 @@ const dirty = ref(false);
 const saving = ref(false);
 const savedFlash = ref(false);
 const editMode = ref(false);
+const shareImageOpen = ref(false);
 const draftTitle = ref('');
 const draftVisibility = ref('unlisted');
 let editSnapshot: {
@@ -292,11 +294,13 @@ watch(
           <button class="btn ghost small" :disabled="!getRawFiles().length" @click="downloadFitFiles">
             {{ fitDownloadLabel }}
           </button>
+          <button class="btn ghost small" @click="shareImageOpen = true">Share image</button>
           <ShareButtons :url="shareUrl" :title="shareTitle" />
           <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
         </div>
       </header>
       <Dashboard :editing-match="editMode" />
+      <ShareImageModal v-if="shareImageOpen" @close="shareImageOpen = false" />
     </template>
   </main>
 </template>
