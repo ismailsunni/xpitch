@@ -343,7 +343,7 @@ export async function listFeed(
   return { matches, total: count || 0 };
 }
 
-// Public + own pitches (predefined ones are public → included).
+// Public/system + own pitches.
 export async function listFields(): Promise<any[]> {
   const sb = requireClient();
   let q = sb

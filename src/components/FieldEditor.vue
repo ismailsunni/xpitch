@@ -22,8 +22,7 @@ import { upsertFieldCloud, deleteFieldCloud } from '../lib/api';
 
 // Logged in: pitches live in the cloud; guests: localStorage.
 const userFields = computed(() => (auth.user ? store.cloudFields : store.fields));
-// Whether the loaded pitch is one the user can update in place (vs a built-in,
-// which saves as a new copy).
+// Whether the loaded pitch is one the user can update in place.
 const isEditingOwn = computed(
   () => !!editingId.value && userFields.value.some((f) => f.id === editingId.value)
 );

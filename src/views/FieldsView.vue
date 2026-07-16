@@ -74,7 +74,7 @@ watch(() => auth.user?.id, load);
             <span class="fc-name">🏟 {{ f.name }}</span>
             <span v-if="f.visibility !== 'public'" class="fc-badge">{{ f.visibility }}</span>
           </div>
-          <div class="fc-sub">{{ dims(f.corners) }}<span v-if="!f.owner_id"> · built-in</span></div>
+          <div class="fc-sub">{{ dims(f.corners) }}<span v-if="!f.owner_id"> · system pitch</span></div>
           <button
             v-if="auth.user && f.owner_id === auth.user.id"
             class="btn ghost small fc-edit"
