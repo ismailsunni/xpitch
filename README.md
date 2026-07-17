@@ -8,6 +8,7 @@ and keep a history.
 
 Built with Vue 3, Vite, TypeScript, and Supabase. The production app is
 published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
+Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpitch).
 
 ## Features
 
@@ -122,14 +123,17 @@ GitHub Pages.
 The separate CI workflow runs on pull requests, pushes to `main`, and manual
 dispatch. It runs `npm run ci` on Node 20.
 
-## AI-Assisted Development
+## How Codex and GPT-5.6 Were Used
 
 xPitch was initially developed with Claude assistance, recorded in commit
 [`a9acd52`](https://github.com/ismailsunni/xpitch/commit/a9acd52)
 through its co-author trailer. Most subsequent work, including the guided FIT
 upload flow, reusable session splitting, saved-match editing, Supabase schema
 and media, pitch creation/editing with map search, history dashboard, tests,
-and CI, has been developed with GPT-5.6/Codex as the coding collaborator.
+and CI, has been developed with GPT-5.6 through Codex as the coding
+collaborator. Codex was used for implementation, refactoring, database
+migrations, verification, and CI integration; product direction and review
+remained with the project maintainer.
 
 ## How Analysis Works
 
