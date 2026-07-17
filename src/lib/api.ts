@@ -54,6 +54,23 @@ function metaSubset(meta: any) {
   };
 }
 
+function positionalPreview(positional: any) {
+  const pts = positional?.points || [];
+  if (!pts.length) return null;
+  const maxPoints = 180;
+  const step = Math.max(1, Math.ceil(pts.length / maxPoints));
+  return {
+    hasField: !!positional.hasField,
+    templateAspect: positional.templateAspect ?? null,
+    points: pts
+      .filter((_: any, i: number) => i % step === 0 || i === pts.length - 1)
+      .map((p: any) => ({
+        u: Number(p.u.toFixed(4)),
+        v: Number(p.v.toFixed(4)),
+      })),
+  };
+}
+
 export interface CreateMatchOpts {
   title?: string | null;
   visibility?: 'private' | 'unlisted' | 'public';
@@ -152,7 +169,15 @@ function buildSessionRows(matchId: string, uid: string) {
       periods: seg.periods,
       duration_s: a.summary?.durationS ?? null,
       sample_count: a.meta?.sampleCount ?? null,
-      summary: a.ok ? { summary: a.summary, meta: metaSubset(a.meta), role: a.football?.role?.top ?? null } : null,
+      summary: a.ok
+        ? {
+            summary: a.summary,
+            meta: metaSubset(a.meta),
+            role: a.football?.role?.top ?? null,
+            physio: a.physio ? { avgHR: a.physio.avgHR, maxHR: a.physio.maxHR } : null,
+            preview: positionalPreview(a.positional),
+          }
+        : null,
       analysis_options: {
         age: store.options.age,
         maxHR: store.options.maxHR,
@@ -459,6 +484,25 @@ export async function listFeed(
   if (error) throw error;
   const matches = await attachAuthors(data || []);
   return { matches, total: count || 0 };
+}
+
+export async function listMyHistory(): Promise<{ matches: any[]; fields: any[] }> {
+  const sb = requireClient();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('Sign in to view history.');
+  const [matchesRes, fieldsRes] = await Promise.all([
+    sb
+      .from('matches')
+      .select(
+        'short_id, title, format, started_at, created_at, visibility, location_label, primary_field_id, sessions(seq, duration_s, summary)'
+      )
+      .eq('owner_id', uid)
+      .order('started_at', { ascending: true, nullsFirst: false }),
+    sb.from('fields').select('id, name').order('name'),
+  ]);
+  if (matchesRes.error) throw matchesRes.error;
+  if (fieldsRes.error) throw fieldsRes.error;
+  return { matches: matchesRes.data || [], fields: fieldsRes.data || [] };
 }
 
 export async function listAdminData(): Promise<{ profiles: any[]; matches: any[]; fields: any[] }> {

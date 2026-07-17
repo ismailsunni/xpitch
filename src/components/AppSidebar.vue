@@ -82,6 +82,10 @@ watch(
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /><circle cx="12" cy="12" r="2.5" /></svg>
         <span>Pitches</span>
       </RouterLink>
+      <RouterLink v-if="auth.user" to="/history" class="nav-item" active-class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 15l3-4 3 2 4-7" /><circle cx="8" cy="15" r="1" fill="currentColor" /><circle cx="11" cy="11" r="1" fill="currentColor" /><circle cx="14" cy="13" r="1" fill="currentColor" /><circle cx="18" cy="6" r="1" fill="currentColor" /></svg>
+        <span>History</span>
+      </RouterLink>
       <RouterLink to="/help" class="nav-item" active-class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7" /><circle cx="12" cy="16.5" r="0.6" fill="currentColor" /></svg>
         <span>Help</span>

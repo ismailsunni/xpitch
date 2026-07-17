@@ -14,6 +14,7 @@ const state = ref<'loading' | 'ready' | 'error' | 'disabled'>('loading');
 const err = ref('');
 // 'all' = public + own; 'mine' = only the signed-in user's matches.
 const filter = ref<'all' | 'mine'>('all');
+const layout = ref<'card' | 'list'>('card');
 
 const pages = computed(() => Math.max(1, Math.ceil(total.value / PAGE)));
 
@@ -63,6 +64,10 @@ watch(
           <button class="seg-btn" :class="{ on: filter === 'all' }" @click="setFilter('all')">All</button>
           <button class="seg-btn" :class="{ on: filter === 'mine' }" @click="setFilter('mine')">My matches</button>
         </div>
+        <div class="seg" role="tablist" aria-label="Feed layout">
+          <button class="seg-btn" :class="{ on: layout === 'card' }" @click="layout = 'card'">Cards</button>
+          <button class="seg-btn" :class="{ on: layout === 'list' }" @click="layout = 'list'">List</button>
+        </div>
         <RouterLink to="/analyze" class="btn primary small">＋ Analyze a .fit</RouterLink>
       </div>
     </div>
@@ -80,8 +85,8 @@ watch(
       <p v-else-if="!matches.length" class="empty">
         No matches yet — <RouterLink to="/analyze">analyze a file</RouterLink> and hit Save.
       </p>
-      <div v-else class="match-grid">
-        <MatchCard v-for="m in matches" :key="m.short_id" :match="m" show-author />
+      <div v-else :class="layout === 'list' ? 'match-list' : 'match-grid'">
+        <MatchCard v-for="m in matches" :key="m.short_id" :match="m" :variant="layout" show-author />
       </div>
       <div v-if="pages > 1" class="pager">
         <button class="btn ghost small" :disabled="page === 0" @click="go(page - 1)">← Prev</button>
@@ -138,6 +143,10 @@ watch(
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
+}
+.match-list {
+  display: grid;
+  gap: 10px;
 }
 .pager {
   display: flex;

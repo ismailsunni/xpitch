@@ -213,3 +213,49 @@ export function speedProfileConfig(samples: any[]): ChartConfiguration {
     }),
   };
 }
+
+export function historyLineConfig(
+  label: string,
+  points: { x: string; y: number | null }[],
+  unit = ''
+): ChartConfiguration {
+  refreshChartColors();
+  return {
+    type: 'line',
+    data: {
+      labels: points.map((p) => p.x),
+      datasets: [
+        {
+          label,
+          data: points.map((p) => p.y),
+          borderColor: ACCENT,
+          backgroundColor: 'rgba(200,247,81,0.14)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.25,
+          spanGaps: true,
+        },
+      ],
+    },
+    options: base({
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx: any) => `${label}: ${ctx.parsed.y}${unit ? ' ' + unit : ''}`,
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { color: TICK, maxRotation: 0, autoSkip: true } },
+        y: {
+          grid: { color: GRID },
+          ticks: { color: TICK },
+          title: { display: !!unit, text: unit, color: TICK },
+        },
+      },
+    }),
+  };
+}

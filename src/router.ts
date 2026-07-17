@@ -4,6 +4,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('./views/FeedView.vue') },
   { path: '/analyze', name: 'analyze', component: () => import('./views/AnalyzeView.vue') },
+  { path: '/history', name: 'history', component: () => import('./views/HistoryView.vue') },
   { path: '/fields', name: 'fields', component: () => import('./views/FieldsView.vue') },
   { path: '/login', name: 'login', component: () => import('./views/LoginView.vue') },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
