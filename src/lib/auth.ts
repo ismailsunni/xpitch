@@ -6,8 +6,6 @@ import { reactive } from 'vue';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseEnabled, appRedirectUrl } from './supabase';
 
-export const ADMIN_EMAIL = 'imajimatika@gmail.com';
-
 export interface Profile {
   id: string;
   username: string | null;
@@ -17,16 +15,23 @@ export interface Profile {
   birth_date: string | null;
 }
 
+export interface UserPrivilege {
+  user_id: string;
+  level: 'user' | 'admin';
+}
+
 export const auth = reactive<{
   enabled: boolean;
   ready: boolean;
   user: User | null;
   profile: Profile | null;
+  privilege: UserPrivilege | null;
 }>({
   enabled: supabaseEnabled,
   ready: false,
   user: null,
   profile: null,
+  privilege: null,
 });
 
 const RESERVED = new Set(['match', 'field', 'login', 'auth', 'me', 'admin', 'api']);
@@ -34,12 +39,17 @@ const RESERVED = new Set(['match', 'field', 'login', 'auth', 'me', 'admin', 'api
 async function loadProfile(): Promise<void> {
   if (!supabase || !auth.user) {
     auth.profile = null;
+    auth.privilege = null;
     return;
   }
-  const { data } = await supabase.from('profiles').select('*').eq('id', auth.user.id).maybeSingle();
+  const [{ data: profile }, { data: privilege }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', auth.user.id).maybeSingle(),
+    supabase.from('user_privileges').select('user_id, level').eq('user_id', auth.user.id).maybeSingle(),
+  ]);
   auth.profile =
-    (data as Profile) ??
+    (profile as Profile) ??
     { id: auth.user.id, username: null, display_name: null, avatar_url: null, bio: null, birth_date: null };
+  auth.privilege = (privilege as UserPrivilege | null) ?? { user_id: auth.user.id, level: 'user' };
 }
 
 async function applySession(session: Session | null): Promise<void> {
@@ -73,6 +83,7 @@ export async function signOut(): Promise<void> {
   if (supabase) await supabase.auth.signOut();
   auth.user = null;
   auth.profile = null;
+  auth.privilege = null;
 }
 
 export async function reloadProfile(): Promise<void> {
@@ -84,7 +95,7 @@ export function isLoggedIn(): boolean {
 }
 
 export function isAdmin(): boolean {
-  return (auth.user?.email || '').toLowerCase() === ADMIN_EMAIL;
+  return auth.privilege?.level === 'admin';
 }
 
 // True when signed in but no username yet (first-login gate).

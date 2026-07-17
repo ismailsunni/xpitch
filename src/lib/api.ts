@@ -31,6 +31,7 @@ function slugify(name: string): string {
 }
 
 const BUCKET = 'fits';
+const MEDIA_BUCKET = 'match-media';
 
 function requireClient() {
   if (!supabase) throw new Error('Cloud features are not configured.');
@@ -286,6 +287,120 @@ export async function updateMatchTitle(matchId: string, title: string): Promise<
   if (error) throw error;
 }
 
+export async function getMatchPrivateNote(matchId: string): Promise<string> {
+  const sb = requireClient();
+  const { data, error } = await sb
+    .from('match_private_notes')
+    .select('note')
+    .eq('match_id', matchId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.note || '';
+}
+
+export async function saveMatchPrivateNote(matchId: string, ownerId: string, note: string): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb
+    .from('match_private_notes')
+    .upsert({ match_id: matchId, owner_id: ownerId, note }, { onConflict: 'match_id' });
+  if (error) throw error;
+}
+
+export interface MatchMedia {
+  id: string;
+  match_id: string;
+  owner_id: string;
+  storage_path: string;
+  media_type: 'photo';
+  mime_type: string | null;
+  width: number | null;
+  height: number | null;
+  caption: string | null;
+  visibility: 'private' | 'unlisted' | 'public';
+  sort_order: number;
+  created_at: string;
+}
+
+export async function listMatchMedia(matchId: string): Promise<MatchMedia[]> {
+  const sb = requireClient();
+  const { data, error } = await sb
+    .from('match_media')
+    .select('*')
+    .eq('match_id', matchId)
+    .order('sort_order')
+    .order('created_at');
+  if (error) throw error;
+  return (data || []) as MatchMedia[];
+}
+
+function mediaExt(file: File): string {
+  const nameExt = file.name.split('.').pop()?.toLowerCase();
+  if (nameExt && /^[a-z0-9]{2,5}$/.test(nameExt)) return nameExt;
+  if (file.type === 'image/png') return 'png';
+  if (file.type === 'image/webp') return 'webp';
+  return 'jpg';
+}
+
+export async function uploadMatchPhoto(match: {
+  id: string;
+  short_id: string;
+  owner_id: string;
+}, file: File): Promise<MatchMedia> {
+  const sb = requireClient();
+  const uid = auth.user?.id;
+  if (!uid || uid !== match.owner_id) throw new Error('Only the match owner can upload photos.');
+  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  const id = crypto.randomUUID();
+  const storagePath = `${uid}/${match.short_id}/${id}.${mediaExt(file)}`;
+  const { error: uploadError } = await sb.storage.from(MEDIA_BUCKET).upload(storagePath, file, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: file.type || 'image/jpeg',
+  });
+  if (uploadError) throw uploadError;
+  const { data, error } = await sb
+    .from('match_media')
+    .insert({
+      id,
+      match_id: match.id,
+      owner_id: uid,
+      storage_path: storagePath,
+      media_type: 'photo',
+      mime_type: file.type || null,
+      visibility: 'private',
+    })
+    .select()
+    .single();
+  if (error) {
+    await sb.storage.from(MEDIA_BUCKET).remove([storagePath]);
+    throw error;
+  }
+  return data as MatchMedia;
+}
+
+export async function downloadMatchMedia(media: MatchMedia): Promise<Blob> {
+  const sb = requireClient();
+  const { data, error } = await sb.storage.from(MEDIA_BUCKET).download(media.storage_path);
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMatchMedia(
+  id: string,
+  patch: Partial<Pick<MatchMedia, 'caption' | 'visibility' | 'sort_order'>>
+): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb.from('match_media').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteMatchMedia(media: MatchMedia): Promise<void> {
+  const sb = requireClient();
+  await sb.storage.from(MEDIA_BUCKET).remove([media.storage_path]);
+  const { error } = await sb.from('match_media').delete().eq('id', media.id);
+  if (error) throw error;
+}
+
 // Delete a match: remove its .fit files from Storage, then the row (sessions cascade).
 export async function deleteMatch(match: {
   id: string;
@@ -299,6 +414,9 @@ export async function deleteMatch(match: {
     const paths = names.map((n) => `${match.owner_id}/${match.short_id}/${n}`);
     await sb.storage.from(BUCKET).remove(paths);
   }
+  const { data: media } = await sb.from('match_media').select('storage_path').eq('match_id', match.id);
+  const mediaPaths = (media || []).map((m: any) => m.storage_path).filter(Boolean);
+  if (mediaPaths.length) await sb.storage.from(MEDIA_BUCKET).remove(mediaPaths);
   const { error } = await sb.from('matches').delete().eq('id', match.id);
   if (error) throw error;
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   getMatch,
@@ -8,6 +8,14 @@ import {
   setMatchVisibility,
   updateMatchTitle,
   deleteMatch,
+  getMatchPrivateNote,
+  saveMatchPrivateNote,
+  listMatchMedia,
+  uploadMatchPhoto,
+  downloadMatchMedia,
+  updateMatchMedia,
+  deleteMatchMedia,
+  type MatchMedia,
 } from '../lib/api';
 import { store, getRawFiles, loadFromCloud, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
 import * as FitParser from '../lib/fit-parser';
@@ -44,6 +52,12 @@ const editMode = ref(false);
 const shareImageOpen = ref(false);
 const draftTitle = ref('');
 const draftVisibility = ref('unlisted');
+const noteDraft = ref('');
+const noteSaved = ref('');
+const noteSaving = ref(false);
+const mediaLoading = ref(false);
+const mediaUploading = ref(false);
+const mediaItems = ref<{ row: MatchMedia; url: string }[]>([]);
 let editSnapshot: {
   title: string;
   visibility: string;
@@ -63,6 +77,12 @@ const hasDraftChanges = computed(
 );
 const hasUnsavedChanges = computed(() => dirty.value || hasDraftChanges.value);
 const fitDownloadLabel = computed(() => (getRawFiles().length > 1 ? 'Download .fit files' : 'Download .fit'));
+const hasNoteChanges = computed(() => noteDraft.value !== noteSaved.value);
+
+function revokeMediaUrls() {
+  mediaItems.value.forEach((item) => URL.revokeObjectURL(item.url));
+  mediaItems.value = [];
+}
 
 function downloadFitFiles() {
   const files = getRawFiles();
@@ -127,6 +147,79 @@ async function onSaveChanges() {
   }
 }
 
+async function saveNote() {
+  if (!matchRow.value || noteSaving.value) return;
+  noteSaving.value = true;
+  try {
+    await saveMatchPrivateNote(matchRow.value.id, ownerId, noteDraft.value);
+    noteSaved.value = noteDraft.value;
+    savedFlash.value = true;
+    setTimeout(() => (savedFlash.value = false), 2500);
+  } catch (e: any) {
+    alert('Could not save note: ' + (e?.message || e));
+  } finally {
+    noteSaving.value = false;
+  }
+}
+
+async function refreshMedia() {
+  if (!matchRow.value) return;
+  mediaLoading.value = true;
+  try {
+    const rows = await listMatchMedia(matchRow.value.id);
+    const next: { row: MatchMedia; url: string }[] = [];
+    for (const row of rows) {
+      const blob = await downloadMatchMedia(row);
+      next.push({ row, url: URL.createObjectURL(blob) });
+    }
+    revokeMediaUrls();
+    mediaItems.value = next;
+  } catch (e) {
+    console.warn('Could not load match media', e);
+  } finally {
+    mediaLoading.value = false;
+  }
+}
+
+async function onPhotoUpload(event: Event) {
+  if (!matchRow.value || mediaUploading.value) return;
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  mediaUploading.value = true;
+  try {
+    for (const file of files) await uploadMatchPhoto(matchRow.value, file);
+    await refreshMedia();
+  } catch (e: any) {
+    alert('Could not upload photo: ' + (e?.message || e));
+  } finally {
+    mediaUploading.value = false;
+  }
+}
+
+async function saveMedia(item: { row: MatchMedia; url: string }) {
+  try {
+    await updateMatchMedia(item.row.id, {
+      caption: item.row.caption?.trim() || null,
+      visibility: item.row.visibility,
+    });
+  } catch (e: any) {
+    alert('Could not save photo: ' + (e?.message || e));
+  }
+}
+
+async function removeMedia(item: { row: MatchMedia; url: string }) {
+  if (!confirm('Delete this photo?')) return;
+  try {
+    await deleteMatchMedia(item.row);
+    URL.revokeObjectURL(item.url);
+    mediaItems.value = mediaItems.value.filter((m) => m.row.id !== item.row.id);
+  } catch (e: any) {
+    alert('Could not delete photo: ' + (e?.message || e));
+  }
+}
+
 function cancelEdit() {
   if (!editSnapshot || !matchRow.value) {
     editMode.value = false;
@@ -157,6 +250,9 @@ async function onDelete() {
 
 async function load() {
   state.value = 'loading';
+  revokeMediaUrls();
+  noteDraft.value = '';
+  noteSaved.value = '';
   if (!supabaseEnabled) {
     state.value = 'error';
     errMsg.value = 'Cloud features are not configured on this deployment.';
@@ -174,6 +270,10 @@ async function load() {
     draftTitle.value = res.match.title || '';
     draftVisibility.value = res.match.visibility || 'unlisted';
     ownerId = res.match.owner_id;
+    if (isOwner()) {
+      noteSaved.value = await getMatchPrivateNote(res.match.id);
+      noteDraft.value = noteSaved.value;
+    }
     sessionIdBySeq = {};
     res.sessions.forEach((s: any) => (sessionIdBySeq[s.seq] = s.id));
     const parsed = res.rawFiles.map((f) => ({ name: f.name, fit: FitParser.parse(f.bytes) }));
@@ -205,6 +305,7 @@ async function load() {
       seq,
     });
     state.value = 'ready';
+    void refreshMedia();
     // Options just set by loadFromCloud shouldn't count as edits.
     void nextTick(() => (dirty.value = false));
   } catch (e: any) {
@@ -214,6 +315,7 @@ async function load() {
 }
 
 onMounted(load);
+onUnmounted(revokeMediaUrls);
 watch(() => route.params.shortId, load);
 
 // Selecting a session via the URL segment.
@@ -299,6 +401,56 @@ watch(
           <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
         </div>
       </header>
+      <section v-if="owned || mediaItems.length" class="match-extras">
+        <div v-if="owned" class="match-panel note-panel">
+          <div class="panel-head">
+            <h2>Private note</h2>
+            <button class="btn primary small" :disabled="noteSaving || !hasNoteChanges" @click="saveNote">
+              {{ noteSaving ? 'Saving…' : 'Save note' }}
+            </button>
+          </div>
+          <textarea
+            v-model="noteDraft"
+            rows="4"
+            placeholder="Only you can see this note."
+            aria-label="Private match note"
+          ></textarea>
+        </div>
+
+        <div class="match-panel photo-panel">
+          <div class="panel-head">
+            <h2>Photos</h2>
+            <label v-if="owned" class="btn ghost small upload-btn">
+              {{ mediaUploading ? 'Uploading…' : 'Add photos' }}
+              <input type="file" accept="image/*" multiple :disabled="mediaUploading" @change="onPhotoUpload" />
+            </label>
+          </div>
+          <p v-if="mediaLoading" class="hint">Loading photos…</p>
+          <p v-else-if="!mediaItems.length" class="hint">No photos yet.</p>
+          <div v-else class="photo-grid">
+            <article v-for="item in mediaItems" :key="item.row.id" class="photo-card">
+              <img :src="item.url" :alt="item.row.caption || 'Match photo'" />
+              <div v-if="owned" class="photo-edit">
+                <input
+                  v-model="item.row.caption"
+                  placeholder="Caption"
+                  aria-label="Photo caption"
+                  @blur="saveMedia(item)"
+                />
+                <div class="photo-actions">
+                  <select v-model="item.row.visibility" aria-label="Photo visibility" @change="saveMedia(item)">
+                    <option value="private">Private</option>
+                    <option value="unlisted">Unlisted</option>
+                    <option value="public">Public</option>
+                  </select>
+                  <button class="btn ghost small" @click="removeMedia(item)">Delete</button>
+                </div>
+              </div>
+              <p v-else-if="item.row.caption" class="photo-caption">{{ item.row.caption }}</p>
+            </article>
+          </div>
+        </div>
+      </section>
       <Dashboard :editing-match="editMode" />
       <ShareImageModal v-if="shareImageOpen" @close="shareImageOpen = false" />
     </template>
@@ -401,6 +553,99 @@ watch(
   border-color: var(--danger);
   color: var(--danger);
 }
+.match-extras {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.15fr);
+  gap: 14px;
+  padding: 16px 22px 0;
+}
+.match-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  padding: 14px;
+  min-width: 0;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.panel-head h2 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.2;
+}
+.note-panel textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 104px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--ctl-radius);
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.45;
+}
+.upload-btn {
+  position: relative;
+  overflow: hidden;
+}
+.upload-btn input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.photo-card {
+  min-width: 0;
+}
+.photo-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev2);
+}
+.photo-edit {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.photo-edit input,
+.photo-edit select {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--ctl-radius);
+  padding: 8px 9px;
+  font: inherit;
+  font-size: 13px;
+}
+.photo-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.photo-caption {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
 @media (max-width: 640px) {
   .match-head {
     padding: 14px;
@@ -425,6 +670,13 @@ watch(
   .mh-vis select {
     flex: 1;
     min-width: 0;
+  }
+  .match-extras {
+    grid-template-columns: 1fr;
+    padding: 14px 14px 0;
+  }
+  .photo-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { auth, ADMIN_EMAIL, isAdmin } from '../lib/auth';
+import { auth, isAdmin } from '../lib/auth';
 import { deleteFieldCloud, deleteMatch, listAdminData, setMatchVisibility } from '../lib/api';
 import { fmtDur } from '../lib/format';
 
@@ -32,7 +32,7 @@ async function load() {
   if (!auth.ready) return;
   if (!isAdmin()) {
     state.value = 'error';
-    err.value = `Admin access is restricted to ${ADMIN_EMAIL}.`;
+    err.value = 'Admin access is restricted to privileged accounts.';
     return;
   }
   state.value = 'loading';
@@ -96,7 +96,7 @@ onMounted(load);
       <div>
         <p class="eyebrow">Admin</p>
         <h2>Super controls</h2>
-        <p class="hint">Restricted to {{ ADMIN_EMAIL }}. Use this for testing and data cleanup.</p>
+        <p class="hint">Restricted to privileged accounts. Use this for testing and data cleanup.</p>
       </div>
       <button class="btn ghost small" @click="load">Refresh</button>
     </div>
