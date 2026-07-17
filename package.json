@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "ci": "npm run typecheck && npm run test:run && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
@@ -23,6 +26,7 @@
     "supabase": "^2.109.1",
     "typescript": "^5.4.5",
     "vite": "^5.2.10",
+    "vitest": "^4.1.10",
     "vue-tsc": "^2.0.13"
   }
 }
