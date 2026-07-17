@@ -1,113 +1,166 @@
-# ⚽ xPitch
+# xPitch
 
-Smart analysis of your football, mini-soccer or futsal match from a `.fit` file
-— a **front-end-only** web app. Drop in a FIT file recorded by a GPS watch or
-pod and get a full match dashboard: positional, running, physiological and
-football-specific metrics. **Everything is parsed and computed in your browser;
-nothing is uploaded.**
+xPitch is a football, mini-soccer, and futsal match analyzer for GPS `.fit`
+recordings. Upload a recording to turn it into positional, running,
+physiological, and football-specific analysis. Use it without an account for
+local analysis, or connect Supabase to save matches, share them, manage fields,
+and keep a history.
 
-Built with **Vue 3 + Vite + TypeScript**, deployable to **GitHub Pages**.
+Built with Vue 3, Vite, TypeScript, and Supabase. The production app is
+published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
 
-## Develop
+## Features
+
+- Parse FIT recordings in the browser, with no upload required for local use.
+- Analyze pitch position, movement trail, heatmap, distance, speed zones,
+  sprints, heart rate, recovery, workload, fatigue, and estimated role.
+- Define a field on a map or from coordinates for more accurate pitch mapping.
+- Split a recording into sessions and matches, including manual split editing.
+- Save and share matches with a Supabase account, browse public profiles and
+  match feeds, and review a personal history dashboard.
+- Keep owner-only match notes and upload match photos with public or private
+  visibility.
+- Load a bundled real sample or a generated synthetic demo when no FIT file is
+  available.
+
+## Quick Start
+
+Requirements: Node.js 20 or later and npm.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run dev
 ```
 
-Other scripts:
+Vite prints the local URL, normally `http://localhost:5173/xpitch/`.
+
+The analyzer works without any environment configuration. In that mode, account
+and cloud-save features are hidden and recordings stay in the browser.
+
+To enable Supabase features, create `.env.local`:
+
+```dotenv
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+The anonymous key is intentionally browser-visible; database and storage access
+is enforced by Supabase Row Level Security policies. Never put a service-role
+key in a `VITE_` variable or in client code.
+
+## Common Commands
 
 ```bash
-npm run build      # production build -> dist/
-npm run preview    # serve the built dist/ locally
-npm run typecheck  # vue-tsc
+npm run dev        # start the development server
+npm run typecheck  # validate TypeScript and Vue types
+npm run test        # run Vitest in watch mode
+npm run test:run    # run the unit test suite once
+npm run build       # create dist/ and its GitHub Pages 404 fallback
+npm run preview     # serve the production build locally
+npm run ci          # typecheck, tests, then production build
 ```
 
-No `.fit` file handy? Click **Load sample** for a real afternoon of four
-mini-soccer matches (shipped in `public/samples/`), or the landing page's
-"synthetic demo" link for a generated one. Uploading several files at once
-merges them and groups matches recorded close together into one session.
+Unit tests live next to the logic they cover in `src/lib/*.test.ts`. See
+[docs/testing.md](docs/testing.md) for the test strategy and CI coverage.
 
-## Deploy to GitHub Pages
+## Supabase
 
-1. Push this repo to GitHub.
-2. In **Settings → Pages**, set **Source = GitHub Actions**.
-3. Every push to `main` runs `.github/workflows/deploy.yml`, which builds and
-   publishes `dist/` to Pages.
+The browser app uses Supabase Auth, Postgres, and Storage. Schema changes are
+versioned in `supabase/migrations/`; apply them through the Supabase CLI rather
+than copying SQL into the dashboard.
 
-`vite.config.ts` uses `base: './'` (relative asset URLs), so the app works at
-`https://<user>.github.io/<repo>/` without hard-coding the repo name.
+Install dependencies first, then authenticate and link the repository once:
 
-## What it shows
-
-**Match metadata** — when it was recorded, where (reverse-geocoded from the
-start GPS fix via OpenStreetMap Nominatim, with a map link), sport, duration and
-calories, when the device provides them.
-
-**🗺️ Positional** — pitch heatmap, time-coloured movement trail, average
-position, attacking/defensive thirds, zone-occupancy grid, preferred side.
-
-**🏃 Running** — total distance, distance per speed zone, sprint count &
-per-sprint breakdown, top speed, acceleration/deceleration events, moving vs
-standing time.
-
-**❤️ Physiological** — heart-rate graph, HR zones and time in each, average &
-max HR, detected recovery periods.
-
-**⚽ Football** — high-intensity runs, repeated-sprint bouts, work rate through
-the match, second-half fatigue, heuristic estimated playing role.
-
-### Define the pitch (recommended for accurate positioning)
-
-By default the pitch is **inferred** from your GPS track (PCA + bounding box), so
-positioning is relative to where you moved. For true, absolute positioning, click
-**📐 Set field** and either:
-
-- **Draw on the map** — an OpenLayers map with a **satellite** basemap (ESRI, no API
-  key) or OSM, with your GPS track overlaid. Click the **4 corners** of the pitch
-  (order doesn't matter). Or
-- **Enter coordinates** — paste a GeoJSON `Polygon` or four `lat, lon` lines.
-
-The field is mapped to the pitch with a projective **homography**, so any
-orientation and slightly-off rectangles work. The field is saved in `localStorage`
-and reused; a saved field more than 3 km from a new match is ignored automatically.
-
-### Tips
-
-- Enter your **age** or **max HR** for accurate HR zones (otherwise the observed
-  max is used as the reference).
-- Adjust the **sprint threshold** (km/h) for amateur vs elite pace.
-- If the attacking end looks reversed, hit **flip** — it applies to the selected
-  match and period only (teams switch ends at half-time), and is remembered as
-  you switch between sessions and halves.
-
-## Project layout
-
+```bash
+npx supabase login
+npx supabase link --project-ref your-project-ref
 ```
+
+Apply local migrations to the linked project:
+
+```bash
+npx supabase db push
+```
+
+Useful read-only checks:
+
+```bash
+npx supabase projects list
+npx supabase migration list --linked
+```
+
+`0007_schema_review_additions.sql` creates the privilege, private-note, Strava,
+and match-media schema, including the private `match-media` storage bucket.
+Strava tables are ready, but OAuth/import is intentionally not implemented yet.
+The schema rationale and outstanding work are in
+[docs/db-schema-review.md](docs/db-schema-review.md).
+
+For local Supabase development, start Docker and run:
+
+```bash
+npx supabase start
+```
+
+The checked-in `supabase/config.toml` contains the local service configuration.
+Use the local URL and anonymous key reported by the CLI in `.env.local` when
+testing against it. Stop the local services with `npx supabase stop`.
+
+## Deployment
+
+GitHub Actions deploys every push to `main` to GitHub Pages through
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml). Configure GitHub
+Pages to use **GitHub Actions** as its source, then set these repository secrets:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+The deploy build can run without those secrets, but the resulting site is
+local-only. `vite.config.ts` uses `/xpitch/` as the base path and the build
+copies `index.html` to `404.html`, allowing direct navigation to app routes on
+GitHub Pages.
+
+The separate CI workflow runs on pull requests, pushes to `main`, and manual
+dispatch. It runs `npm run ci` on Node 20.
+
+## How Analysis Works
+
+FIT parsing and metric calculation happen in the browser. A field can be
+inferred from the GPS track, but that result is relative to the movement
+observed in the recording. Define the actual field for reliable alignment and
+orientation: open the field editor, place four corners on the map, or paste a
+GeoJSON polygon/four coordinate pairs. Mapping uses a homography so rotated
+fields and slightly imperfect rectangles are supported.
+
+GPS and heart-rate metrics are estimates. Accuracy depends on GPS quality,
+sampling rate, watch placement, and the input data available in the recording.
+Adding age or maximum heart rate improves zone calculations. The attacking end
+can be flipped per match and period when teams switch sides.
+
+No recording handy? Use **Load sample** for the bundled sample in
+`public/samples/`, or use the synthetic demo from the analyze screen. Developer
+hooks are also available: `#autosample`, `#autodemo` (optionally
+`#autodemo/positional`), and `#autoload=<url>[,<url>]`.
+
+## Project Structure
+
+```text
 src/
-  lib/
-    fit-parser.ts   dependency-free FIT binary decoder
-    geo.ts          local projection + PCA pitch alignment
-    analytics.ts    all match metrics
-    pitch.ts        canvas pitch / heatmap / trail / zones
-    charts.ts       Chart.js config builders
-    demo.ts         synthetic demo match
-    format.ts       presentation helpers + reverse geocode
-  components/        StatCard, ChartPanel, PitchCanvas, RoleCard, FieldEditor
-                     (OpenLayers), FileDrop, ControlsBar, MetaBar, tabs/*
-  store.ts          reactive state + actions
-  App.vue           layout + tab navigation
+  components/  dashboard, field editor, upload, sharing, and navigation UI
+  lib/         FIT parsing, analytics, geo mapping, charts, API, and auth
+  views/       feed, analyzer, match, history, profile, field, and settings pages
+  store.ts     reactive analysis state
+supabase/
+  migrations/  ordered Postgres, RLS, and Storage schema migrations
+docs/
+  testing.md           test strategy
+  db-schema-review.md  schema review and future database work
 ```
 
-## Notes & limitations
+## Data and Privacy
 
-- Without a defined field, pitch coordinates are normalized to the **observed GPS
-  bounding box**, so orientation/extent are inferred from where the player moved.
-  Define the field (see above) to anchor everything to the true pitch.
-- All metrics are estimates from GPS/HR samples — GPS quality, sampling rate and
-  device placement all affect accuracy.
-- Personal `.fit` recordings are git-ignored (they contain real locations).
-
-> Dev/test hooks: append `#autosample` to load the bundled sample, `#autodemo`
-> (optionally `#autodemo/positional`) for the synthetic demo, or
-> `#autoload=<url>[,<url>]` to fetch and parse one or more `.fit` files.
+Personal FIT files are ignored by Git because they can contain location data.
+Local analysis keeps recordings in the browser. When a signed-in user saves a
+match, the selected match data is stored in Supabase under the permissions
+defined by the migrations. Private notes and private media are only accessible
+to their match owner; public media follows the visibility selected by that
+owner.
