@@ -54,10 +54,16 @@ const draftTitle = ref('');
 const draftVisibility = ref('unlisted');
 const noteDraft = ref('');
 const noteSaved = ref('');
-const noteSaving = ref(false);
 const mediaLoading = ref(false);
-const mediaUploading = ref(false);
-const mediaItems = ref<{ row: MatchMedia; url: string }[]>([]);
+type MediaDraft = {
+  row?: MatchMedia;
+  file?: File;
+  url: string;
+  caption: string;
+  visibility: MatchMedia['visibility'];
+  removed: boolean;
+};
+const mediaItems = ref<MediaDraft[]>([]);
 let editSnapshot: {
   title: string;
   visibility: string;
@@ -75,9 +81,18 @@ const hasDraftChanges = computed(
     (draftTitle.value.trim() !== (matchRow.value.title || '') ||
       draftVisibility.value !== (matchRow.value.visibility || 'unlisted'))
 );
-const hasUnsavedChanges = computed(() => dirty.value || hasDraftChanges.value);
 const fitDownloadLabel = computed(() => (getRawFiles().length > 1 ? 'Download .fit files' : 'Download .fit'));
 const hasNoteChanges = computed(() => noteDraft.value !== noteSaved.value);
+const hasMediaChanges = computed(() =>
+  mediaItems.value.some(
+    (item) =>
+      !!item.file ||
+      item.removed ||
+      (!!item.row && (item.caption !== (item.row.caption || '') || item.visibility !== item.row.visibility))
+  )
+);
+const visibleMediaItems = computed(() => mediaItems.value.filter((item) => !item.removed));
+const hasUnsavedChanges = computed(() => dirty.value || hasDraftChanges.value || hasNoteChanges.value || hasMediaChanges.value);
 
 function revokeMediaUrls() {
   mediaItems.value.forEach((item) => URL.revokeObjectURL(item.url));
@@ -135,6 +150,23 @@ async function onSaveChanges() {
     const rows = await updateMatchFromCurrent(matchRow.value.id);
     sessionIdBySeq = {};
     rows.forEach((s) => (sessionIdBySeq[s.seq] = s.id));
+    if (hasNoteChanges.value) {
+      await saveMatchPrivateNote(matchRow.value.id, ownerId, noteDraft.value);
+      noteSaved.value = noteDraft.value;
+    }
+    for (const item of mediaItems.value) {
+      if (item.row && item.removed) {
+        await deleteMatchMedia(item.row);
+      } else if (item.row && (item.caption !== (item.row.caption || '') || item.visibility !== item.row.visibility)) {
+        await updateMatchMedia(item.row.id, { caption: item.caption.trim() || null, visibility: item.visibility });
+      } else if (item.file) {
+        const uploaded = await uploadMatchPhoto(matchRow.value, item.file);
+        if (item.caption.trim() || item.visibility !== 'private') {
+          await updateMatchMedia(uploaded.id, { caption: item.caption.trim() || null, visibility: item.visibility });
+        }
+      }
+    }
+    await refreshMedia();
     dirty.value = false;
     editMode.value = false;
     editSnapshot = null;
@@ -147,30 +179,15 @@ async function onSaveChanges() {
   }
 }
 
-async function saveNote() {
-  if (!matchRow.value || noteSaving.value) return;
-  noteSaving.value = true;
-  try {
-    await saveMatchPrivateNote(matchRow.value.id, ownerId, noteDraft.value);
-    noteSaved.value = noteDraft.value;
-    savedFlash.value = true;
-    setTimeout(() => (savedFlash.value = false), 2500);
-  } catch (e: any) {
-    alert('Could not save note: ' + (e?.message || e));
-  } finally {
-    noteSaving.value = false;
-  }
-}
-
 async function refreshMedia() {
   if (!matchRow.value) return;
   mediaLoading.value = true;
   try {
     const rows = await listMatchMedia(matchRow.value.id);
-    const next: { row: MatchMedia; url: string }[] = [];
+    const next: MediaDraft[] = [];
     for (const row of rows) {
       const blob = await downloadMatchMedia(row);
-      next.push({ row, url: URL.createObjectURL(blob) });
+      next.push({ row, url: URL.createObjectURL(blob), caption: row.caption || '', visibility: row.visibility, removed: false });
     }
     revokeMediaUrls();
     mediaItems.value = next;
@@ -181,42 +198,28 @@ async function refreshMedia() {
   }
 }
 
-async function onPhotoUpload(event: Event) {
-  if (!matchRow.value || mediaUploading.value) return;
+function onPhotoUpload(event: Event) {
+  if (!editMode.value) return;
   const input = event.target as HTMLInputElement;
   const files = Array.from(input.files || []);
   input.value = '';
   if (!files.length) return;
-  mediaUploading.value = true;
-  try {
-    for (const file of files) await uploadMatchPhoto(matchRow.value, file);
-    await refreshMedia();
-  } catch (e: any) {
-    alert('Could not upload photo: ' + (e?.message || e));
-  } finally {
-    mediaUploading.value = false;
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) {
+      alert(`${file.name} is not an image.`);
+      continue;
+    }
+    mediaItems.value.push({ file, url: URL.createObjectURL(file), caption: '', visibility: 'private', removed: false });
   }
 }
 
-async function saveMedia(item: { row: MatchMedia; url: string }) {
-  try {
-    await updateMatchMedia(item.row.id, {
-      caption: item.row.caption?.trim() || null,
-      visibility: item.row.visibility,
-    });
-  } catch (e: any) {
-    alert('Could not save photo: ' + (e?.message || e));
-  }
-}
-
-async function removeMedia(item: { row: MatchMedia; url: string }) {
+function removeMedia(item: MediaDraft) {
   if (!confirm('Delete this photo?')) return;
-  try {
-    await deleteMatchMedia(item.row);
+  if (item.file) {
     URL.revokeObjectURL(item.url);
-    mediaItems.value = mediaItems.value.filter((m) => m.row.id !== item.row.id);
-  } catch (e: any) {
-    alert('Could not delete photo: ' + (e?.message || e));
+    mediaItems.value = mediaItems.value.filter((m) => m !== item);
+  } else {
+    item.removed = true;
   }
 }
 
@@ -239,6 +242,8 @@ function cancelEdit() {
   recompute();
   editMode.value = false;
   editSnapshot = null;
+  noteDraft.value = noteSaved.value;
+  void refreshMedia();
   void nextTick(() => (dirty.value = false));
 }
 async function onDelete() {
@@ -401,44 +406,44 @@ watch(
           <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
         </div>
       </header>
-      <section v-if="owned || mediaItems.length" class="match-extras">
+      <Dashboard :editing-match="editMode">
+        <template #after-settings>
+      <section v-if="owned || visibleMediaItems.length" class="match-extras">
         <div v-if="owned" class="match-panel note-panel">
           <div class="panel-head">
             <h2>Private note</h2>
-            <button class="btn primary small" :disabled="noteSaving || !hasNoteChanges" @click="saveNote">
-              {{ noteSaving ? 'Saving…' : 'Save note' }}
-            </button>
           </div>
           <textarea
+            v-if="editMode"
             v-model="noteDraft"
             rows="4"
             placeholder="Only you can see this note."
             aria-label="Private match note"
           ></textarea>
+          <p v-else class="note-read">{{ noteSaved || 'No private note.' }}</p>
         </div>
 
         <div class="match-panel photo-panel">
           <div class="panel-head">
             <h2>Photos</h2>
-            <label v-if="owned" class="btn ghost small upload-btn">
-              {{ mediaUploading ? 'Uploading…' : 'Add photos' }}
-              <input type="file" accept="image/*" multiple :disabled="mediaUploading" @change="onPhotoUpload" />
+            <label v-if="owned && editMode" class="btn ghost small upload-btn">
+              Add photos
+              <input type="file" accept="image/*" multiple :disabled="saving" @change="onPhotoUpload" />
             </label>
           </div>
           <p v-if="mediaLoading" class="hint">Loading photos…</p>
-          <p v-else-if="!mediaItems.length" class="hint">No photos yet.</p>
+          <p v-else-if="!visibleMediaItems.length" class="hint">No photos yet.</p>
           <div v-else class="photo-grid">
-            <article v-for="item in mediaItems" :key="item.row.id" class="photo-card">
-              <img :src="item.url" :alt="item.row.caption || 'Match photo'" />
-              <div v-if="owned" class="photo-edit">
+            <article v-for="item in visibleMediaItems" :key="item.row?.id || item.url" class="photo-card">
+              <img :src="item.url" :alt="item.caption || 'Match photo'" />
+              <div v-if="owned && editMode" class="photo-edit">
                 <input
-                  v-model="item.row.caption"
+                  v-model="item.caption"
                   placeholder="Caption"
                   aria-label="Photo caption"
-                  @blur="saveMedia(item)"
                 />
                 <div class="photo-actions">
-                  <select v-model="item.row.visibility" aria-label="Photo visibility" @change="saveMedia(item)">
+                  <select v-model="item.visibility" aria-label="Photo visibility">
                     <option value="private">Private</option>
                     <option value="unlisted">Unlisted</option>
                     <option value="public">Public</option>
@@ -446,12 +451,13 @@ watch(
                   <button class="btn ghost small" @click="removeMedia(item)">Delete</button>
                 </div>
               </div>
-              <p v-else-if="item.row.caption" class="photo-caption">{{ item.row.caption }}</p>
+              <p v-else-if="item.caption" class="photo-caption">{{ item.caption }}</p>
             </article>
           </div>
         </div>
       </section>
-      <Dashboard :editing-match="editMode" />
+        </template>
+      </Dashboard>
       <ShareImageModal v-if="shareImageOpen" @close="shareImageOpen = false" />
     </template>
   </main>
@@ -556,15 +562,18 @@ watch(
 .match-extras {
   display: grid;
   grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.15fr);
-  gap: 14px;
-  padding: 16px 22px 0;
+  gap: 22px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.015);
 }
 .match-panel {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-elev);
-  padding: 14px;
   min-width: 0;
+  align-self: start;
+}
+.note-panel {
+  padding-right: 22px;
+  border-right: 1px solid var(--border);
 }
 .panel-head {
   display: flex;
@@ -581,13 +590,20 @@ watch(
 .note-panel textarea {
   width: 100%;
   resize: vertical;
-  min-height: 104px;
+  min-height: 84px;
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--ctl-radius);
   padding: 10px 12px;
   font: inherit;
+  line-height: 1.45;
+}
+.note-read {
+  margin: 0;
+  min-height: 24px;
+  white-space: pre-wrap;
+  color: var(--muted);
   line-height: 1.45;
 }
 .upload-btn {
@@ -673,7 +689,13 @@ watch(
   }
   .match-extras {
     grid-template-columns: 1fr;
-    padding: 14px 14px 0;
+    gap: 16px;
+    padding: 14px;
+  }
+  .note-panel {
+    padding: 0 0 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
   .photo-grid {
     grid-template-columns: 1fr;

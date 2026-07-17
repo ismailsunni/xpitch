@@ -85,7 +85,7 @@ function onGap(e: Event) {
           <span class="unit">min</span>
         </div>
       </div>
-      <div class="fld">
+      <div v-if="store.cloud.mode === 'local'" class="fld">
         <span class="lbl">Sessions</span>
         <div class="with-unit">
           <button class="btn ghost small" @click="store.manualSplitOpen = true">✂ Split manually</button>

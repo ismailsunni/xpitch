@@ -20,7 +20,12 @@ const TABS = [
 ];
 
 const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.comp || OverviewTab);
-defineProps<{ editingMatch?: boolean }>();
+const props = defineProps<{ editingMatch?: boolean }>();
+
+function openSessionSetup() {
+  store.uploadWizardStartStep = 'split';
+  store.uploadWizardOpen = true;
+}
 </script>
 
 <template>
@@ -29,7 +34,8 @@ defineProps<{ editingMatch?: boolean }>();
          then the section nav sits directly above the content it switches. -->
     <MetaBar :editing="editingMatch" />
     <ControlsBar />
-    <SegmentBar />
+    <slot name="after-settings" />
+    <SegmentBar :editing="props.editingMatch" @edit-sessions="openSessionSetup" />
     <SessionBar :editing="editingMatch" />
 
     <nav class="tabs">

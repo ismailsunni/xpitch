@@ -2,6 +2,9 @@
 import { computed } from 'vue';
 import { store, selectSegment, selectPeriod, activeSegment } from '../store';
 
+const props = defineProps<{ editing?: boolean }>();
+const emit = defineEmits<{ editSessions: [] }>();
+
 // Pure chooser: pick a session / period. Grouping and manual split are config
 // (in the gear settings), not part of choosing.
 const seg = computed(() => activeSegment());
@@ -52,6 +55,7 @@ const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.
         </button>
       </div>
     </div>
+    <button v-if="props.editing" class="btn ghost small edit-sessions" @click="emit('editSessions')">Edit sessions</button>
   </section>
 </template>
 
@@ -72,6 +76,9 @@ const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.
 .session-select {
   display: none;
 }
+.edit-sessions {
+  margin-left: auto;
+}
 @media (max-width: 640px) {
   .session-pills {
     display: none;
@@ -85,6 +92,9 @@ const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.
   .seg-dropdown {
     flex: 1;
     width: 100%;
+  }
+  .edit-sessions {
+    margin-left: 0;
   }
 }
 </style>

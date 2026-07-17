@@ -25,7 +25,7 @@ import {
 } from '../store';
 
 type Step = 'pitch' | 'split' | 'orientation' | 'hr';
-const step = ref<Step>('pitch');
+const step = ref<Step>(store.uploadWizardStartStep || 'pitch');
 const birthDate = ref('');
 const error = ref('');
 const savingBirthDate = ref(false);
@@ -266,6 +266,7 @@ function updateFormat(value: string) {
 }
 function close() {
   store.uploadWizardOpen = false;
+  store.uploadWizardStartStep = null;
 }
 function skip() {
   if (needsBirthDate.value && !birthDate.value) setDefaultMaxHR();
