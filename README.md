@@ -127,9 +127,9 @@ dispatch. It runs `npm run ci` on Node 20.
 xPitch was initially developed with Claude assistance, recorded in commit
 [`a9acd52`](https://github.com/ismailsunni/xpitch/commit/a9acd52)
 through its co-author trailer. Most subsequent work, including the guided FIT
-upload flow, session splitting, saved-match editing, Supabase schema and media,
-history dashboard, tests, and CI, has been developed with GPT-5.6/Codex as the
-coding collaborator.
+upload flow, reusable session splitting, saved-match editing, Supabase schema
+and media, pitch creation/editing with map search, history dashboard, tests,
+and CI, has been developed with GPT-5.6/Codex as the coding collaborator.
 
 ## How Analysis Works
 

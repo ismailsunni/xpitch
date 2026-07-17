@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
-import { store, loadDemo, loadSample, loadFromUrl, loadFromUrls, isSaveable } from '../store';
+import { store, loadDemo, loadSample, loadFromUrl, loadFromUrls, isSaveable, openFieldEditor } from '../store';
 import { auth } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import FileDrop from '../components/FileDrop.vue';
@@ -16,7 +16,7 @@ onMounted(() => {
   } else if (hash.indexOf('autodemo') !== -1) {
     loadDemo();
     const tab = hash.split('/')[1];
-    if (tab === 'field') store.fieldEditorOpen = true;
+    if (tab === 'field') openFieldEditor(undefined, 'match');
     else if (tab) store.activeTab = tab;
   } else if (hash.indexOf('autoload=') !== -1) {
     const urls = hash.split('autoload=')[1].split(',');

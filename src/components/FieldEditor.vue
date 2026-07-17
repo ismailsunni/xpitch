@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
@@ -15,10 +15,9 @@ import { fromLonLat, toLonLat } from 'ol/proj';
 import { boundingExtent } from 'ol/extent';
 import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import type { MapBrowserEvent } from 'ol';
-import { computed } from 'vue';
-import { store, addField, updateField, removeField, appliedField, setSelectedField } from '../store';
+import { store, addField, updateField, setSelectedField } from '../store';
 import { auth } from '../lib/auth';
-import { upsertFieldCloud, deleteFieldCloud } from '../lib/api';
+import { upsertFieldCloud } from '../lib/api';
 
 // Logged in: pitches live in the cloud; guests: localStorage.
 const userFields = computed(() => (auth.user ? store.cloudFields : store.fields));
@@ -37,9 +36,14 @@ const fieldName = ref('');
 const editingId = ref<string | null>(null);
 const visibility = ref<'private' | 'unlisted' | 'public'>('unlisted');
 const hasTrack = ref(false);
+const placeQuery = ref('');
+const placeResults = ref<{ display_name: string; lat: string; lon: string; boundingbox?: string[] }[]>([]);
+const placeSearching = ref(false);
+const placeError = ref('');
 
 let map: Map | null = null;
 let cornerSource: VectorSource;
+let savedFieldSource: VectorSource;
 let osmLayer: TileLayer<OSM>;
 let satLayer: TileLayer<XYZ>;
 let polyFeature: Feature<Polygon> | null = null;
@@ -80,6 +84,19 @@ function redrawCorners() {
   });
 }
 
+function refreshSavedFields() {
+  if (!savedFieldSource) return;
+  savedFieldSource.clear();
+  for (const field of userFields.value) {
+    if (!field.corners?.length) continue;
+    const polygon = new Feature(new Polygon([closedRing(field.corners.map((corner) => [corner.lon, corner.lat]))]));
+    polygon.set('name', field.name);
+    savedFieldSource.addFeature(polygon);
+  }
+}
+
+watch(userFields, refreshSavedFields, { deep: true });
+
 // Live drag of a corner handle: rewrite that corner and reshape the polygon
 // in place (no full redraw, which would drop the feature being dragged).
 function onCornerDrag(e: any) {
@@ -117,6 +134,47 @@ function fitTo(coords3857: number[][]) {
   map.getView().fit(boundingExtent(coords3857), { padding: [50, 50, 50, 50], maxZoom: 19 });
 }
 
+async function searchPlaces() {
+  const query = placeQuery.value.trim();
+  if (query.length < 2) {
+    placeError.value = 'Enter at least two characters to search.';
+    placeResults.value = [];
+    return;
+  }
+  placeSearching.value = true;
+  placeError.value = '';
+  try {
+    const params = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5' });
+    if (navigator.language) params.set('accept-language', navigator.language);
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error('Search is temporarily unavailable.');
+    placeResults.value = await response.json();
+    if (!placeResults.value.length) placeError.value = 'No places found.';
+  } catch (e: any) {
+    placeError.value = e?.message || 'Could not search for that place.';
+  } finally {
+    placeSearching.value = false;
+  }
+}
+
+function selectPlace(place: { display_name: string; lat: string; lon: string; boundingbox?: string[] }) {
+  const lat = Number(place.lat);
+  const lon = Number(place.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !map) return;
+  const box = place.boundingbox?.map(Number);
+  if (box?.length === 4 && box.every(Number.isFinite)) {
+    const [south, north, west, east] = box;
+    fitTo([fromLonLat([west, south]), fromLonLat([east, north])]);
+  } else {
+    map.getView().animate({ center: fromLonLat([lon, lat]), zoom: 18, duration: 250 });
+  }
+  placeQuery.value = place.display_name;
+  placeResults.value = [];
+  placeError.value = '';
+}
+
 function applyManual() {
   err.value = '';
   try {
@@ -143,35 +201,6 @@ function applyManual() {
     fitTo(out.map((c) => fromLonLat(c)));
   } catch (e: any) {
     err.value = e?.message || 'Could not parse input';
-  }
-}
-
-function loadSaved(f: { id: string; name: string; corners: { lat: number; lon: number }[]; visibility?: any }) {
-  cornersLL.value = f.corners.map((c) => [c.lon, c.lat]);
-  fieldName.value = f.name;
-  editingId.value = f.id;
-  visibility.value = f.visibility || 'unlisted';
-  err.value = '';
-  redrawCorners();
-  fitTo(cornersLL.value.map((c) => fromLonLat(c)));
-}
-
-function useSaved(id: string) {
-  setSelectedField(id);
-  close();
-}
-
-async function deleteSaved(id: string) {
-  try {
-    if (auth.user) await deleteFieldCloud(id);
-    else removeField(id);
-  } catch (e: any) {
-    err.value = e?.message || 'Could not delete pitch';
-    return;
-  }
-  if (editingId.value === id) {
-    editingId.value = null;
-    resetCorners();
   }
 }
 
@@ -208,6 +237,7 @@ async function save() {
 function close() {
   store.fieldEditorOpen = false;
   store.editFieldTarget = null;
+  store.fieldEditorContext = 'standalone';
 }
 
 onMounted(() => {
@@ -222,8 +252,27 @@ onMounted(() => {
   });
   cornerSource = new VectorSource();
   const cornerLayer = new VectorLayer({ source: cornerSource });
+  savedFieldSource = new VectorSource();
+  const savedFieldLayer = new VectorLayer({
+    source: savedFieldSource,
+    style: (feature) =>
+      new Style({
+        stroke: new Stroke({ color: 'rgba(43,108,255,0.72)', width: 2 }),
+        fill: new Fill({ color: 'rgba(43,108,255,0.08)' }),
+        text: new Text({
+          text: String(feature.get('name') || ''),
+          fill: new Fill({ color: 'rgba(43,108,255,0.95)' }),
+          stroke: new Stroke({ color: 'rgba(8,12,10,0.8)', width: 3 }),
+          font: '600 12px system-ui',
+          overflow: true,
+        }),
+      }),
+  });
+  refreshSavedFields();
 
-  const samples: any[] = (store.analytics?.samples || []).filter((s) => s.lat != null && s.lon != null);
+  const samples: any[] = store.fieldEditorContext === 'match'
+    ? (store.analytics?.samples || []).filter((s) => s.lat != null && s.lon != null)
+    : [];
   const step = Math.max(1, Math.floor(samples.length / 2000));
   const track3857: number[][] = [];
   for (let i = 0; i < samples.length; i += step) track3857.push(fromLonLat([samples[i].lon, samples[i].lat]));
@@ -235,7 +284,7 @@ onMounted(() => {
 
   map = new Map({
     target: mapEl.value,
-    layers: [osmLayer, satLayer, trackLayer, cornerLayer],
+    layers: [osmLayer, satLayer, trackLayer, savedFieldLayer, cornerLayer],
     view: new View({ center: fromLonLat([0, 0]), zoom: 2 }),
     controls: [],
   });
@@ -250,14 +299,14 @@ onMounted(() => {
   translate.on('translateend', onCornerDrag);
   map.addInteraction(translate);
 
-  // Preload a pitch chosen explicitly (Edit pitch), else the one applied to
-  // this view (when opened from a match).
-  const applied = store.editFieldTarget || appliedField();
-  if (applied) {
-    cornersLL.value = applied.corners.map((c) => [c.lon, c.lat]);
-    fieldName.value = applied.name;
-    editingId.value = applied.id;
-    visibility.value = (applied.visibility as any) || 'unlisted';
+  // Only an explicit Edit pitch action may preload an existing field. New
+  // pitch starts with a blank polygon, even when a match has a pitch applied.
+  const target = store.editFieldTarget;
+  if (target) {
+    cornersLL.value = target.corners.map((c) => [c.lon, c.lat]);
+    fieldName.value = target.name;
+    editingId.value = target.id;
+    visibility.value = (target.visibility as any) || 'unlisted';
     redrawCorners();
   } else {
     fieldName.value = store.location || '';
@@ -319,14 +368,14 @@ onBeforeUnmount(() => {
         <span v-if="err" class="error" style="margin: 0; font-size: 12.5px">{{ err }}</span>
       </div>
 
-      <div v-if="userFields.length" class="fe-saved">
-        <span class="k">Pitches</span>
-        <span v-for="f in userFields" :key="f.id" class="pitch-pill" :class="{ active: editingId === f.id }">
-          <button type="button" class="pill-main" title="Preview/edit pitch" @click="loadSaved(f)">{{ f.name }}</button>
-          <button type="button" class="pill-use" title="Use this pitch for this match" @click="useSaved(f.id)">Use</button>
-          <span class="del" title="Delete" @click="deleteSaved(f.id)">✕</span>
-        </span>
-      </div>
+      <form class="place-search" @submit.prevent="searchPlaces">
+        <input v-model="placeQuery" type="search" placeholder="Search for a place or address" aria-label="Search for a place or address" />
+        <button class="btn ghost small" type="submit" :disabled="placeSearching">{{ placeSearching ? 'Searching…' : 'Search' }}</button>
+        <div v-if="placeResults.length || placeError" class="place-results">
+          <button v-for="place in placeResults" :key="`${place.lat}:${place.lon}:${place.display_name}`" type="button" @click="selectPlace(place)">{{ place.display_name }}</button>
+          <p v-if="placeError" class="error">{{ placeError }}</p>
+        </div>
+      </form>
 
       <div v-if="showManual" class="fe-manual">
         <textarea
@@ -402,8 +451,7 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 16px;
 }
-.fe-toolbar,
-.fe-saved {
+.fe-toolbar {
   display: flex;
   gap: 10px;
   align-items: center;
@@ -411,54 +459,60 @@ onBeforeUnmount(() => {
   padding: 10px 18px;
   border-bottom: 1px solid var(--border);
 }
-.fe-saved .k {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
-}
-.fe-saved .pitch-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-elev2);
-  padding: 4px 6px 4px 10px;
-  font-size: 12px;
-}
-.fe-saved .pitch-pill.active {
-  border-color: var(--accent);
-}
-.pill-main,
-.pill-use {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  padding: 0;
-}
-.pill-main {
-  font-weight: 700;
-}
-.pill-use {
-  border-left: 1px solid var(--border);
-  color: var(--accent-ink);
-  padding-left: 6px;
-  font-weight: 700;
-}
-.fe-saved .del {
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 11px;
-}
-.fe-saved .del:hover {
-  color: var(--danger);
-}
 .seg {
   display: flex;
   gap: 4px;
+}
+.place-search {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.place-search > input {
+  width: min(420px, 100%);
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--ctl-radius);
+  padding: var(--ctl-pad-y-sm) 10px;
+  font: inherit;
+  font-size: 13px;
+}
+.place-results {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% - 4px);
+  left: 18px;
+  width: min(560px, calc(100vw - 72px));
+  max-height: 220px;
+  overflow: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+}
+.place-results button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: 9px 10px;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.place-results button:hover {
+  background: var(--bg-elev2);
+}
+.place-results .error {
+  margin: 0;
+  padding: 9px 10px;
+  font-size: 12px;
 }
 .fe-manual {
   display: flex;

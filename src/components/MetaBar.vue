@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { store, setFormat, appliedField, allFields, setSelectedField } from '../store';
+import { store, setFormat, appliedField, allFields, setSelectedField, openFieldEditor } from '../store';
 import { auth } from '../lib/auth';
 import { FORMATS } from '../lib/analytics';
 
@@ -107,7 +107,7 @@ function choosePitch(value: string) {
           v-if="canEditInline && hasGPS"
           class="pitch-edit"
           :title="usingField ? 'Edit or create pitch' : 'Create pitch'"
-          @click="store.fieldEditorOpen = true"
+          @click="openFieldEditor(undefined, 'match')"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9" />

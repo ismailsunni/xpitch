@@ -41,6 +41,7 @@ export interface AppState {
   uploadWizardOpen: boolean;
   sessionSplitEditorOpen: boolean;
   fieldEditorOpen: boolean;
+  fieldEditorContext: 'standalone' | 'match';
   settingsOpen: boolean; // analysis-settings panel (toggled by the gear in the match line)
   editFieldTarget: SavedField | null; // pitch to preload into the editor (Edit pitch)
   // Attacking direction (length) and side (left/right, width) per view
@@ -140,6 +141,7 @@ export const store = reactive<AppState>({
   uploadWizardOpen: false,
   sessionSplitEditorOpen: false,
   fieldEditorOpen: false,
+  fieldEditorContext: 'standalone',
   settingsOpen: false,
   editFieldTarget: null,
   attackDirs: {},
@@ -360,6 +362,7 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.breakSessionStarts = [];
     store.uploadWizardOpen = false;
     store.sessionSplitEditorOpen = false;
+    store.fieldEditorContext = 'standalone';
   }
   store.activeTab = 'overview';
   store.segments = store.manualSplits
@@ -646,9 +649,11 @@ export function removeField(id: string): void {
 
 export const appliedField = () => allFields().find((f) => f.id === store.appliedFieldId) || null;
 
-// Open the pitch editor, optionally preloaded with a specific pitch to edit.
-export function openFieldEditor(field?: SavedField): void {
+// Standalone pages must not inherit the last match's GPS state. Match/upload
+// callers opt in explicitly when they want their current track on the map.
+export function openFieldEditor(field?: SavedField, context: 'standalone' | 'match' = 'standalone'): void {
   store.editFieldTarget = field ?? null;
+  store.fieldEditorContext = context;
   store.fieldEditorOpen = true;
 }
 

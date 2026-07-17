@@ -15,6 +15,7 @@ import {
   setDefaultMaxHR,
   setFormat,
   setSelectedField,
+  openFieldEditor,
   store,
 } from '../store';
 
@@ -155,7 +156,7 @@ function previous() {
               <option v-for="field in allFields()" :key="field.id" :value="field.id">{{ field.name }}</option>
             </select>
           </label>
-          <button class="btn ghost" @click="store.fieldEditorOpen = true">＋ Create a pitch</button>
+          <button class="btn ghost" @click="openFieldEditor(undefined, 'match')">＋ Create a pitch</button>
         </template>
       </div>
 
