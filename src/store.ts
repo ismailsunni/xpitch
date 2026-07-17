@@ -39,8 +39,7 @@ export interface AppState {
   breakFiles: string[];
   breakSessionStarts: number[];
   uploadWizardOpen: boolean;
-  // When reopening setup from a saved match, start at the shared split step.
-  uploadWizardStartStep: 'pitch' | 'split' | 'orientation' | 'hr' | null;
+  sessionSplitEditorOpen: boolean;
   fieldEditorOpen: boolean;
   settingsOpen: boolean; // analysis-settings panel (toggled by the gear in the match line)
   editFieldTarget: SavedField | null; // pitch to preload into the editor (Edit pitch)
@@ -139,7 +138,7 @@ export const store = reactive<AppState>({
   breakFiles: [],
   breakSessionStarts: [],
   uploadWizardOpen: false,
-  uploadWizardStartStep: null,
+  sessionSplitEditorOpen: false,
   fieldEditorOpen: false,
   settingsOpen: false,
   editFieldTarget: null,
@@ -360,7 +359,7 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.breakFiles = [];
     store.breakSessionStarts = [];
     store.uploadWizardOpen = false;
-    store.uploadWizardStartStep = null;
+    store.sessionSplitEditorOpen = false;
   }
   store.activeTab = 'overview';
   store.segments = store.manualSplits

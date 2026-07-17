@@ -130,6 +130,7 @@ function beginEdit() {
   };
   draftTitle.value = editSnapshot.title;
   draftVisibility.value = editSnapshot.visibility;
+  store.sessionSplitEditorOpen = false;
   editMode.value = true;
 }
 
@@ -168,6 +169,7 @@ async function onSaveChanges() {
     }
     await refreshMedia();
     dirty.value = false;
+    store.sessionSplitEditorOpen = false;
     editMode.value = false;
     editSnapshot = null;
     savedFlash.value = true;
@@ -240,6 +242,7 @@ function cancelEdit() {
   store.attackDirs = { ...editSnapshot.attackDirs };
   store.sideDirs = { ...editSnapshot.sideDirs };
   recompute();
+  store.sessionSplitEditorOpen = false;
   editMode.value = false;
   editSnapshot = null;
   noteDraft.value = noteSaved.value;

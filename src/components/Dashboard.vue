@@ -4,6 +4,7 @@ import { store } from '../store';
 import ControlsBar from './ControlsBar.vue';
 import MetaBar from './MetaBar.vue';
 import SegmentBar from './SegmentBar.vue';
+import SessionSplitEditor from './SessionSplitEditor.vue';
 import SessionBar from './SessionBar.vue';
 import OverviewTab from './tabs/OverviewTab.vue';
 import PositionalTab from './tabs/PositionalTab.vue';
@@ -23,8 +24,7 @@ const activeComp = computed(() => TABS.find((t) => t.id === store.activeTab)?.co
 const props = defineProps<{ editingMatch?: boolean }>();
 
 function openSessionSetup() {
-  store.uploadWizardStartStep = 'split';
-  store.uploadWizardOpen = true;
+  store.sessionSplitEditorOpen = !store.sessionSplitEditorOpen;
 }
 </script>
 
@@ -36,6 +36,9 @@ function openSessionSetup() {
     <ControlsBar />
     <slot name="after-settings" />
     <SegmentBar :editing="props.editingMatch" @edit-sessions="openSessionSetup" />
+    <section v-if="props.editingMatch && store.sessionSplitEditorOpen" class="session-split-panel">
+      <SessionSplitEditor />
+    </section>
     <SessionBar :editing="editingMatch" />
 
     <nav class="tabs">
@@ -84,6 +87,11 @@ function openSessionSetup() {
   font-weight: 600;
   cursor: pointer;
 }
+.session-split-panel {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
 @media (max-width: 640px) {
   .tabs {
     display: none;
@@ -95,6 +103,9 @@ function openSessionSetup() {
     z-index: 10;
     background: var(--bg);
     padding: 12px 14px;
+  }
+  .session-split-panel {
+    padding: 14px;
   }
 }
 </style>

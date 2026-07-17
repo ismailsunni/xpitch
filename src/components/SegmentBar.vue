@@ -8,7 +8,7 @@ const emit = defineEmits<{ editSessions: [] }>();
 // Pure chooser: pick a session / period. Grouping and manual split are config
 // (in the gear settings), not part of choosing.
 const seg = computed(() => activeSegment());
-const showBar = computed(() => store.segments.length > 1 || (seg.value?.periods.length || 0) > 0);
+const showBar = computed(() => props.editing || store.segments.length > 1 || (seg.value?.periods.length || 0) > 0);
 </script>
 
 <template>
