@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { fmtClock } from '../lib/format';
-import { suggestSessionBreaksFromHR } from '../lib/segmentation';
+import { suggestRestIntervalsFromHR } from '../lib/segmentation';
 import type { RecordSample } from '../lib/fit-parser';
 import {
   getCurrentFit,
@@ -172,16 +172,22 @@ function autoSplitFromHR() {
       byFile.set(name, records);
     }
   }
-  const suggested = byFile.size > 1
-    ? [...byFile.values()].flatMap((records) => suggestSessionBreaksFromHR({ ...fit, records }).map((t) => t + ((records[0].timestamp as number) - origin!)))
-    : suggestSessionBreaksFromHR(fit);
-  if (!suggested.length) {
+  const intervals = byFile.size > 1
+    ? [...byFile.values()].flatMap((records) => suggestRestIntervalsFromHR({ ...fit, records }).map((interval) => {
+      const offset = (records[0].timestamp as number) - origin!;
+      return { start: interval.start + offset, end: interval.end + offset };
+    }))
+    : suggestRestIntervalsFromHR(fit);
+  if (!intervals.length) {
     error.value = 'No additional HR recovery breaks were detected. The file sessions are kept as-is.';
     return;
   }
   const fileSplit = initialSplitState();
-  sessionBreaks.value = uniqueSorted([...fileSplit.breaks, ...sessionBreaks.value, ...suggested]);
-  breakSessionStarts.value = [...new Set([...fileSplit.restStarts, ...breakSessionStarts.value])].sort((a, b) => a - b);
+  // Auto detection replaces prior auto boundaries so a previous midpoint-only
+  // result cannot remain between the play/rest boundaries.
+  sessionBreaks.value = uniqueSorted([...fileSplit.breaks, ...intervals.flatMap((interval) => [interval.start, interval.end])]);
+  const base = recordingStartOffsetBase() || 0;
+  breakSessionStarts.value = [...new Set([...fileSplit.restStarts, ...intervals.map((interval) => base + interval.start)])].sort((a, b) => a - b);
   error.value = '';
   commit();
 }

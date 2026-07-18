@@ -38,10 +38,14 @@ export interface ParsedFile {
 export const DEFAULT_GROUP_GAP_MIN = 10;
 const ATOMIC_GAP_S = 120; // pauses shorter than this stay within one base unit
 
-// Suggest match boundaries from sustained HR recovery valleys. This is only a
-// starting point for the upload wizard: users can add, remove, or move the
-// resulting timestamp boundaries before applying them.
-export function suggestSessionBreaksFromHR(fit: FitResult): number[] {
+export interface RestInterval {
+  start: number;
+  end: number;
+}
+
+// Detect sustained HR recovery valleys. The interval is retained so the split
+// editor can create play → rest → play, rather than cutting only at its midpoint.
+export function suggestRestIntervalsFromHR(fit: FitResult): RestInterval[] {
   const raw = fit.records
     .filter((r) => r.timestamp != null && typeof r.heart_rate === 'number' && r.heart_rate > 0)
     .sort((a, b) => ts(a) - ts(b));
@@ -65,7 +69,7 @@ export function suggestSessionBreaksFromHR(fit: FitResult): number[] {
   const low = Math.max(95, baseline * 0.72);
   const minRecoveryS = 90;
   const minBetweenS = 8 * 60;
-  const out: number[] = [];
+  const out: RestInterval[] = [];
   let i = 0;
   while (i < points.length) {
     if (points[i].hr > low) {
@@ -78,18 +82,24 @@ export function suggestSessionBreaksFromHR(fit: FitResult): number[] {
     const duration = points[last].t - points[first].t + binS;
     const before = points.slice(Math.max(0, first - 5), first).some((p) => p.hr > low * 1.12);
     const after = points.slice(last + 1, Math.min(points.length, last + 6)).some((p) => p.hr > low * 1.12);
-    const midpoint = Math.round((points[first].t + points[last].t + binS) / 2);
+    const interval = { start: points[first].t, end: points[last].t + binS };
     if (
       duration >= minRecoveryS &&
       before &&
       after &&
-      midpoint > 90 &&
-      midpoint < end - start - 90 &&
-      (!out.length || midpoint - out[out.length - 1] >= minBetweenS)
-    ) out.push(midpoint);
+      interval.start > 90 &&
+      interval.end < end - start - 90 &&
+      (!out.length || interval.start - out[out.length - 1].end >= minBetweenS)
+    ) out.push(interval);
     i++;
   }
   return out;
+}
+
+// Backwards-compatible midpoint suggestions for callers that only need a
+// single session boundary. New UI code should use `suggestRestIntervalsFromHR`.
+export function suggestSessionBreaksFromHR(fit: FitResult): number[] {
+  return suggestRestIntervalsFromHR(fit).map((interval) => Math.round((interval.start + interval.end) / 2));
 }
 
 function ts(r: RecordSample): number {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, recordsForPeriod, suggestSessionBreaksFromHR } from './segmentation';
+import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, recordsForPeriod, suggestRestIntervalsFromHR, suggestSessionBreaksFromHR } from './segmentation';
 import type { FitResult, RecordSample } from './fit-parser';
 
 function records(from: number, to: number, step = 10, fileName?: string): RecordSample[] {
@@ -51,5 +51,6 @@ describe('segmentation helpers', () => {
       recs.push({ timestamp: 10_000 + t, heart_rate: resting ? 100 : 160 });
     }
     expect(suggestSessionBreaksFromHR(fit(recs))).toEqual([705]);
+    expect(suggestRestIntervalsFromHR(fit(recs))).toEqual([{ start: 600, end: 810 }]);
   });
 });
