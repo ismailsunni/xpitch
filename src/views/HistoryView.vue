@@ -22,6 +22,7 @@ type HistoryMatch = {
   duration: number;
   topSpeed: number;
   avgHR: number | null;
+  distancePer90: number;
 };
 
 const state = ref<'loading' | 'ready' | 'error' | 'disabled' | 'signedout'>('loading');
@@ -63,6 +64,7 @@ function normalizeMatch(m: any): HistoryMatch {
     duration,
     topSpeed,
     avgHR: hrDuration ? Math.round(hrWeighted / hrDuration) : null,
+    distancePer90: duration ? distance * 5400 / duration : 0,
   };
 }
 
@@ -80,6 +82,11 @@ async function load() {
     const res = await listMyHistory();
     matches.value = res.matches.map(normalizeMatch);
     fields.value = res.fields;
+    if (matches.value.length > 1) {
+      const ordered = [...matches.value].sort((a, b) => +matchDate(b) - +matchDate(a));
+      compareA.value = ordered[0].short_id;
+      compareB.value = ordered[1].short_id;
+    }
     state.value = 'ready';
   } catch (e: any) {
     err.value = e?.message || String(e);
@@ -198,6 +205,30 @@ const recentComparison = computed(() => {
   const p = avg(previous);
   if (!p) return null;
   return Math.round(((r - p) / p) * 100);
+});
+const compareA = ref('');
+const compareB = ref('');
+const selectedComparison = computed(() => {
+  const first = matches.value.find((match) => match.short_id === compareA.value);
+  const second = matches.value.find((match) => match.short_id === compareB.value);
+  if (!first || !second || first.short_id === second.short_id) return null;
+  return { first, second };
+});
+const weeklyLoad = computed(() => {
+  const weeks = new Map<string, { label: string; distance: number; duration: number; matches: number }>();
+  for (const match of filtered.value) {
+    const date = matchDate(match);
+    const monday = new Date(date);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const key = monday.toISOString().slice(0, 10);
+    const week = weeks.get(key) || { label: dateLabel(monday), distance: 0, duration: 0, matches: 0 };
+    week.distance += match.distance;
+    week.duration += match.duration;
+    week.matches++;
+    weeks.set(key, week);
+  }
+  return [...weeks.entries()].sort(([a], [b]) => b.localeCompare(a)).slice(0, 8).map(([, week]) => week);
 });
 
 onMounted(load);
@@ -335,6 +366,28 @@ watch(() => auth.user?.id, load);
             </div>
           </div>
         </section>
+
+        <section class="split">
+          <div v-if="matches.length > 1" class="panel">
+            <h3>Compare matches</h3>
+            <div class="compare-controls">
+              <select v-model="compareA"><option v-for="m in newestFirst" :key="m.short_id" :value="m.short_id">{{ m.title || m.location_label || 'Match' }} · {{ dateLabel(matchDate(m)) }}</option></select>
+              <span>vs</span>
+              <select v-model="compareB"><option v-for="m in newestFirst" :key="m.short_id" :value="m.short_id">{{ m.title || m.location_label || 'Match' }} · {{ dateLabel(matchDate(m)) }}</option></select>
+            </div>
+            <div v-if="selectedComparison" class="compare-grid">
+              <div><span>Distance / 90</span><strong>{{ fmtDist(selectedComparison.first.distancePer90) }}</strong><small>vs {{ fmtDist(selectedComparison.second.distancePer90) }}</small></div>
+              <div><span>Top speed</span><strong>{{ kmh(selectedComparison.first.topSpeed) }} km/h</strong><small>vs {{ kmh(selectedComparison.second.topSpeed) }} km/h</small></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Weekly load</h3>
+            <div v-if="weeklyLoad.length" class="pitch-list">
+              <div v-for="week in weeklyLoad" :key="week.label" class="pitch-row"><div><strong>Week of {{ week.label }}</strong><span>{{ week.matches }} match{{ week.matches === 1 ? '' : 'es' }} · {{ fmtDur(week.duration) }}</span></div><div class="mono">{{ fmtDist(week.distance) }}</div></div>
+            </div>
+            <p v-else class="empty small">No matches in this filter.</p>
+          </div>
+        </section>
       </template>
     </template>
   </main>
@@ -353,6 +406,11 @@ watch(() => auth.user?.id, load);
   gap: 12px;
   flex-wrap: wrap;
 }
+.compare-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.compare-controls select { min-width: 0; background: var(--bg-elev2); border: 1px solid var(--border); border-radius: var(--ctl-radius); color: var(--text); padding: 8px; }
+.compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.compare-grid div { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+.compare-grid span, .compare-grid small { color: var(--muted); font-size: 12px; }.compare-grid strong { font-size: 17px; }
 .history-head h1 {
   margin: 0;
 }

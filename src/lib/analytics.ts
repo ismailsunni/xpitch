@@ -61,7 +61,7 @@ export interface AnalyticsOptions {
   maxHR?: number | null;
   // Distinguishes the guided setup's common fallback from a user-entered value.
   maxHRSource?: 'entered' | 'default' | null;
-  restHR?: number;
+  restHR?: number | null;
   age?: number | null;
   attackingDir?: number;
   sideDir?: number; // +1 normal, -1 mirror left/right (width axis)
@@ -126,7 +126,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
     {
       maxHR: null,
       maxHRSource: null,
-      restHR: 60,
+      restHR: null,
       age: null,
       attackingDir: 1,
       sideDir: 1,
@@ -387,6 +387,8 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
   const sprints = detectRuns(samples, sprintThr, 1.0);
   const highIntensityRuns = detectRuns(samples, hiThr, 1.0);
   const accelEvents = detectAccel(samples, smoothSpeed);
+  const cadenceSamples = samples.filter((s) => typeof s.cadence === 'number' && s.cadence > 0 && s.speed > 0.6);
+  const avgCadence = cadenceSamples.length ? Math.round(mean(cadenceSamples.map((s) => s.cadence))) : null;
 
   // ---- 5. Physiological ----
   let physio: any = null;
@@ -403,15 +405,17 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       { name: 'Z4 Threshold', min: 0.8, max: 0.9, color: '#ff6a4d' },
       { name: 'Z5 Max', min: 0.9, max: Infinity, color: '#ff2d1e' },
     ];
+    const useHrr = opt.restHR != null && opt.restHR > 0 && opt.restHR < refMax;
+    const zoneBpm = (fraction: number) => useHrr ? opt.restHR! + fraction * (refMax - opt.restHR!) : fraction * refMax;
     const hrZones = zoneDefs.map((z) => ({
       ...z,
-      lowBpm: Math.round(z.min * refMax),
-      highBpm: z.max === Infinity ? refMax : Math.round(z.max * refMax),
+      lowBpm: Math.round(zoneBpm(z.min)),
+      highBpm: z.max === Infinity ? refMax : Math.round(zoneBpm(z.max)),
       time: 0,
     }));
     for (const s of samples) {
       if (s.hr == null || s.hr <= 0) continue;
-      const frac = s.hr / refMax;
+      const frac = useHrr ? (s.hr - opt.restHR!) / (refMax - opt.restHR!) : s.hr / refMax;
       let zi = hrZones.findIndex((z) => frac >= z.min && frac < z.max);
       if (zi === -1) zi = hrZones.length - 1;
       hrZones[zi].time += s.dt;
@@ -424,6 +428,8 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       avgHR: Math.round(avgHR),
       maxHR: maxHRObs,
       refMax,
+      restHR: useHrr ? opt.restHR : null,
+      zoneMethod: useHrr ? 'hrr' : 'max',
       hrZones,
       recoveries,
     };
@@ -470,7 +476,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       avgSpeedMoving,
     },
     positional,
-    running: { zones, sprints, highIntensityRuns, accelEvents },
+    running: { zones, sprints, highIntensityRuns, accelEvents, avgCadence },
     physio,
     football: { workRate, fatigue, rse, role },
     options: opt,

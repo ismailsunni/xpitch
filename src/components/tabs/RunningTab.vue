@@ -28,6 +28,7 @@ const hiDist = computed(() =>
         :info="METRICS.highIntensityRuns.desc"
       />
       <StatCard label="High-speed distance" :value="fmtDist(hiDist)" sub="running + faster" :info="METRICS.highSpeedDistance.desc" />
+      <StatCard v-if="r.avgCadence" label="Avg cadence" :value="r.avgCadence" unit="spm" sub="while moving" />
       <StatCard label="Top speed" :value="kmh(s.topSpeed)" unit="km/h" :info="METRICS.topSpeed.desc" />
       <StatCard label="Accelerations" :value="r.accelEvents.accelerations.length" sub="≥ 2 m/s²" :info="METRICS.accelerations.desc" />
       <StatCard label="Decelerations" :value="r.accelEvents.decelerations.length" sub="≤ -2 m/s²" :info="METRICS.decelerations.desc" />

@@ -48,6 +48,21 @@ function onGap(e: Event) {
         />
       </div>
       <div class="fld">
+        <label for="resthr">Rest HR</label>
+        <div class="with-unit">
+          <input
+            id="resthr"
+            type="number"
+            min="35"
+            max="110"
+            placeholder="optional"
+            :value="store.options.restHR ?? ''"
+            @change="store.options.restHR = num(($event.target as HTMLInputElement).value); recompute()"
+          />
+          <span class="unit">bpm</span>
+        </div>
+      </div>
+      <div class="fld">
         <label for="sprint">Sprint ≥</label>
         <div class="with-unit">
           <input

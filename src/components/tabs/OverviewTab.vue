@@ -15,6 +15,13 @@ const chart = computed(() => speedProfileConfig(a.value.samples));
 
 const rating = computed(() => deriveRating(a.value));
 const highlights = computed(() => deriveHighlights(a.value));
+const per90 = computed(() => {
+  const factor = s.value.durationS ? 5400 / s.value.durationS : 0;
+  return {
+    distance: s.value.totalDistance * factor,
+    sprints: a.value.running.sprints.length * factor,
+  };
+});
 
 // Distance-by-intensity: real speed zones, bar width = share of total distance.
 const zones = computed(() => {
@@ -79,7 +86,7 @@ function openHeatmap() {
       <div class="tile">
         <div class="tile-k">Total distance<InfoTip :text="METRICS.totalDistance.desc" /></div>
         <div class="tile-v">{{ fmtDist(s.totalDistance) }}</div>
-        <div class="tile-s">over {{ fmtDur(s.durationS) }}</div>
+        <div class="tile-s">{{ fmtDist(per90.distance) }} per 90</div>
       </div>
       <div class="tile">
         <div class="tile-k">Top speed<InfoTip :text="METRICS.topSpeed.desc" /></div>
@@ -89,7 +96,7 @@ function openHeatmap() {
       <div class="tile">
         <div class="tile-k">Sprints<InfoTip :text="METRICS.sprints.desc" /></div>
         <div class="tile-v">{{ a.running.sprints.length }}</div>
-        <div class="tile-s">{{ a.running.highIntensityRuns.length }} high-intensity runs</div>
+        <div class="tile-s">{{ per90.sprints.toFixed(1) }} per 90</div>
       </div>
       <div class="tile" v-if="a.physio">
         <div class="tile-k">Avg heart rate<InfoTip :text="METRICS.avgHR.desc" /></div>

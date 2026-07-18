@@ -17,6 +17,7 @@ const topZone = computed(() =>
 const refSource = computed(() =>
   a.value.options.maxHRSource === 'default' ? 'default 190 bpm' : a.value.options.maxHR ? 'entered' : a.value.options.age ? '220 − age' : 'observed'
 );
+const zoneSource = computed(() => ph.value?.zoneMethod === 'hrr' ? `HR reserve · rest ${ph.value.restHR} bpm` : '% max HR');
 </script>
 
 <template>
@@ -35,7 +36,7 @@ const refSource = computed(() =>
           :sub="fmtDur(topZone.time)"
           :info="METRICS.hrZones.desc"
         />
-        <StatCard label="Recovery periods" :value="ph.recoveries.length" sub="HR drops while resting" :info="METRICS.recoveries.desc" />
+        <StatCard label="Recovery windows" :value="ph.recoveries.length" sub="low-intensity HR drops" :info="METRICS.recoveries.desc" />
       </div>
 
       <div class="panel">
@@ -45,13 +46,13 @@ const refSource = computed(() =>
 
       <div class="grid2">
         <div class="panel">
-          <h3>Time in HR zones</h3>
+          <h3>Time in HR zones <small class="hint">{{ zoneSource }}</small></h3>
           <ChartPanel :config="zones!" />
         </div>
         <div class="panel">
-          <h3>Recovery periods</h3>
+          <h3>Recovery windows</h3>
           <div class="scroll-list">
-            <p v-if="!ph.recoveries.length" class="empty">No clear recovery periods detected.</p>
+            <p v-if="!ph.recoveries.length" class="empty">No clear low-intensity recovery windows detected.</p>
             <div v-for="(rc, i) in ph.recoveries" :key="i" class="list-row">
               <span class="lead">@ {{ fmtClock(rc.start) }}</span>
               <span class="meta"

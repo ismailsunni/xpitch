@@ -34,4 +34,18 @@ describe('compute', () => {
     expect(FORMATS.full.sprintKmh).toBe(25.2);
     expect(FORMATS.auto.sprintKmh).toBe(25.2);
   });
+
+  it('uses heart-rate reserve zones and reports moving cadence when resting HR is set', () => {
+    const result = compute(
+      fit([
+        { timestamp: 1_000, speed: 2, heart_rate: 120, cadence: 80 },
+        { timestamp: 1_005, speed: 3, heart_rate: 150, cadence: 100 },
+      ]),
+      { maxHR: 200, restHR: 50 }
+    );
+
+    expect(result.physio).toMatchObject({ zoneMethod: 'hrr', restHR: 50 });
+    expect(result.physio.hrZones[0]).toMatchObject({ lowBpm: 50, highBpm: 140 });
+    expect(result.running?.avgCadence).toBe(90);
+  });
 });

@@ -62,6 +62,7 @@ export interface AppState {
     age: number | null;
     maxHR: number | null;
     maxHRSource: 'entered' | 'default' | null;
+    restHR: number | null;
     sprintKmh: number;
     highIntensityKmh: number;
     format: FormatKey;
@@ -154,6 +155,7 @@ export const store = reactive<AppState>({
     age: null,
     maxHR: null,
     maxHRSource: null,
+    restHR: null,
     sprintKmh: 25.2,
     highIntensityKmh: 14.4,
     format: loadStoredFormat(),
@@ -321,6 +323,7 @@ export function recompute(): void {
     age: effectiveAge,
     maxHR: store.options.maxHR,
     maxHRSource: store.options.maxHRSource || undefined,
+    restHR: store.options.restHR,
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,
     attackingDir: currentAttackDir(),
@@ -685,6 +688,7 @@ export interface CloudLoadMeta {
     age?: number | null;
     maxHR?: number | null;
     maxHRSource?: 'entered' | 'default' | null;
+    restHR?: number | null;
     sprintKmh?: number;
     highIntensityKmh?: number;
     format?: FormatKey;
@@ -712,6 +716,7 @@ export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   if (o.age !== undefined) store.options.age = o.age ?? null;
   if (o.maxHR !== undefined) store.options.maxHR = o.maxHR ?? null;
   if (o.maxHRSource !== undefined) store.options.maxHRSource = o.maxHRSource;
+  if (o.restHR !== undefined) store.options.restHR = o.restHR ?? null;
   if (o.sprintKmh != null) store.options.sprintKmh = o.sprintKmh;
   if (o.highIntensityKmh != null) store.options.highIntensityKmh = o.highIntensityKmh;
   store.options.groupGapMin = meta.groupGapMin;
