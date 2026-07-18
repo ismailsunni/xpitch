@@ -5,6 +5,7 @@ import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
 import { listFeed } from '../lib/api';
 import MatchCard from '../components/MatchCard.vue';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 
 const PAGE = 12;
 const page = ref(0);
@@ -76,7 +77,7 @@ watch(
       The cloud feed isn’t available on this deployment. You can still
       <RouterLink to="/analyze">analyze a file</RouterLink>.
     </p>
-    <p v-else-if="state === 'loading'" class="empty">Loading matches…</p>
+    <LoadingSkeleton v-else-if="state === 'loading'" :count="6" />
     <p v-else-if="state === 'error'" class="empty">We couldn’t load matches. <button class="linkbtn" @click="load">Retry</button></p>
     <template v-else>
       <p v-if="!matches.length && filter === 'mine'" class="empty">

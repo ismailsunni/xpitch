@@ -28,7 +28,10 @@ onMounted(() => {
 
 <template>
   <!-- Landing here comes from the Import .fit action; a plain drop zone if visited empty. -->
-  <FileDrop v-if="!store.analytics" />
+  <main v-if="!store.analytics" class="analyze-empty">
+    <h1 class="sr-only">Analyze a FIT file</h1>
+    <FileDrop />
+  </main>
   <main v-else>
     <div v-if="store.cloud.mode === 'local' && isSaveable()" class="savebar">
       <span class="sb-text">Analysis ready — save it to your profile to keep and share it.</span>
@@ -53,4 +56,5 @@ onMounted(() => {
   font-size: 13.5px;
   color: var(--text);
 }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 </style>

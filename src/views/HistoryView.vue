@@ -8,6 +8,7 @@ import { historyLineConfig } from '../lib/charts';
 import { fmtDist, fmtDur, kmh } from '../lib/format';
 import { listMyHistory } from '../lib/api';
 import { supabaseEnabled } from '../lib/supabase';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 
 type HistoryMatch = {
   short_id: string;
@@ -249,7 +250,7 @@ watch(() => auth.user?.id, load);
     <p v-else-if="state === 'signedout'" class="empty">
       Sign in to see your match history. <RouterLink to="/login">Log in</RouterLink>
     </p>
-    <p v-else-if="state === 'loading'" class="empty">Loading history…</p>
+    <LoadingSkeleton v-else-if="state === 'loading'" :count="4" variant="row" />
     <p v-else-if="state === 'error'" class="empty">We couldn’t load history. <button class="linkbtn" @click="load">Retry</button></p>
 
     <template v-else>

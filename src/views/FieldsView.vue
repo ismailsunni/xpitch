@@ -6,6 +6,7 @@ import { auth } from '../lib/auth';
 import { store, openFieldEditor } from '../store';
 import { listFields } from '../lib/api';
 import PitchMap from '../components/PitchMap.vue';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 
 function newPitch() {
   openFieldEditor();
@@ -65,7 +66,7 @@ watch(() => auth.user?.id, load);
       <button v-if="auth.user" class="btn primary small" @click="newPitch">＋ New pitch</button>
     </div>
     <p v-if="state === 'disabled'" class="empty">Pitches aren’t available on this deployment.</p>
-    <p v-else-if="state === 'loading'" class="empty">Loading pitches…</p>
+    <LoadingSkeleton v-else-if="state === 'loading'" :count="6" />
     <p v-else-if="state === 'error'" class="empty">We couldn’t load pitches. <button class="linkbtn" @click="load">Retry</button></p>
     <template v-else>
       <p v-if="!fields.length" class="empty">No pitches yet.</p>
