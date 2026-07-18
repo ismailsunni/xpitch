@@ -7,14 +7,15 @@
  * hidden. The anon key is public by design; all security is Postgres RLS.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabaseEnabled = !!(url && key);
 
-export const supabase: SupabaseClient | null = supabaseEnabled
-  ? createClient(url as string, key as string, {
+export const supabase: SupabaseClient<Database> | null = supabaseEnabled
+  ? createClient<Database>(url as string, key as string, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

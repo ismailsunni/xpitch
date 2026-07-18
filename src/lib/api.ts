@@ -10,6 +10,7 @@ import { compute } from './analytics';
 import { fitTimestampToDate, parse as parseFit } from './fit-parser';
 import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, mergeFiles } from './segmentation';
 import { centroid, haversine, type LatLon } from './geo';
+import type { Database, Json } from './database.types';
 import {
   store,
   recompute,
@@ -34,6 +35,16 @@ function slugify(name: string): string {
 
 const BUCKET = 'fits';
 const MEDIA_BUCKET = 'match-media';
+type Visibility = Database['public']['Enums']['visibility'];
+
+function asJson(value: unknown): Json {
+  return value as Json;
+}
+
+function asVisibility(value: string): Visibility {
+  if (value === 'private' || value === 'unlisted' || value === 'public') return value;
+  throw new Error('Invalid visibility value.');
+}
 
 function requireClient() {
   if (!supabase) throw new Error('Cloud features are not configured.');
@@ -134,7 +145,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
       file_names: store.files,
       break_files: store.breakFiles,
       break_session_starts: store.breakSessionStarts,
-      manual_splits: store.manualSplits,
+      manual_splits: asJson(store.manualSplits),
       visibility: opts.visibility ?? 'unlisted',
     })
     .select()
@@ -181,20 +192,20 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
       end_time: fitTimestampToDate(seg.endTime)?.toISOString() ?? null,
       attacking_dir: dirs.attacking_dir,
       side_dir: dirs.side_dir,
-      flips: dirs.flips,
-      periods: seg.periods,
+      flips: asJson(dirs.flips),
+      periods: asJson(seg.periods),
       duration_s: a.summary?.durationS ?? null,
       sample_count: a.meta?.sampleCount ?? null,
       summary: a.ok
-        ? {
+        ? asJson({
             summary: a.summary,
             meta: metaSubset(a.meta),
             role: a.football?.role?.top ?? null,
             physio: a.physio ? { avgHR: a.physio.avgHR, maxHR: a.physio.maxHR } : null,
             preview: positionalPreview(a.positional),
-          }
+          })
         : null,
-      analysis_options: {
+      analysis_options: asJson({
         age: store.options.age,
         maxHR: store.options.maxHR,
         maxHRSource: store.options.maxHRSource,
@@ -202,7 +213,7 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
         sprintKmh: store.options.sprintKmh,
         highIntensityKmh: store.options.highIntensityKmh,
         format: store.options.format,
-      },
+      }),
     };
   });
 }
@@ -225,7 +236,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
     .update({
       format: store.options.format,
       group_gap_min: store.options.groupGapMin,
-      manual_splits: store.manualSplits,
+      manual_splits: asJson(store.manualSplits),
       break_files: store.breakFiles,
       break_session_starts: store.breakSessionStarts,
       primary_field_id: selectedFieldId,
@@ -254,7 +265,9 @@ export interface LoadedMatch {
 // were cached before the selected pitch transform was included.
 export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
   const sb = requireClient();
-  const names: string[] = match.file_names || [];
+  const names = Array.isArray(match.file_names)
+    ? match.file_names.filter((name): name is string => typeof name === 'string')
+    : [];
   if (!names.length || !match.owner_id || !match.short_id) return null;
   const rawFiles: { name: string; bytes: ArrayBuffer }[] = [];
   for (const name of names) {
@@ -311,7 +324,9 @@ export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
   const { data: primaryField } = match.primary_field_id
     ? await sb.from('fields').select('id, slug, name, corners, visibility, owner_id').eq('id', match.primary_field_id).maybeSingle()
     : { data: null };
-  const names: string[] = match.file_names || [];
+  const names = Array.isArray(match.file_names)
+    ? match.file_names.filter((name): name is string => typeof name === 'string')
+    : [];
   const rawFiles: { name: string; bytes: ArrayBuffer }[] = [];
   for (const name of names) {
     const path = `${match.owner_id}/${shortId}/${name}`;
@@ -370,7 +385,7 @@ export async function listMatches(username: string): Promise<ProfileMatches | nu
 
 export async function setMatchVisibility(matchId: string, visibility: string): Promise<void> {
   const sb = requireClient();
-  const { error } = await sb.from('matches').update({ visibility }).eq('id', matchId);
+  const { error } = await sb.from('matches').update({ visibility: asVisibility(visibility) }).eq('id', matchId);
   if (error) throw error;
 }
 
@@ -612,7 +627,7 @@ export async function listFields(): Promise<any[]> {
 
 export async function setFieldVisibility(id: string, visibility: string): Promise<void> {
   const sb = requireClient();
-  const { error } = await sb.from('fields').update({ visibility }).eq('id', id);
+  const { error } = await sb.from('fields').update({ visibility: asVisibility(visibility) }).eq('id', id);
   if (error) throw error;
   await loadMyFields();
 }
@@ -748,7 +763,7 @@ export async function updateSessionDirs(
   sessionId: string,
   attacking_dir: number,
   side_dir: number,
-  flips: unknown
+  flips: Json
 ): Promise<void> {
   const sb = requireClient();
   await sb.from('sessions').update({ attacking_dir, side_dir, flips }).eq('id', sessionId);
