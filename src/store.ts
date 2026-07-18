@@ -1,5 +1,5 @@
 /* store.ts — reactive application state and actions (lightweight, no Pinia). */
-import { reactive } from 'vue';
+import { markRaw, reactive } from 'vue';
 import * as FitParser from './lib/fit-parser';
 import type { FitResult, RecordSample } from './lib/fit-parser';
 import { compute, FORMATS } from './lib/analytics';
@@ -340,7 +340,9 @@ export function recompute(): void {
     return;
   }
   store.error = '';
-  store.analytics = a;
+  // Analysis is a large, immutable result. The reactive state only needs to
+  // react when the result object is replaced, not proxy every GPS sample.
+  store.analytics = markRaw(a);
 }
 
 function geocodeCurrent(): void {

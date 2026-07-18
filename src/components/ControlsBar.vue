@@ -103,8 +103,7 @@ function onGap(e: Event) {
       <div v-if="store.cloud.mode === 'local'" class="fld">
         <span class="lbl">Sessions</span>
         <div class="with-unit">
-          <button class="btn ghost small" @click="store.manualSplitOpen = true">✂ Split manually</button>
-          <button class="btn ghost small" @click="store.uploadWizardOpen = true">Complete setup</button>
+          <button class="btn ghost small" @click="store.uploadWizardOpen = true">Edit sessions</button>
           <span v-if="store.manualSplits" class="ok">manual ✓</span>
         </div>
       </div>

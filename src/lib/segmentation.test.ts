@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, recordsForPeriod } from './segmentation';
+import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, recordsForPeriod, suggestSessionBreaksFromHR } from './segmentation';
 import type { FitResult, RecordSample } from './fit-parser';
 
 function records(from: number, to: number, step = 10, fileName?: string): RecordSample[] {
@@ -42,5 +42,14 @@ describe('segmentation helpers', () => {
     expect(segments.map((s) => s.label)).toEqual(['Whole upload', 'Session 1', 'Session 2']);
     expect(segments[1].sourceFile).toBe('a.fit');
     expect(segments[2].sourceFile).toBe('b.fit');
+  });
+
+  it('suggests a session break for a sustained heart-rate recovery valley', () => {
+    const recs: RecordSample[] = [];
+    for (let t = 0; t <= 1_500; t += 30) {
+      const resting = t >= 600 && t <= 780;
+      recs.push({ timestamp: 10_000 + t, heart_rate: resting ? 100 : 160 });
+    }
+    expect(suggestSessionBreaksFromHR(fit(recs))).toEqual([705]);
   });
 });
