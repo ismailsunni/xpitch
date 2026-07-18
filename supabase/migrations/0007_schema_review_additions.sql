@@ -44,11 +44,8 @@ on public.user_privileges for all
 using (public.is_xpitch_admin())
 with check (public.is_xpitch_admin());
 
-insert into public.user_privileges (user_id, level)
-select id, 'admin'
-from auth.users
-where lower(email) = 'imajimatika@gmail.com'
-on conflict (user_id) do update set level = excluded.level;
+-- Bootstrap the first admin manually through the SQL console or Supabase CLI.
+-- Do not couple authorization to an email address in application migrations.
 
 -- ========================= Private match notes =========================
 create table if not exists public.match_private_notes (

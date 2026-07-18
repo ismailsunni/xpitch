@@ -90,6 +90,21 @@ npx supabase projects list
 npx supabase migration list --linked
 ```
 
+### First admin
+
+Roles are stored in `public.user_privileges`; no email address is hardcoded in
+the application. On a new deployment, bootstrap the first administrator once
+from the Supabase SQL editor, using that user's Auth UUID:
+
+```sql
+insert into public.user_privileges (user_id, level)
+values ('<auth-user-uuid>', 'admin')
+on conflict (user_id) do update set level = excluded.level;
+```
+
+Administrators can then grant or revoke roles from `/admin`. The database
+prevents removal of the final administrator.
+
 `0007_schema_review_additions.sql` creates the privilege, private-note, Strava,
 and match-media schema, including the private `match-media` storage bucket.
 Strava tables are ready, but OAuth/import is intentionally not implemented yet.

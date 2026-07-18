@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { auth, isAdmin } from '../lib/auth';
-import { deleteFieldCloud, deleteMatch, listAdminData, setMatchVisibility } from '../lib/api';
+import { deleteFieldCloud, deleteMatch, listAdminData, setMatchVisibility, setUserPrivilege } from '../lib/api';
 import { fmtDur } from '../lib/format';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
 
@@ -61,6 +61,18 @@ async function changeVisibility(match: any, visibility: string) {
     match.visibility = visibility;
   } catch (e: any) {
     err.value = e?.message || 'Could not update visibility.';
+  } finally {
+    savingId.value = '';
+  }
+}
+
+async function changePrivilege(profile: any, level: 'user' | 'admin') {
+  savingId.value = profile.id;
+  try {
+    await setUserPrivilege(profile.id, level);
+    profile.privilege = level;
+  } catch (e: any) {
+    err.value = e?.message || 'Could not update this role.';
   } finally {
     savingId.value = '';
   }
@@ -184,11 +196,19 @@ onMounted(load);
       <section class="panel">
         <h3>Profiles</h3>
         <div class="profile-grid">
-          <RouterLink v-for="p in profiles" :key="p.id" class="profile-card card" :to="p.username ? `/${p.username}` : '/admin'">
-            <strong>{{ p.display_name || p.username || p.id.slice(0, 8) }}</strong>
-            <span>{{ p.username ? '@' + p.username : 'no username' }}</span>
-            <small>{{ p.id }}</small>
-          </RouterLink>
+          <article v-for="p in profiles" :key="p.id" class="profile-card card">
+            <RouterLink :to="p.username ? `/${p.username}` : '/admin'">
+              <strong>{{ p.display_name || p.username || p.id.slice(0, 8) }}</strong>
+              <span>{{ p.username ? '@' + p.username : 'no username' }}</span>
+              <small>{{ p.id }}</small>
+            </RouterLink>
+            <label>Role
+              <select :value="p.privilege" :disabled="savingId === p.id" @change="changePrivilege(p, ($event.target as HTMLSelectElement).value as 'user' | 'admin')">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+          </article>
         </div>
       </section>
     </template>
@@ -283,8 +303,22 @@ select {
 }
 .profile-card {
   display: grid;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.profile-card a {
+  display: grid;
   gap: 2px;
   color: inherit;
   text-decoration: none;
+}
+.profile-card label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 </style>
