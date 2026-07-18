@@ -265,7 +265,10 @@ function combinedSublabel(startTs: number, durationS: number): string {
 
 function applySessionBreaks(segs: Segment[]): Segment[] {
   const real = segs.filter((s) => s.kind !== 'combined');
-  const kept = store.breakSessionStarts.length ? real.filter((s) => !store.breakSessionStarts.includes(s.startTime)) : real;
+  const kept = (store.breakSessionStarts.length ? real.filter((s) => !store.breakSessionStarts.includes(s.startTime)) : real)
+    // Break sections are removed from analysis, so their original index must
+    // not leave a gap in the playable session labels.
+    .map((segment, index) => ({ ...segment, label: `Session ${index + 1}` }));
   if (!kept.length) return segs;
   if (kept.length === 1) return kept;
   const combined = segs.find((s) => s.kind === 'combined');
