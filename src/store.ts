@@ -316,14 +316,16 @@ export function recompute(): void {
     file_id: currentFit.file_id,
     other: {},
   };
-  // Age falls back to the signed-in user's birth date; analytics derives
-  // max HR (220 − age) when maxHR is unset.
+  // Per-match settings take precedence over the signed-in user's private
+  // defaults. Without a max HR, analytics derives 220 − age.
   const effectiveAge = store.options.age ?? deriveAge(auth.profile?.birth_date);
+  const effectiveMaxHR = store.options.maxHR ?? auth.profile?.max_hr ?? null;
+  const effectiveRestHR = store.options.restHR ?? auth.profile?.rest_hr ?? null;
   const a = compute(pseudo, {
     age: effectiveAge,
-    maxHR: store.options.maxHR,
+    maxHR: effectiveMaxHR,
     maxHRSource: store.options.maxHRSource || undefined,
-    restHR: store.options.restHR,
+    restHR: effectiveRestHR,
     sprintKmh: store.options.sprintKmh,
     highIntensityKmh: store.options.highIntensityKmh,
     attackingDir: currentAttackDir(),

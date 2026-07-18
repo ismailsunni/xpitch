@@ -577,7 +577,7 @@ export async function listAdminData(): Promise<{ profiles: any[]; matches: any[]
   if (!isAdmin()) throw new Error('Admin access only.');
   const sb = requireClient();
   const [profilesRes, matchesRes, fieldsRes] = await Promise.all([
-    sb.from('profiles').select('id, username, display_name, avatar_url, bio, birth_date, created_at, updated_at').order('created_at', { ascending: false }),
+    sb.from('profiles').select('id, username, display_name, avatar_url, bio, created_at, updated_at').order('created_at', { ascending: false }),
     sb
       .from('matches')
       .select(
@@ -621,12 +621,24 @@ export async function updateProfile(patch: {
   display_name?: string | null;
   bio?: string | null;
   birth_date?: string | null;
+  max_hr?: number | null;
+  rest_hr?: number | null;
 }): Promise<void> {
   const sb = requireClient();
   const uid = auth.user?.id;
   if (!uid) throw new Error('Sign in first.');
-  const { error } = await sb.from('profiles').update(patch).eq('id', uid);
-  if (error) throw error;
+  const { display_name, bio, birth_date, max_hr, rest_hr } = patch;
+  if (display_name !== undefined || bio !== undefined) {
+    const { error } = await sb.from('profiles').update({ display_name, bio }).eq('id', uid);
+    if (error) throw error;
+  }
+  if (birth_date !== undefined || max_hr !== undefined || rest_hr !== undefined) {
+    const { error } = await sb.from('profile_analysis_defaults').upsert(
+      { user_id: uid, ...(birth_date !== undefined ? { birth_date } : {}), ...(max_hr !== undefined ? { max_hr } : {}), ...(rest_hr !== undefined ? { rest_hr } : {}) },
+      { onConflict: 'user_id' },
+    );
+    if (error) throw error;
+  }
   await reloadProfile();
 }
 

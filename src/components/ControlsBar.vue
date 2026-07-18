@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { store, recompute, setGroupGap } from '../store';
 import { auth } from '../lib/auth';
+import { deriveAge } from '../lib/format';
 
 // Revealed by the gear in the match line. Holds the analysis parameters plus
 // the session-structure config (how the upload is grouped / split). Owner-only.
@@ -31,7 +32,7 @@ function onGap(e: Event) {
           max="90"
           placeholder="—"
           title="Used to estimate max HR for heart-rate zones"
-          :value="store.options.age ?? ''"
+          :value="store.options.age ?? deriveAge(auth.profile?.birth_date) ?? ''"
           @change="store.options.age = num(($event.target as HTMLInputElement).value); if (store.options.maxHRSource === 'default') { store.options.maxHR = null; store.options.maxHRSource = null; } recompute()"
         />
       </div>
@@ -43,7 +44,7 @@ function onGap(e: Event) {
           min="120"
           max="230"
           placeholder="auto"
-          :value="store.options.maxHR ?? ''"
+            :value="store.options.maxHR ?? auth.profile?.max_hr ?? ''"
           @change="store.options.maxHR = num(($event.target as HTMLInputElement).value); store.options.maxHRSource = store.options.maxHR ? 'entered' : null; recompute()"
         />
       </div>
@@ -56,7 +57,7 @@ function onGap(e: Event) {
             min="35"
             max="110"
             placeholder="optional"
-            :value="store.options.restHR ?? ''"
+            :value="store.options.restHR ?? auth.profile?.rest_hr ?? ''"
             @change="store.options.restHR = num(($event.target as HTMLInputElement).value); recompute()"
           />
           <span class="unit">bpm</span>

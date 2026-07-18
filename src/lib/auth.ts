@@ -13,6 +13,8 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   birth_date: string | null;
+  max_hr: number | null;
+  rest_hr: number | null;
 }
 
 export interface UserPrivilege {
@@ -56,13 +58,20 @@ async function loadProfile(): Promise<void> {
     auth.privilege = null;
     return;
   }
-  const [{ data: profile }, { data: privilege }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', auth.user.id).maybeSingle(),
+  const [{ data: profile }, { data: defaults }, { data: privilege }] = await Promise.all([
+    supabase.from('profiles').select('id, username, display_name, avatar_url, bio').eq('id', auth.user.id).maybeSingle(),
+    supabase.from('profile_analysis_defaults').select('birth_date, max_hr, rest_hr').eq('user_id', auth.user.id).maybeSingle(),
     supabase.from('user_privileges').select('user_id, level').eq('user_id', auth.user.id).maybeSingle(),
   ]);
-  auth.profile =
+  const publicProfile =
     (profile as Profile) ??
-    { id: auth.user.id, username: null, display_name: null, avatar_url: null, bio: null, birth_date: null };
+    { id: auth.user.id, username: null, display_name: null, avatar_url: null, bio: null };
+  auth.profile = {
+    ...publicProfile,
+    birth_date: defaults?.birth_date ?? null,
+    max_hr: defaults?.max_hr ?? null,
+    rest_hr: defaults?.rest_hr ?? null,
+  };
   auth.privilege = (privilege as UserPrivilege | null) ?? { user_id: auth.user.id, level: 'user' };
 }
 

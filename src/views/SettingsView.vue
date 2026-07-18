@@ -5,7 +5,7 @@ import { auth, setUsername } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { updateProfile } from '../lib/api';
 
-const form = ref({ username: '', display_name: '', birth_date: '', bio: '' });
+const form = ref({ username: '', display_name: '', birth_date: '', max_hr: '', rest_hr: '', bio: '' });
 const err = ref('');
 const ok = ref(false);
 const busy = ref(false);
@@ -16,6 +16,8 @@ function init() {
     username: p?.username || '',
     display_name: p?.display_name || '',
     birth_date: p?.birth_date || '',
+    max_hr: p?.max_hr?.toString() || '',
+    rest_hr: p?.rest_hr?.toString() || '',
     bio: p?.bio || '',
   };
 }
@@ -27,6 +29,14 @@ async function save() {
   ok.value = false;
   busy.value = true;
   try {
+    const maxHR = form.value.max_hr ? Number(form.value.max_hr) : null;
+    const restHR = form.value.rest_hr ? Number(form.value.rest_hr) : null;
+    if ((maxHR != null && (!Number.isInteger(maxHR) || maxHR < 120 || maxHR > 230)) ||
+        (restHR != null && (!Number.isInteger(restHR) || restHR < 35 || restHR > 110)) ||
+        (maxHR != null && restHR != null && restHR >= maxHR)) {
+      err.value = 'Use a maximum HR from 120–230 bpm and a resting HR from 35–110 bpm, lower than maximum HR.';
+      return;
+    }
     const cur = (auth.profile?.username || '').toLowerCase();
     const next = form.value.username.trim().toLowerCase();
     if (next && next !== cur) {
@@ -39,6 +49,8 @@ async function save() {
     await updateProfile({
       display_name: form.value.display_name || null,
       birth_date: form.value.birth_date || null,
+      max_hr: maxHR,
+      rest_hr: restHR,
       bio: form.value.bio || null,
     });
     ok.value = true;
@@ -59,9 +71,11 @@ async function save() {
       <label>Username<input v-model="form.username" placeholder="username" /></label>
       <label>Display name<input v-model="form.display_name" placeholder="Your name" /></label>
       <label>Birth date<input v-model="form.birth_date" type="date" /></label>
+      <label>Maximum heart rate<input v-model="form.max_hr" type="number" min="120" max="230" step="1" placeholder="Optional" /></label>
+      <label>Resting heart rate<input v-model="form.rest_hr" type="number" min="35" max="110" step="1" placeholder="Optional" /></label>
       <label>Bio<textarea v-model="form.bio" rows="3" placeholder="Optional"></textarea></label>
       <p class="hint" style="margin: 0">
-        Your birth date stays private — it’s used to auto-fill your age and max HR when analyzing.
+        These private defaults are used for new analysis unless a match has its own setting. Resting HR enables heart-rate-reserve zones.
         Changing your username changes your profile URL.
       </p>
       <p v-if="err" class="error" style="margin: 8px 0 0">{{ err }}</p>

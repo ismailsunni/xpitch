@@ -29,7 +29,7 @@ const savingBirthDate = ref(false);
 
 const hasGps = computed(() => !!store.analytics?.meta?.hasGPS);
 const hasHr = computed(() => !!getCurrentFit()?.records.some((r) => r.heart_rate != null && r.heart_rate > 0));
-const needsBirthDate = computed(() => hasHr.value && !auth.profile?.birth_date);
+const needsBirthDate = computed(() => hasHr.value && !auth.profile?.birth_date && !auth.profile?.max_hr);
 const steps = computed<Step[]>(() => [
   ...(needsBirthDate.value ? ['hr' as Step] : []),
   'pitch',
