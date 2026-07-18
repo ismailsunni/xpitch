@@ -512,6 +512,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_shared_match: { Args: { p_short_id: string }; Returns: Json }
       is_xpitch_admin: { Args: never; Returns: boolean }
     }
     Enums: {

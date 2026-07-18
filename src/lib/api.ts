@@ -261,6 +261,16 @@ export interface LoadedMatch {
   primaryField: any | null;
 }
 
+interface SharedMatchPayload {
+  match: any;
+  sessions: any[];
+  primary_field: any | null;
+}
+
+function isSharedMatchPayload(value: unknown): value is SharedMatchPayload {
+  return !!value && typeof value === 'object' && 'match' in value && Array.isArray((value as SharedMatchPayload).sessions);
+}
+
 // Legacy previews can be regenerated for cards that have no cached preview or
 // were cached before the selected pitch transform was included.
 export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
@@ -317,13 +327,27 @@ export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
 // Fetch a saved match + sessions and download its .fit files from Storage.
 export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
   const sb = requireClient();
-  const { data: match, error } = await sb.from('matches').select('*').eq('short_id', shortId).maybeSingle();
+  const { data: directMatch, error } = await sb.from('matches').select('*').eq('short_id', shortId).maybeSingle();
   if (error) throw error;
-  if (!match) return null;
-  const { data: sessions } = await sb.from('sessions').select('*').eq('match_id', match.id).order('seq');
-  const { data: primaryField } = match.primary_field_id
-    ? await sb.from('fields').select('id, slug, name, corners, visibility, owner_id').eq('id', match.primary_field_id).maybeSingle()
-    : { data: null };
+  let match = directMatch;
+  let sessions: any[] = [];
+  let primaryField: any | null = null;
+  if (match) {
+    const { data } = await sb.from('sessions').select('*').eq('match_id', match.id).order('seq');
+    sessions = data || [];
+    if (match.primary_field_id) {
+      const { data } = await sb.from('fields').select('id, slug, name, corners, visibility, owner_id').eq('id', match.primary_field_id).maybeSingle();
+      primaryField = data;
+    }
+  } else {
+    const { data, error: shareError } = await sb.rpc('get_shared_match', { p_short_id: shortId });
+    if (shareError) throw shareError;
+    if (!isSharedMatchPayload(data) || !data.match) return null;
+    const shared = data;
+    match = shared.match;
+    sessions = shared.sessions || [];
+    primaryField = shared.primary_field;
+  }
   const names = Array.isArray(match.file_names)
     ? match.file_names.filter((name): name is string => typeof name === 'string')
     : [];
@@ -334,7 +358,7 @@ export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
     if (dErr) throw dErr;
     rawFiles.push({ name, bytes: await data.arrayBuffer() });
   }
-  return { match, sessions: sessions || [], rawFiles, primaryField: primaryField ?? null };
+  return { match, sessions, rawFiles, primaryField };
 }
 
 // Map DB session rows → the store's CloudSession shape.
