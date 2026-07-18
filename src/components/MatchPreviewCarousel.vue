@@ -17,6 +17,13 @@ const hasSavedHeatmap = computed(() =>
     return !!preview?.grid || (preview?.points || []).length > 1;
   })
 );
+const needsPitchAlignedPreview = computed(() =>
+  !!props.match.primary_field_id &&
+  props.sessions.some((session) => {
+    const preview = session?.summary?.preview;
+    return (!!preview?.grid || (preview?.points || []).length > 1) && preview?.hasField !== true;
+  })
+);
 const hasHeatmap = computed(() => hasSavedHeatmap.value || !!legacyPositional.value);
 const mapModes: PitchMode[] = ['heatmap', 'trail', 'zones'];
 const slideCount = computed(() => photoUrls.value.length + (hasHeatmap.value ? mapModes.length : 0));
@@ -63,7 +70,7 @@ watch(
   () => props.match.short_id,
   async () => {
     legacyPositional.value = null;
-    if (hasSavedHeatmap.value || !props.match.file_names?.length) return;
+    if ((hasSavedHeatmap.value && !needsPitchAlignedPreview.value) || !props.match.file_names?.length) return;
     try {
       legacyPositional.value = await buildLegacyFeedHeatmap(props.match);
     } catch {

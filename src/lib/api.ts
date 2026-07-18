@@ -16,6 +16,7 @@ import {
   getRawFiles,
   nonCombinedSegments,
   dirsForSegment,
+  allFields,
   type CloudSession,
 } from '../store';
 
@@ -141,7 +142,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
   if (mErr) throw mErr;
 
   // 3. Insert one session row per non-combined segment (with cached summary)
-  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid));
+  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, selectedFieldId));
   if (sErr) throw sErr;
 
   return shortId;
@@ -150,7 +151,8 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
 // Build the session rows for the current in-memory analysis (used by both
 // create and update). Recomputes each segment with the current options so the
 // cached summary/role reflect the latest edits.
-function buildSessionRows(matchId: string, uid: string) {
+function buildSessionRows(matchId: string, uid: string, fieldId: string | null) {
+  const field = fieldId ? allFields().find((value) => value.id === fieldId) : null;
   return nonCombinedSegments().map((seg, i) => {
     const dirs = dirsForSegment(seg);
     const a = compute(
@@ -163,6 +165,7 @@ function buildSessionRows(matchId: string, uid: string) {
         highIntensityKmh: store.options.highIntensityKmh,
         attackingDir: dirs.attacking_dir,
         sideDir: dirs.side_dir,
+        field: field?.corners || null,
         format: store.options.format,
       }
     );
@@ -231,7 +234,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
   if (dErr) throw dErr;
   const { data: inserted, error: sErr } = await sb
     .from('sessions')
-    .insert(buildSessionRows(matchId, uid))
+    .insert(buildSessionRows(matchId, uid, selectedFieldId))
     .select('id,seq');
   if (sErr) throw sErr;
   return inserted || [];
@@ -244,8 +247,8 @@ export interface LoadedMatch {
   primaryField: any | null;
 }
 
-// Legacy matches saved before positional previews were cached can still render
-// a feed heatmap. This runs only when a card has no saved preview.
+// Legacy previews can be regenerated for cards that have no cached preview or
+// were cached before the selected pitch transform was included.
 export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
   const sb = requireClient();
   const names: string[] = match.file_names || [];
@@ -268,7 +271,11 @@ export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
   const segment = segments.find((value) => value.kind !== 'combined');
   if (!segment) return null;
   const session = (match.sessions || []).find((value: any) => value.seq === 1) || match.sessions?.[0] || {};
-  const field = Array.isArray(match.fields) ? match.fields[0] : match.fields;
+  let field = Array.isArray(match.fields) ? match.fields[0] : match.fields;
+  if (!field?.corners && match.primary_field_id) {
+    const { data } = await sb.from('fields').select('corners').eq('id', match.primary_field_id).maybeSingle();
+    field = data;
+  }
   const options = session.analysis_options || { format: match.format };
   const analysis = compute(
     { records: segment.records, sessions: segment.session ? [segment.session] : [], laps: [], events: [], activity: null, file_id: null, other: {} },
