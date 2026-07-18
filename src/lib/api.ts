@@ -7,7 +7,8 @@ import { nanoid } from 'nanoid';
 import { supabase } from './supabase';
 import { auth, isAdmin, reloadProfile } from './auth';
 import { compute } from './analytics';
-import { fitTimestampToDate } from './fit-parser';
+import { fitTimestampToDate, parse as parseFit } from './fit-parser';
+import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, mergeFiles } from './segmentation';
 import { centroid, haversine, type LatLon } from './geo';
 import {
   store,
@@ -62,11 +63,21 @@ function positionalPreview(positional: any) {
   return {
     hasField: !!positional.hasField,
     templateAspect: positional.templateAspect ?? null,
+    lengthM: positional.lengthM ?? null,
+    widthM: positional.widthM ?? null,
+    compass: positional.compass ?? null,
+    GX: positional.GX ?? null,
+    GY: positional.GY ?? null,
+    grid: positional.grid ?? null,
+    gridMax: positional.gridMax ?? null,
+    zoneGrid: positional.zoneGrid ?? null,
+    avgPos: positional.avgPos ?? null,
     points: pts
       .filter((_: any, i: number) => i % step === 0 || i === pts.length - 1)
       .map((p: any) => ({
         u: Number(p.u.toFixed(4)),
         v: Number(p.v.toFixed(4)),
+        tSec: p.tSec ?? null,
       })),
   };
 }
@@ -231,6 +242,49 @@ export interface LoadedMatch {
   sessions: any[];
   rawFiles: { name: string; bytes: ArrayBuffer }[];
   primaryField: any | null;
+}
+
+// Legacy matches saved before positional previews were cached can still render
+// a feed heatmap. This runs only when a card has no saved preview.
+export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
+  const sb = requireClient();
+  const names: string[] = match.file_names || [];
+  if (!names.length || !match.owner_id || !match.short_id) return null;
+  const rawFiles: { name: string; bytes: ArrayBuffer }[] = [];
+  for (const name of names) {
+    const { data, error } = await sb.storage.from(BUCKET).download(`${match.owner_id}/${match.short_id}/${name}`);
+    if (error) throw error;
+    rawFiles.push({ name, bytes: await data.arrayBuffer() });
+  }
+  const parsed = rawFiles.map((file) => ({ name: file.name, fit: parseFit(file.bytes) }));
+  const fit = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
+  const start = fit.records.find((record) => record.timestamp != null)?.timestamp as number | undefined;
+  const splits = match.manual_splits;
+  const segments = splits && start != null
+    ? buildSegmentsManual(fit, splits.sessionBreaks || [], splits.halfBreaks || [], start)
+    : match.break_files?.length
+      ? buildSegmentsPerFile(fit, match.break_files)
+      : buildSegments(fit, (match.group_gap_min || 10) * 60);
+  const segment = segments.find((value) => value.kind !== 'combined');
+  if (!segment) return null;
+  const session = (match.sessions || []).find((value: any) => value.seq === 1) || match.sessions?.[0] || {};
+  const field = Array.isArray(match.fields) ? match.fields[0] : match.fields;
+  const options = session.analysis_options || { format: match.format };
+  const analysis = compute(
+    { records: segment.records, sessions: segment.session ? [segment.session] : [], laps: [], events: [], activity: null, file_id: null, other: {} },
+    {
+      age: options.age,
+      maxHR: options.maxHR,
+      maxHRSource: options.maxHRSource,
+      sprintKmh: options.sprintKmh,
+      highIntensityKmh: options.highIntensityKmh,
+      attackingDir: session.attacking_dir ?? 1,
+      sideDir: session.side_dir ?? 1,
+      field: field?.corners || null,
+      format: options.format || match.format,
+    }
+  );
+  return analysis.ok ? analysis.positional : null;
 }
 
 // Fetch a saved match + sessions and download its .fit files from Storage.
@@ -470,7 +524,7 @@ export async function listFeed(
   let q = sb
     .from('matches')
     .select(
-      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, primary_field_id, sessions(seq, duration_s, summary), match_media(id, storage_path, caption, visibility, created_at)',
+      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, primary_field_id, file_names, group_gap_min, manual_splits, break_files, fields(corners), sessions(seq, duration_s, summary, analysis_options, attacking_dir, side_dir), match_media(id, storage_path, caption, visibility, created_at)',
       { count: 'exact' }
     )
     .order('started_at', { ascending: false, nullsFirst: false })

@@ -1,37 +1,71 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import PitchCanvas from './PitchCanvas.vue';
+import type { PitchMode } from '../lib/pitch';
 
-const props = defineProps<{ sessions: any[]; label?: string; tone?: string }>();
+const props = withDefaults(defineProps<{ sessions: any[]; positional?: any | null; mode?: PitchMode }>(), { mode: 'heatmap' });
+const GRID_X = 24;
+const GRID_Y = 16;
 
-const tracks = computed(() =>
-  props.sessions
-    .map((session) => session?.summary?.preview?.points || [])
-    .filter((points) => points.length > 1)
-    .map((points) => points.map((point: any) => `${(point.u * 100).toFixed(2)},${(point.v * 100).toFixed(2)}`).join(' '))
-);
+const positional = computed(() => {
+  if (props.positional) return props.positional;
+  const preview = props.sessions
+    .map((session) => session?.summary?.preview)
+    .find((value) => value?.grid || value?.points?.length > 1);
+  if (!preview) return null;
+  if (preview.grid && preview.GX && preview.GY && preview.gridMax) {
+    const points = (preview.points || []).map((point: any, index: number) => ({ ...point, tSec: point.tSec ?? index }));
+    const zoneGrid = preview.zoneGrid || Array.from({ length: 3 }, (_, zoneY) =>
+      Array.from({ length: 6 }, (_, zoneX) => {
+        let total = 0;
+        for (let y = Math.floor((zoneY * preview.GY) / 3); y < Math.floor(((zoneY + 1) * preview.GY) / 3); y++) {
+          for (let x = Math.floor((zoneX * preview.GX) / 6); x < Math.floor(((zoneX + 1) * preview.GX) / 6); x++) total += preview.grid[y]?.[x] || 0;
+        }
+        return total;
+      })
+    );
+    return { ...preview, points, zoneGrid };
+  }
+
+  // Older saved matches kept only sampled points. Rebuild the same heatmap input
+  // shape so their feed preview remains useful without downloading the FIT file.
+  const grid = Array.from({ length: GRID_Y }, () => Array<number>(GRID_X).fill(0));
+  let totalU = 0;
+  let totalV = 0;
+  for (const point of preview.points) {
+    const x = Math.max(0, Math.min(GRID_X - 1, Math.floor(point.u * GRID_X)));
+    const y = Math.max(0, Math.min(GRID_Y - 1, Math.floor(point.v * GRID_Y)));
+    grid[y][x]++;
+    totalU += point.u;
+    totalV += point.v;
+  }
+  const zoneGrid = Array.from({ length: 3 }, (_, zoneY) =>
+    Array.from({ length: 6 }, (_, zoneX) => {
+      let total = 0;
+      for (let y = Math.floor((zoneY * GRID_Y) / 3); y < Math.floor(((zoneY + 1) * GRID_Y) / 3); y++) {
+        for (let x = Math.floor((zoneX * GRID_X) / 6); x < Math.floor(((zoneX + 1) * GRID_X) / 6); x++) total += grid[y][x];
+      }
+      return total;
+    })
+  );
+  return {
+    ...preview,
+    points: preview.points.map((point: any, index: number) => ({ ...point, tSec: point.tSec ?? index })),
+    GX: GRID_X,
+    GY: GRID_Y,
+    grid,
+    gridMax: Math.max(1, ...grid.flat()),
+    zoneGrid,
+    avgPos: { u: totalU / preview.points.length, v: totalV / preview.points.length },
+  };
+});
 </script>
 
 <template>
-  <div class="heatmap-preview" :class="{ empty: !tracks.length }">
-    <span class="preview-badge" :class="tone">{{ tracks.length ? 'Heatmap' : label || 'No GPS' }}</span>
-    <svg viewBox="0 0 100 64" preserveAspectRatio="none" aria-hidden="true">
-      <rect class="stripe a" x="0" y="0" width="12.5" height="64" /><rect class="stripe b" x="12.5" y="0" width="12.5" height="64" />
-      <rect class="stripe a" x="25" y="0" width="12.5" height="64" /><rect class="stripe b" x="37.5" y="0" width="12.5" height="64" />
-      <rect class="stripe a" x="50" y="0" width="12.5" height="64" /><rect class="stripe b" x="62.5" y="0" width="12.5" height="64" />
-      <rect class="stripe a" x="75" y="0" width="12.5" height="64" /><rect class="stripe b" x="87.5" y="0" width="12.5" height="64" />
-      <rect class="line" x="4" y="5" width="92" height="54" /><line class="line" x1="50" y1="5" x2="50" y2="59" />
-      <circle class="line" cx="50" cy="32" r="8" /><rect class="line" x="4" y="19" width="13" height="26" /><rect class="line" x="83" y="19" width="13" height="26" />
-      <polyline v-for="(points, index) in tracks" :key="index" class="track" :points="points" />
-    </svg>
-  </div>
+  <div v-if="positional" class="heatmap-preview"><PitchCanvas :positional="positional" :mode="mode" /></div>
 </template>
 
 <style scoped>
-.heatmap-preview { position: relative; overflow: hidden; min-height: 128px; background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 6px; }
-.heatmap-preview svg { display: block; width: 100%; height: 100%; min-height: 128px; }
-.stripe.a { fill: #b4d76a; }.stripe.b { fill: #bfe07a; }
-.line { fill: none; stroke: rgba(28, 55, 18, .5); stroke-width: .7; vector-effect: non-scaling-stroke; }
-.track { fill: none; stroke: var(--accent-ink); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .78; vector-effect: non-scaling-stroke; }
-.preview-badge { position: absolute; z-index: 1; top: 8px; left: 8px; background: rgba(255,255,255,.82); border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
-.preview-badge.ok { color: var(--accent-ink); }.preview-badge.warn { color: var(--c-amber); }
+.heatmap-preview { width: 100%; overflow: hidden; background: var(--bg-elev2); }
+.heatmap-preview :deep(.pitch-wrap), .heatmap-preview :deep(canvas) { width: 100%; display: block; }
 </style>

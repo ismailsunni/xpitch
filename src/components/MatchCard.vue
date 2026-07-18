@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { FORMATS } from '../lib/analytics';
 import { fmtDist, fmtDur, kmh } from '../lib/format';
-import { downloadMatchMedia, type MatchMedia } from '../lib/api';
-import MatchHeatmapPreview from './MatchHeatmapPreview.vue';
+import MatchPreviewCarousel from './MatchPreviewCarousel.vue';
 
 const props = defineProps<{ match: any; showAuthor?: boolean; variant?: 'card' | 'list' }>();
 const author = computed(() => props.match._author);
@@ -47,29 +46,18 @@ const pitchStatus = computed(() => {
   if (hasGps.value) return { label: 'GPS only', tone: 'warn' };
   return { label: 'No GPS', tone: 'muted' };
 });
-const hasPreview = computed(() => sessions.value.some((s) => (s?.summary?.preview?.points || []).length > 1));
-const firstPhoto = computed(() => (props.match.match_media || [])[0] as MatchMedia | undefined);
-const photoUrl = ref('');
-
-watch(
-  firstPhoto,
-  async (media, _previous, onCleanup) => {
-    if (photoUrl.value) URL.revokeObjectURL(photoUrl.value);
-    photoUrl.value = '';
-    if (!media) return;
-    let cancelled = false;
-    onCleanup(() => (cancelled = true));
-    try {
-      const blob = await downloadMatchMedia(media);
-      if (cancelled) return;
-      photoUrl.value = URL.createObjectURL(blob);
-    } catch {
-      // A feed card stays useful when a media object has been removed or is unavailable.
-    }
-  },
-  { immediate: true }
+const hasPreview = computed(() =>
+  sessions.value.some((session) => {
+    const preview = session?.summary?.preview;
+    return !!preview?.grid || (preview?.points || []).length > 1;
+  })
 );
-onBeforeUnmount(() => photoUrl.value && URL.revokeObjectURL(photoUrl.value));
+const hasMedia = computed(() => (props.match.match_media || []).length > 0);
+const hasLegacyHeatmapCandidate = computed(
+  () =>
+    (props.match.file_names || []).length > 0 &&
+    sessions.value.some((session) => session?.summary?.meta?.hasGPS || session?.summary?.summary?.hasGPS)
+);
 </script>
 
 <template>
@@ -102,10 +90,7 @@ onBeforeUnmount(() => photoUrl.value && URL.revokeObjectURL(photoUrl.value));
           <strong>{{ avgHR }} <small>bpm</small></strong>
         </div>
       </div>
-      <div v-if="photoUrl || hasPreview" class="activity-previews">
-        <img v-if="photoUrl" class="feed-photo" :src="photoUrl" :alt="firstPhoto?.caption || 'Match photo'" />
-        <MatchHeatmapPreview v-if="hasPreview" :sessions="sessions" :label="pitchStatus.label" :tone="pitchStatus.tone" />
-      </div>
+      <MatchPreviewCarousel v-if="hasMedia || hasPreview || hasLegacyHeatmapCandidate" class="activity-preview" :match="match" :media="match.match_media || []" :sessions="sessions" />
     </template>
 
     <template v-else>
@@ -126,10 +111,7 @@ onBeforeUnmount(() => photoUrl.value && URL.revokeObjectURL(photoUrl.value));
         <span><strong>{{ fmtDist(totalDistance) }}</strong> distance</span>
         <span><strong>{{ fmtDur(totalDuration) }}</strong> played</span>
       </div>
-      <div v-if="photoUrl || hasPreview" class="mc-previews">
-        <img v-if="photoUrl" class="feed-photo" :src="photoUrl" :alt="firstPhoto?.caption || 'Match photo'" />
-        <MatchHeatmapPreview v-if="hasPreview" :sessions="sessions" :label="pitchStatus.label" :tone="pitchStatus.tone" />
-      </div>
+      <MatchPreviewCarousel v-if="hasMedia || hasPreview || hasLegacyHeatmapCandidate" :match="match" :media="match.match_media || []" :sessions="sessions" />
     </template>
   </RouterLink>
 </template>
@@ -271,9 +253,7 @@ onBeforeUnmount(() => photoUrl.value && URL.revokeObjectURL(photoUrl.value));
   font-size: 12px;
   color: var(--muted);
 }
-.activity-previews, .mc-previews { display: grid; gap: 10px; margin-top: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.activity-previews { margin-top: 24px; }
-.feed-photo { width: 100%; min-height: 128px; height: 100%; object-fit: cover; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elev2); }
+.activity-preview { margin-top: 24px; }
 @media (max-width: 640px) {
   .matchcard.list {
     padding: 14px;
@@ -283,6 +263,5 @@ onBeforeUnmount(() => photoUrl.value && URL.revokeObjectURL(photoUrl.value));
     margin: 0 0 12px;
     padding-right: 12px;
   }
-  .activity-previews, .mc-previews { grid-template-columns: 1fr; }
 }
 </style>
