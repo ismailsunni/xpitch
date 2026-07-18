@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { store, setManualSplits, clearManualSplits, recordingDurationSec } from '../store';
 import { fmtClock } from '../lib/format';
+import { useDialog } from '../composables/useDialog';
 
 const total = recordingDurationSec();
 const sessionBreaks = ref<number[]>([...(store.manualSplits?.sessionBreaks || [])].sort((a, b) => a - b));
@@ -55,13 +56,14 @@ function reset() {
 function close() {
   store.manualSplitOpen = false;
 }
+const { dialogRef } = useDialog(close);
 </script>
 
 <template>
-  <div class="ms-overlay">
-    <div class="ms-modal card">
+  <div class="ms-overlay" @click.self="close">
+    <div ref="dialogRef" class="ms-modal card" role="dialog" aria-modal="true" aria-labelledby="manual-split-title">
       <header class="ms-head">
-        <h3 style="margin: 0">Split recording manually</h3>
+        <h3 id="manual-split-title" style="margin: 0">Split recording manually</h3>
         <button class="btn ghost small" @click="close">✕</button>
       </header>
       <p class="hint" style="margin: 6px 0 14px">

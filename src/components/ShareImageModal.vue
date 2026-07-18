@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { store, allFields, dirsForSegment, nonCombinedSegments } from '../store';
 import { compute } from '../lib/analytics';
 import { recordsForPeriod } from '../lib/segmentation';
 import { drawPitch, type PitchMode } from '../lib/pitch';
 import { fmtDist, fmtDur, kmh } from '../lib/format';
+import { useDialog } from '../composables/useDialog';
 
 const emit = defineEmits<{ close: [] }>();
 
@@ -207,19 +208,15 @@ watch([selectedSegmentId, mode, size], () => void render());
 function close() {
   emit('close');
 }
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') close();
-}
+const { dialogRef } = useDialog(close);
 onMounted(() => {
-  document.addEventListener('keydown', onKeydown);
   void render();
 });
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
   <div class="share-overlay" @click.self="close">
-    <section class="share-modal card" role="dialog" aria-modal="true" aria-labelledby="share-title">
+    <section ref="dialogRef" class="share-modal card" role="dialog" aria-modal="true" aria-labelledby="share-title">
       <header class="share-head">
         <div>
           <p class="eyebrow">Share image</p>

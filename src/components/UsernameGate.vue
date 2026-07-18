@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { setUsername, usernameError, signOut } from '../lib/auth';
+import { useDialog } from '../composables/useDialog';
 
 const name = ref('');
 const err = ref('');
@@ -22,11 +23,15 @@ async function save() {
   busy.value = false;
   err.value = e || '';
 }
+function close() {
+  void signOut();
+}
+const { dialogRef } = useDialog(close);
 </script>
 
 <template>
-  <div class="gate-overlay" role="dialog" aria-modal="true" aria-labelledby="username-title">
-    <div class="gate card">
+  <div class="gate-overlay" @click.self="close">
+    <div ref="dialogRef" class="gate card" role="dialog" aria-modal="true" aria-labelledby="username-title">
       <h3 id="username-title">Choose your username</h3>
       <p class="hint" style="margin: 4px 0 12px">
         Your profile will live at <strong style="color: var(--text)">{{ profileUrl }}</strong>
@@ -34,7 +39,7 @@ async function save() {
       <input v-model="name" placeholder="username" autofocus @keyup.enter="save" />
       <p v-if="err" class="error" style="margin: 8px 0 0">{{ err }}</p>
       <div class="gate-actions">
-        <button class="btn ghost small" @click="signOut">Cancel</button>
+        <button class="btn ghost small" @click="close">Cancel</button>
         <button class="btn primary" :disabled="busy" @click="save">{{ busy ? '…' : 'Continue' }}</button>
       </div>
     </div>

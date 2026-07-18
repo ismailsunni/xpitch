@@ -18,6 +18,7 @@ import type { MapBrowserEvent } from 'ol';
 import { store, addField, updateField, setSelectedField } from '../store';
 import { auth } from '../lib/auth';
 import { upsertFieldCloud } from '../lib/api';
+import { useDialog } from '../composables/useDialog';
 
 // Logged in: pitches live in the cloud; guests: localStorage.
 const userFields = computed(() => (auth.user ? store.cloudFields : store.fields));
@@ -239,12 +240,9 @@ function close() {
   store.editFieldTarget = null;
   store.fieldEditorContext = 'standalone';
 }
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') close();
-}
+const { dialogRef } = useDialog(close);
 
 onMounted(() => {
-  document.addEventListener('keydown', onKeydown);
   osmLayer = new TileLayer({ source: new OSM(), visible: false });
   satLayer = new TileLayer({
     source: new XYZ({
@@ -341,7 +339,6 @@ function centerForNewPitch() {
 }
 
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKeydown);
   map?.setTarget(undefined);
   map = null;
 });
@@ -349,7 +346,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="fe-overlay" @click.self="close">
-    <div class="fe-modal" role="dialog" aria-modal="true" aria-labelledby="field-editor-title">
+    <div ref="dialogRef" class="fe-modal" role="dialog" aria-modal="true" aria-labelledby="field-editor-title">
       <header class="fe-head">
         <div>
           <h3 id="field-editor-title">{{ editingId ? 'Edit pitch' : hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
