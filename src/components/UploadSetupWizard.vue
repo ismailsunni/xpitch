@@ -29,10 +29,10 @@ const hasGps = computed(() => !!store.analytics?.meta?.hasGPS);
 const hasHr = computed(() => !!getCurrentFit()?.records.some((r) => r.heart_rate != null && r.heart_rate > 0));
 const needsBirthDate = computed(() => hasHr.value && !auth.profile?.birth_date);
 const steps = computed<Step[]>(() => [
+  ...(needsBirthDate.value ? ['hr' as Step] : []),
   'pitch',
   'split',
   ...(hasGps.value ? ['orientation' as Step] : []),
-  ...(needsBirthDate.value ? ['hr' as Step] : []),
 ]);
 const stepIndex = computed(() => steps.value.indexOf(step.value));
 const title = computed(() => ({
@@ -75,15 +75,24 @@ function updateFormat(value: string) {
 function close() {
   store.uploadWizardOpen = false;
 }
+function continueFromHeartRate() {
+  const i = stepIndex.value + 1;
+  if (i < steps.value.length) step.value = steps.value[i];
+  else close();
+}
 function skip() {
-  if (needsBirthDate.value && !birthDate.value) setDefaultMaxHR();
+  if (step.value === 'hr') {
+    setDefaultMaxHR();
+    continueFromHeartRate();
+    return;
+  }
   close();
 }
 async function saveHeartRate() {
   error.value = '';
   if (!birthDate.value) {
     setDefaultMaxHR();
-    close();
+    continueFromHeartRate();
     return;
   }
   const age = deriveAge(birthDate.value);
@@ -98,7 +107,7 @@ async function saveHeartRate() {
     store.options.maxHR = null;
     store.options.maxHRSource = null;
     recompute();
-    close();
+    continueFromHeartRate();
   } catch (e: any) {
     error.value = e?.message || 'Could not save your birth date.';
   } finally {

@@ -42,7 +42,7 @@ function openHeatmap() {
 
 <template>
   <section class="tabpane">
-    <!-- Row 1: report card + coverage -->
+    <!-- Row 1: report card + playing role/coverage -->
     <div class="ov-top">
       <div class="report">
         <div class="report-glow"></div>
@@ -64,11 +64,10 @@ function openHeatmap() {
 
       <div class="coverage card">
         <div class="cov-head">
-          <div class="cov-title">Position &amp; coverage<InfoTip :text="METRICS.coverage.desc" /></div>
+          <div class="cov-title">Playing role &amp; coverage<InfoTip :text="METRICS.coverage.desc" /></div>
           <a v-if="coverage != null" class="cov-link" @click="openHeatmap">Open heatmap →</a>
         </div>
-        <div v-if="a.football.role" class="cov-role">{{ a.football.role.top }}</div>
-        <div v-else class="cov-role muted">Role needs GPS data</div>
+        <RoleCard :role="a.football.role" />
         <div v-if="coverage != null" class="cov-big">{{ coverage }}<span>%</span></div>
         <div v-if="coverage != null" class="cov-sub">of the pitch occupied</div>
         <div v-else class="cov-sub">Set a pitch to see spatial coverage.</div>
@@ -133,10 +132,6 @@ function openHeatmap() {
       <ChartPanel :config="chart" />
     </div>
 
-    <div class="panel" v-if="a.football.role">
-      <h3>Estimated playing role</h3>
-      <RoleCard :role="a.football.role" />
-    </div>
   </section>
 </template>
 
@@ -262,16 +257,10 @@ function openHeatmap() {
   color: var(--accent-ink);
   cursor: pointer;
 }
-.cov-role {
-  font-family: var(--font-head);
-  font-size: 20px;
-  font-weight: 600;
-  margin-top: 4px;
-}
-.cov-role.muted {
-  color: var(--muted);
-  font-size: 15px;
-}
+.coverage :deep(.role-hero) { margin-top: 2px; }
+.coverage :deep(.role-badge) { font-size: 18px; }
+.coverage :deep(.role-rank) { margin-top: 10px; }
+.coverage :deep(.hint) { margin: 10px 0 0; font-size: 12px; }
 .cov-big {
   font-family: var(--font-head);
   font-size: 46px;

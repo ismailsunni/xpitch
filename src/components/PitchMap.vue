@@ -17,7 +17,7 @@ import { store, appliedField } from '../store';
 
 // Standalone mode (e.g. the /field page): pass the pitch corners directly and
 // render just the pitch on satellite, without a player track.
-const props = defineProps<{ fieldCorners?: { lat: number; lon: number }[] }>();
+const props = defineProps<{ fieldCorners?: { lat: number; lon: number }[]; compact?: boolean }>();
 
 const mapEl = ref<HTMLDivElement>();
 const basemap = ref<'sat' | 'osm'>('sat');
@@ -106,11 +106,11 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="pm-wrap">
-    <div class="pm-toolbar">
+    <div v-if="!compact" class="pm-toolbar">
       <button class="btn small" :class="{ primary: basemap === 'sat' }" @click="setBasemap('sat')">🛰️ Satellite</button>
       <button class="btn small" :class="{ primary: basemap === 'osm' }" @click="setBasemap('osm')">🗺️ Map</button>
     </div>
-    <div ref="mapEl" class="pm-map"></div>
+    <div ref="mapEl" class="pm-map" :class="{ compact }"></div>
   </div>
 </template>
 
@@ -131,6 +131,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border: 1px solid var(--border);
   background: #0d1712;
+}
+.pm-map.compact {
+  height: 170px;
+  border-radius: 6px;
 }
 :deep(.ol-attribution) {
   font-size: 10px;

@@ -5,6 +5,7 @@ import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
 import { store, openFieldEditor } from '../store';
 import { listFields } from '../lib/api';
+import PitchMap from '../components/PitchMap.vue';
 
 function newPitch() {
   openFieldEditor();
@@ -70,6 +71,7 @@ watch(() => auth.user?.id, load);
       <p v-if="!fields.length" class="empty">No pitches yet.</p>
       <div v-else class="field-grid">
         <RouterLink v-for="f in fields" :key="f.id" :to="`/field/${f.slug}`" class="fieldcard card">
+          <PitchMap :field-corners="f.corners" compact />
           <div class="fc-top">
             <span class="fc-name">🏟 {{ f.name }}</span>
             <span v-if="f.visibility !== 'public'" class="fc-badge">{{ f.visibility }}</span>
@@ -107,6 +109,9 @@ watch(() => auth.user?.id, load);
   color: inherit;
   transition: 0.15s;
   position: relative;
+}
+.fieldcard :deep(.pm-wrap) {
+  margin: -2px -2px 12px;
 }
 .fc-edit {
   margin-top: 10px;

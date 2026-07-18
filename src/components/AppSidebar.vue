@@ -10,7 +10,7 @@ import SaveMatchButton from './SaveMatchButton.vue';
 const router = useRouter();
 const route = useRoute();
 
-// Mobile drawer + user menu open state.
+// Mobile menu + user menu open state.
 const drawerOpen = ref(false);
 const menuOpen = ref(false);
 
@@ -56,17 +56,33 @@ watch(
       <span class="logo-badge"><span class="logo-glyph">◉</span></span>
       <span class="wordmark">xPitch</span>
     </RouterLink>
-    <button class="hamburger" aria-label="Open menu" @click="drawerOpen = true">
+    <button class="hamburger" aria-label="Open menu" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M4 6h16M4 12h16M4 18h16" />
       </svg>
     </button>
   </header>
 
-  <!-- Backdrop for the mobile drawer -->
-  <div v-if="drawerOpen" class="drawer-backdrop" @click="drawerOpen = false"></div>
+  <div v-if="drawerOpen" class="mobile-menu">
+    <nav class="mobile-nav" aria-label="Mobile menu">
+      <RouterLink to="/">Feed</RouterLink>
+      <RouterLink to="/fields">Pitches</RouterLink>
+      <RouterLink v-if="auth.user" to="/history">History</RouterLink>
+      <RouterLink to="/help">Help</RouterLink>
+      <RouterLink v-if="isAdmin()" to="/admin">Admin</RouterLink>
+      <RouterLink v-if="auth.user" :to="profilePath">My profile</RouterLink>
+      <RouterLink v-if="auth.user" to="/settings">Settings</RouterLink>
+      <RouterLink v-else-if="supabaseEnabled" to="/login">Log in</RouterLink>
+    </nav>
+    <div class="mobile-actions">
+      <label class="import-cta"><input type="file" accept=".fit" multiple hidden @change="onPick" />Import .fit file</label>
+      <SaveMatchButton />
+      <button class="theme-toggle" @click="toggleTheme">{{ theme.mode === 'dark' ? 'Light mode' : 'Dark mode' }}</button>
+      <button v-if="auth.user" class="mobile-signout" @click="doSignOut">Sign out</button>
+    </div>
+  </div>
 
-  <aside class="sidebar" :class="{ open: drawerOpen }">
+  <aside class="sidebar">
     <RouterLink to="/" class="brand-row">
       <span class="logo-badge"><span class="logo-glyph">◉</span></span>
       <span class="wordmark">xPitch</span>
@@ -381,7 +397,7 @@ watch(
   text-decoration: none;
 }
 
-/* ---------- Mobile top bar + drawer ---------- */
+/* ---------- Mobile top bar + menu ---------- */
 .mtop {
   display: none;
   align-items: center;
@@ -407,35 +423,48 @@ watch(
   cursor: pointer;
   padding: 4px;
 }
-.drawer-backdrop {
-  display: none;
-}
+.mobile-menu { display: none; }
 
 @media (max-width: 900px) {
-  .mtop {
-    display: flex;
-  }
-  .sidebar {
+  .mtop { display: flex; }
+  .sidebar { display: none; }
+  .mobile-menu {
+    display: grid;
+    gap: 10px;
     position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    height: 100vh;
-    width: 264px;
+    top: 62px;
+    right: 12px;
+    left: 12px;
     z-index: 30;
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-elev);
+    box-shadow: var(--shadow);
+    max-height: calc(100vh - 74px);
+    overflow-y: auto;
   }
-  .sidebar.open {
-    transform: translateX(0);
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  .mobile-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .mobile-nav a, .mobile-signout {
+    padding: 10px;
+    color: var(--text);
+    text-decoration: none;
+    background: var(--bg-elev2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: 600 13px var(--font-body);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .drawer-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 29;
-  }
+  .mobile-actions { display: grid; gap: 6px; }
+  .mobile-actions .import-cta, .mobile-actions .theme-toggle, .mobile-actions :deep(.btn), .mobile-signout { width: 100%; justify-content: center; }
+  .mobile-signout { cursor: pointer; color: var(--c-coral); }
+  .mobile-actions .import-cta, .mobile-actions .theme-toggle { justify-content: center; margin-top: 0; border-radius: 6px; }
+  .hamburger[aria-expanded='true'] { color: var(--accent-ink); }
+  .mobile-nav a.router-link-active { border-color: var(--accent-tint-strong); color: var(--accent-ink); background: var(--accent-tint); }
+  .mobile-menu :deep(.savewrap), .mobile-menu :deep(.savewrap .btn) { display: block; width: 100%; }
+  .mobile-menu :deep(.save-err) { display: block; max-width: none; margin-top: 6px; }
 }
 </style>

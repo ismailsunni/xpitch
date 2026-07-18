@@ -470,7 +470,7 @@ export async function listFeed(
   let q = sb
     .from('matches')
     .select(
-      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, primary_field_id, sessions(seq, duration_s, summary)',
+      'short_id, title, format, started_at, created_at, visibility, owner_id, location_label, primary_field_id, sessions(seq, duration_s, summary), match_media(id, storage_path, caption, visibility, created_at)',
       { count: 'exact' }
     )
     .order('started_at', { ascending: false, nullsFirst: false })

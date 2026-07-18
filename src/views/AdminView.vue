@@ -27,6 +27,9 @@ function matchDuration(m: any) {
   const seconds = (m.sessions || []).reduce((sum: number, s: any) => sum + (s.duration_s || 0), 0);
   return fmtDur(seconds);
 }
+function isSystemField(field: any) {
+  return !field.owner_id;
+}
 
 async function load() {
   if (!auth.ready) return;
@@ -75,6 +78,7 @@ async function removeMatch(match: any) {
 }
 
 async function removeField(field: any) {
+  if (isSystemField(field)) return;
   if (!confirm(`Delete pitch "${field.name}"? Matches linked to it will keep their data but lose the pitch link.`)) return;
   savingId.value = field.id;
   try {
@@ -150,7 +154,14 @@ onMounted(load);
                 <td>{{ f.slug || '—' }}</td>
                 <td>{{ f.owner_id ? f.owner_id.slice(0, 8) : 'system' }}</td>
                 <td>{{ f.visibility }}</td>
-                <td><button class="btn ghost small danger" :disabled="savingId === f.id" @click="removeField(f)">Delete</button></td>
+                <td>
+                  <button
+                    class="btn ghost small danger"
+                    :disabled="savingId === f.id || isSystemField(f)"
+                    :title="isSystemField(f) ? 'System pitches cannot be deleted here' : 'Delete pitch'"
+                    @click="removeField(f)"
+                  >Delete</button>
+                </td>
               </tr>
             </tbody>
           </table>

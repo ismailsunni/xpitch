@@ -34,7 +34,21 @@ export const auth = reactive<{
   privilege: null,
 });
 
-const RESERVED = new Set(['match', 'field', 'login', 'auth', 'me', 'admin', 'api']);
+// Keep profile handles from colliding with any top-level application route.
+const RESERVED = new Set([
+  'admin',
+  'analyze',
+  'api',
+  'auth',
+  'field',
+  'fields',
+  'help',
+  'history',
+  'login',
+  'match',
+  'me',
+  'settings',
+]);
 
 async function loadProfile(): Promise<void> {
   if (!supabase || !auth.user) {
