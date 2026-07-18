@@ -74,12 +74,55 @@ export interface AnalyticsOptions {
   periods?: { startSec: number; endSec: number }[];
 }
 
+export interface AnalysisSample {
+  tSec: number;
+  date?: Date;
+  lat?: number;
+  lon?: number;
+  speed: number;
+  hr: number | null;
+  distance: number | null;
+  altitude?: number;
+  cadence?: number;
+  power?: number;
+  dt: number;
+  dInc: number;
+  [key: string]: unknown;
+}
+
+export interface AnalysisMeta {
+  hasGPS: boolean;
+  hasHR: boolean;
+  hasSpeed: boolean;
+  startDate?: Date;
+  durationS: number;
+  sampleCount: number;
+  sport: number | string | null;
+  format: FormatKey;
+  formatFrom: 'user' | 'field' | 'gps' | 'default';
+  formatLabel: string;
+  session: FitResult['sessions'][number] | null;
+  fileId: FitResult['file_id'];
+  startLat: number | null;
+  startLon: number | null;
+}
+
+export interface MatchSummary {
+  durationS: number;
+  movingTime: number;
+  standingTime: number;
+  totalDistance: number;
+  topSpeed: number;
+  rawTopSpeed: number;
+  avgSpeedMoving: number;
+}
+
 export interface MatchAnalytics {
   ok: boolean;
   error?: string;
-  meta?: any;
-  samples?: any[];
-  summary?: any;
+  meta?: AnalysisMeta;
+  samples?: AnalysisSample[];
+  summary?: MatchSummary;
   positional?: any;
   running?: any;
   physio?: any;
