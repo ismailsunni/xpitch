@@ -20,10 +20,10 @@ export const FORMATS: Record<
   string,
   { key: FormatKey; label: string; short: string; maxLengthM: number; aspect: number; sprintKmh: number; hiKmh: number }
 > = {
-  auto: { key: 'auto', label: 'Auto-detect', short: 'Auto', maxLengthM: 0, aspect: 68 / 105, sprintKmh: 19.8, hiKmh: 14.4 },
+  auto: { key: 'auto', label: 'Auto-detect', short: 'Auto', maxLengthM: 0, aspect: 68 / 105, sprintKmh: 25.2, hiKmh: 14.4 },
   futsal: { key: 'futsal', label: 'Futsal / 5-a-side', short: 'Futsal', maxLengthM: 32, aspect: 0.5, sprintKmh: 15, hiKmh: 11 },
   mini: { key: 'mini', label: 'Mini-soccer / 7-a-side', short: 'Mini-soccer', maxLengthM: 78, aspect: 0.62, sprintKmh: 18, hiKmh: 13 },
-  full: { key: 'full', label: 'Full football / 11-a-side', short: 'Full football', maxLengthM: Infinity, aspect: 68 / 105, sprintKmh: 19.8, hiKmh: 14.4 },
+  full: { key: 'full', label: 'Full football / 11-a-side', short: 'Full football', maxLengthM: Infinity, aspect: 68 / 105, sprintKmh: 25.2, hiKmh: 14.4 },
 };
 
 function inferFormatKey(lengthM: number, fromField: boolean): FormatKey {
@@ -69,6 +69,9 @@ export interface AnalyticsOptions {
   highIntensityKmh?: number;
   field?: LatLon[] | null; // user-defined pitch corners (lat/lon)
   format?: FormatKey; // match format ('auto' infers from pitch size)
+  // Period timing relative to the first record. When supplied, fatigue uses
+  // real halves and excludes any recording time between them.
+  periods?: { startSec: number; endSec: number }[];
 }
 
 export interface MatchAnalytics {
@@ -127,10 +130,11 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       age: null,
       attackingDir: 1,
       sideDir: 1,
-      sprintKmh: 19.8,
+      sprintKmh: 25.2,
       highIntensityKmh: 14.4,
       field: null,
       format: 'auto',
+      periods: [],
     },
     options || {}
   ) as Required<AnalyticsOptions>;
@@ -427,7 +431,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
 
   // ---- 6. Work rate & fatigue ----
   const workRate = buildMinuteBins(samples);
-  const fatigue = computeFatigue(samples, sprints, hiThr, durationS);
+  const fatigue = computeFatigue(samples, sprints, hiThr, durationS, opt.periods);
   const rse = detectRepeatedSprints(sprints);
 
   // ---- 7. Format resolution + role estimation ----
@@ -566,12 +570,26 @@ function buildMinuteBins(samples: any[]): any[] {
   return bins;
 }
 
-function computeFatigue(samples: any[], sprints: any[], hiThr: number, durationS: number): any {
+function computeFatigue(
+  samples: any[],
+  sprints: any[],
+  hiThr: number,
+  durationS: number,
+  periods: { startSec: number; endSec: number }[]
+): any {
+  const realHalves = periods.length === 2 && periods.every((period) => period.endSec > period.startSec);
   const half = durationS / 2;
+  const firstWindow = realHalves ? periods[0] : { startSec: 0, endSec: half };
+  const secondWindow = realHalves ? periods[1] : { startSec: half, endSec: durationS };
   const firstHalf = { distance: 0, time: 0, hiDistance: 0 };
   const secondHalf = { distance: 0, time: 0, hiDistance: 0 };
   for (const s of samples) {
-    const bucket = s.tSec < half ? firstHalf : secondHalf;
+    const bucket = s.tSec >= firstWindow.startSec && s.tSec <= firstWindow.endSec
+      ? firstHalf
+      : s.tSec >= secondWindow.startSec && s.tSec <= secondWindow.endSec
+        ? secondHalf
+        : null;
+    if (!bucket) continue;
     bucket.distance += s.dInc;
     bucket.time += s.dt;
     if (s.speed >= hiThr) bucket.hiDistance += s.dInc;
@@ -589,8 +607,8 @@ function computeFatigue(samples: any[], sprints: any[], hiThr: number, durationS
     if (s.speed >= hiThr) seg[idx].hi += s.dInc;
   }
 
-  const sprintsFirst = sprints.filter((r) => r.start < half).length;
-  const sprintsSecond = sprints.length - sprintsFirst;
+  const sprintsFirst = sprints.filter((r) => r.start >= firstWindow.startSec && r.start <= firstWindow.endSec).length;
+  const sprintsSecond = sprints.filter((r) => r.start >= secondWindow.startSec && r.start <= secondWindow.endSec).length;
 
   return {
     firstHalf: { ...firstHalf, ratePerMin: r1 },

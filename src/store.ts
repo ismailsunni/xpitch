@@ -154,7 +154,7 @@ export const store = reactive<AppState>({
     age: null,
     maxHR: null,
     maxHRSource: null,
-    sprintKmh: 19.8,
+    sprintKmh: 25.2,
     highIntensityKmh: 14.4,
     format: loadStoredFormat(),
     groupGapMin: DEFAULT_GROUP_GAP_MIN,
@@ -327,6 +327,9 @@ export function recompute(): void {
     sideDir: currentSideDir(),
     field: field ? field.corners : null,
     format: store.options.format,
+    periods: store.activePeriod < 0
+      ? seg.periods.map((period) => ({ startSec: period.startTime - seg.startTime, endSec: period.endTime - seg.startTime }))
+      : [],
   });
   if (!a.ok) {
     store.error = a.error || 'Could not analyze this segment.';

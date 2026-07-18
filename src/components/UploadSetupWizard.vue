@@ -32,11 +32,11 @@ const steps = computed<Step[]>(() => [
   ...(needsBirthDate.value ? ['hr' as Step] : []),
   'pitch',
   'split',
-  ...(hasGps.value ? ['orientation' as Step] : []),
+  ...(hasGps.value && !!store.selectedFieldId ? ['orientation' as Step] : []),
 ]);
 const stepIndex = computed(() => steps.value.indexOf(step.value));
 const title = computed(() => ({
-  pitch: 'Match details', split: 'Split the recording', orientation: 'Set attack direction', hr: 'Heart-rate setup',
+  pitch: 'Match setup', split: 'Split the recording', orientation: 'Set attack direction', hr: 'Heart-rate setup',
 }[step.value]));
 const formatOptions = computed(() => Object.values(FORMATS).filter((f) => f.key !== 'auto'));
 const automaticFieldLabel = computed(() => appliedField()?.name || 'nearby pitch');
@@ -116,14 +116,6 @@ async function saveHeartRate() {
 }
 function next() {
   error.value = '';
-  if (step.value === 'pitch' && hasGps.value && !store.selectedFieldId) {
-    error.value = 'Select or create the pitch before continuing. Without a pitch, distance and position data are not reliable.';
-    return;
-  }
-  if (step.value === 'pitch' && store.options.format === 'auto') {
-    error.value = 'Choose the game type before continuing.';
-    return;
-  }
   const i = stepIndex.value + 1;
   if (i < steps.value.length) step.value = steps.value[i];
   else if (step.value === 'hr') void saveHeartRate();
@@ -150,18 +142,18 @@ function previous() {
         <label>Match name
           <input v-model="store.matchTitle" type="text" placeholder="e.g. Tuesday night mini soccer" />
         </label>
-        <label>Game type
+        <label>Match format
           <select :value="store.options.format" @change="updateFormat(($event.target as HTMLSelectElement).value)">
-            <option value="auto" disabled>Select game type</option>
+            <option value="auto">Auto-detect</option>
             <option v-for="f in formatOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
           </select>
         </label>
-        <p v-if="hasGps" class="hint">Select the pitch used for this upload. The pitch controls the field transform used throughout match detail and orientation setup.</p>
+        <p v-if="hasGps" class="hint">A pitch improves positional accuracy and unlocks attack-direction setup. You can continue without one and add it later.</p>
         <p v-else class="hint">This file has no GPS coordinates, so a pitch cannot be mapped to it.</p>
         <template v-if="hasGps">
           <label>Pitch
             <select :value="store.selectedFieldId || ''" @change="setSelectedField(($event.target as HTMLSelectElement).value || null)">
-              <option value="" disabled>Select a pitch{{ automaticFieldLabel ? ` (nearby: ${automaticFieldLabel})` : '' }}</option>
+              <option value="">No pitch yet{{ automaticFieldLabel ? ` (nearby: ${automaticFieldLabel})` : '' }}</option>
               <option v-for="field in allFields()" :key="field.id" :value="field.id">{{ field.name }}</option>
             </select>
           </label>

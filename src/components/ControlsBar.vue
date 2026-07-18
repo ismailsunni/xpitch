@@ -57,7 +57,7 @@ function onGap(e: Event) {
             max="35"
             step="0.1"
             :value="store.options.sprintKmh"
-            @change="store.options.sprintKmh = num(($event.target as HTMLInputElement).value) ?? 19.8; recompute()"
+            @change="store.options.sprintKmh = num(($event.target as HTMLInputElement).value) ?? 25.2; recompute()"
           />
           <span class="unit">km/h</span>
         </div>

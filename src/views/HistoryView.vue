@@ -387,7 +387,7 @@ watch(() => auth.user?.id, load);
 }
 .tile {
   border: 1px solid var(--border);
-  background: var(--bg-card);
+  background: var(--bg-elev);
   border-radius: 16px;
   padding: 16px;
 }

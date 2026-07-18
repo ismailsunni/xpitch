@@ -167,6 +167,7 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
         sideDir: dirs.side_dir,
         field: field?.corners || null,
         format: store.options.format,
+        periods: seg.periods.map((period) => ({ startSec: period.startTime - seg.startTime, endSec: period.endTime - seg.startTime })),
       }
     );
     return {
@@ -289,6 +290,9 @@ export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
       sideDir: session.side_dir ?? 1,
       field: field?.corners || null,
       format: options.format || match.format,
+      periods: Array.isArray(session.periods)
+        ? session.periods.map((period: any) => ({ startSec: period.startTime - segment.startTime, endSec: period.endTime - segment.startTime }))
+        : [],
     }
   );
   return analysis.ok ? analysis.positional : null;

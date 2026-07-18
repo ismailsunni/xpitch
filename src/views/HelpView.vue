@@ -33,15 +33,15 @@ import { METRIC_SECTIONS } from '../lib/metrics';
 
     <h3>3 · Analyze</h3>
     <p>
-      Click <strong>Open .fit file(s)</strong> (top-right) or drop the file on the
+      Click <strong>Import .fit file</strong> in the navigation, or drop the file on the
       <RouterLink to="/analyze">Analyze</RouterLink> page. Upload several files at once — matches
       recorded close together are grouped into one match with multiple sessions (halves show as
-      periods). No file? Use <strong>Load sample</strong>.
+      periods). No file? Use <strong>Load a real sample</strong>.
     </p>
 
     <h3>4 · Make it accurate</h3>
     <ul>
-      <li><strong>Set the pitch</strong> — draw your field on the satellite map (📐 Set field). It fixes orientation and left/right, and is reused automatically next time.</li>
+      <li><strong>Add a pitch</strong> — select a saved pitch or choose <strong>Create a pitch</strong> to draw it on the satellite map. It improves orientation and left/right accuracy, and is reused automatically next time.</li>
       <li><strong>Attack direction</strong> — hit the flip to match which end you attacked (per match &amp; half).</li>
       <li><strong>Format</strong> — futsal / mini-soccer / full is auto-detected; override if needed.</li>
       <li><strong>Your age</strong> — set your birth date in <RouterLink to="/settings">settings</RouterLink> and HR zones auto-use age &amp; max HR.</li>

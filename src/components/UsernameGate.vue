@@ -6,6 +6,10 @@ const name = ref('');
 const err = ref('');
 const busy = ref(false);
 const preview = computed(() => (name.value.trim().toLowerCase() || 'username'));
+const profileUrl = computed(() => {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  return `${window.location.origin}${base}/${preview.value}`;
+});
 
 async function save() {
   const v = usernameError(name.value);
@@ -21,11 +25,11 @@ async function save() {
 </script>
 
 <template>
-  <div class="gate-overlay">
+  <div class="gate-overlay" role="dialog" aria-modal="true" aria-labelledby="username-title">
     <div class="gate card">
-      <h3>Choose your username</h3>
+      <h3 id="username-title">Choose your username</h3>
       <p class="hint" style="margin: 4px 0 12px">
-        Your profile will live at ismailsunni.id/xpitch/<strong style="color: var(--text)">{{ preview }}</strong>
+        Your profile will live at <strong style="color: var(--text)">{{ profileUrl }}</strong>
       </p>
       <input v-model="name" placeholder="username" autofocus @keyup.enter="save" />
       <p v-if="err" class="error" style="margin: 8px 0 0">{{ err }}</p>
