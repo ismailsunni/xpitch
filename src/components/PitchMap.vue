@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #0d1712;
+  background: var(--map-bg);
 }
 .pm-map.compact {
   height: 170px;

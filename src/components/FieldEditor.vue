@@ -536,7 +536,7 @@ onBeforeUnmount(() => {
 .fe-map {
   flex: 1;
   min-height: 0;
-  background: #0d1712;
+  background: var(--map-bg);
 }
 .fe-foot {
   display: flex;

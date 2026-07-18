@@ -9,9 +9,10 @@
   --border: rgba(255, 255, 255, 0.07);
   --border-strong: rgba(255, 255, 255, 0.14);
   --text: #eaf2ed;
-  --muted: #8a968f;
-  --muted2: #7c8b82;
-  --dim: #5a6b60;
+  --muted: #9aa79f;
+  --muted2: #89988f;
+  --dim: #718177;
+  --map-bg: #0d1712;
 
   --accent: #c8f751; /* lime — button/badge fills */
   --accent-hover: #d8ff7a;
@@ -78,9 +79,10 @@
   --border: rgba(20, 40, 30, 0.12);
   --border-strong: rgba(20, 40, 30, 0.22);
   --text: #13211b;
-  --muted: #56675c;
-  --muted2: #6a786e;
-  --dim: #91a096;
+  --muted: #4d6255;
+  --muted2: #5c6f63;
+  --dim: #63756a;
+  --map-bg: #dfe8dd;
   --accent-hover: #bced3d;
   --accent-ink: #4d7a12;
   --accent2: #159a5b;
@@ -680,7 +682,7 @@ textarea:focus-visible {
   margin: 3px 0;
 }
 .warn {
-  color: #fbbf24;
+  color: var(--c-amber);
 }
 
 /* Responsive */
