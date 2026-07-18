@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, recordsForPeriod, suggestRestIntervalsFromHR, suggestSessionBreaksFromHR } from './segmentation';
+import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, playableSegments, recordsForPeriod, suggestRestIntervalsFromHR, suggestSessionBreaksFromHR } from './segmentation';
 import type { FitResult, RecordSample } from './fit-parser';
 
 function records(from: number, to: number, step = 10, fileName?: string): RecordSample[] {
@@ -42,6 +42,13 @@ describe('segmentation helpers', () => {
     expect(segments.map((s) => s.label)).toEqual(['Whole upload', 'Session 1', 'Session 2']);
     expect(segments[1].sourceFile).toBe('a.fit');
     expect(segments[2].sourceFile).toBe('b.fit');
+  });
+
+  it('removes rest sections without leaving gaps in playable session labels', () => {
+    const segments = buildSegmentsManual(fit(records(100, 190)), [30, 60], [], 100);
+    const play = playableSegments(segments, [130]);
+    expect(play.map((segment) => segment.label)).toEqual(['Session 1', 'Session 2']);
+    expect(play.map((segment) => segment.startTime)).toEqual([100, 160]);
   });
 
   it('suggests a session break for a sustained heart-rate recovery valley', () => {

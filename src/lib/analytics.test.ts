@@ -48,4 +48,28 @@ describe('compute', () => {
     expect(result.physio.hrZones[0]).toMatchObject({ lowBpm: 50, highBpm: 140 });
     expect(result.running?.avgCadence).toBe(90);
   });
+
+  it('handles recordings without GPS or heart-rate data', () => {
+    const result = compute(fit([
+      { timestamp: 1_000, speed: 2 },
+      { timestamp: 1_010, speed: 3 },
+    ]));
+
+    expect(result.ok).toBe(true);
+    expect(result.meta).toMatchObject({ hasGPS: false, hasHR: false, hasSpeed: true });
+    expect(result.positional).toBeNull();
+    expect(result.physio).toBeNull();
+  });
+
+  it('counts the sprint threshold in the sprint zone, not high speed', () => {
+    const result = compute(fit([
+      { timestamp: 1_000, speed: 19.8 / 3.6 },
+      { timestamp: 1_005, speed: 25.2 / 3.6 },
+      { timestamp: 1_010, speed: 26 / 3.6 },
+    ]), { sprintKmh: 25.2 });
+
+    expect(result.running?.zones[3].distance).toBeGreaterThanOrEqual(0);
+    expect(result.running?.zones[4].distance).toBeGreaterThan(0);
+    expect(result.running?.sprints).toHaveLength(1);
+  });
 });

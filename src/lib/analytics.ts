@@ -36,7 +36,7 @@ function inferFormatKey(lengthM: number, fromField: boolean): FormatKey {
 
 function resolveFormat(
   optFormat: FormatKey,
-  positional: any
+  positional: Pick<PositionalAnalytics, 'lengthM' | 'hasField'> | null,
 ): { key: FormatKey; from: 'user' | 'field' | 'gps' | 'default' } {
   if (optFormat && optFormat !== 'auto' && FORMATS[optFormat]) return { key: optFormat, from: 'user' };
   if (positional) {
@@ -117,16 +117,123 @@ export interface MatchSummary {
   avgSpeedMoving: number;
 }
 
+export interface PositionPoint {
+  u: number;
+  v: number;
+  tSec: number;
+  dt: number;
+  speed: number;
+}
+
+export interface PositionalAnalytics {
+  transform: PitchTransform;
+  points: PositionPoint[];
+  grid: number[][];
+  gridMax: number;
+  GX: number;
+  GY: number;
+  avgPos: { u: number; v: number };
+  thirds: number[];
+  sides: number[];
+  zoneGrid: number[][];
+  lengthM: number;
+  widthM: number;
+  hasField: boolean;
+  fieldIgnored: boolean;
+  compass: { right: string; left: string; bottom: string; top: string } | null;
+  templateAspect?: number;
+}
+
+export interface RunEvent {
+  start: number;
+  end: number;
+  duration: number;
+  maxSpeed: number;
+  distance: number;
+}
+
+export interface SpeedZone {
+  name: string;
+  min: number;
+  max: number;
+  color: string;
+  distance: number;
+  time: number;
+}
+
+export interface RunningAnalytics {
+  zones: SpeedZone[];
+  sprints: RunEvent[];
+  highIntensityRuns: RunEvent[];
+  accelEvents: unknown;
+  avgCadence: number | null;
+}
+
+export interface HeartRateZone {
+  name: string;
+  min: number;
+  max: number;
+  color: string;
+  lowBpm: number;
+  highBpm: number;
+  time: number;
+}
+
+export interface PhysioAnalytics {
+  series: { x: number; y: number }[];
+  avgHR: number;
+  maxHR: number;
+  refMax: number;
+  restHR: number | null;
+  zoneMethod: 'hrr' | 'max';
+  hrZones: HeartRateZone[];
+  recoveries: unknown[];
+}
+
+export interface FatigueHalf {
+  distance: number;
+  time: number;
+  hiDistance: number;
+  ratePerMin: number;
+}
+
+export interface FatigueAnalytics {
+  firstHalf: FatigueHalf;
+  secondHalf: FatigueHalf;
+  distanceDropPct: number;
+  sprintsFirst: number;
+  sprintsSecond: number;
+  segments: unknown[];
+}
+
+export interface RoleEstimate {
+  top: string;
+  confidence: number;
+  ranked: { role: string; score: number }[];
+  notes: string[];
+  avgU: number;
+  avgV: number;
+  spreadU: number;
+  spreadV: number;
+}
+
+export interface FootballAnalytics {
+  workRate: unknown[];
+  fatigue: FatigueAnalytics;
+  rse: unknown[];
+  role: RoleEstimate | null;
+}
+
 export interface MatchAnalytics {
   ok: boolean;
   error?: string;
   meta?: AnalysisMeta;
   samples?: AnalysisSample[];
   summary?: MatchSummary;
-  positional?: any;
-  running?: any;
-  physio?: any;
-  football?: any;
+  positional?: PositionalAnalytics | null;
+  running?: RunningAnalytics;
+  physio?: PhysioAnalytics | null;
+  football?: FootballAnalytics;
   options?: Required<AnalyticsOptions>;
 }
 

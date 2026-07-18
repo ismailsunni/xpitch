@@ -5,7 +5,7 @@ import type { FitResult, RecordSample } from './lib/fit-parser';
 import { compute, FORMATS } from './lib/analytics';
 import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
-import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, recordsForPeriod, mergeFiles, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
+import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, recordsForPeriod, mergeFiles, playableSegments, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
 import type { Segment, ParsedFile } from './lib/segmentation';
 import { reverseGeocode, deriveAge } from './lib/format';
 import { auth } from './lib/auth';
@@ -264,11 +264,7 @@ function combinedSublabel(startTs: number, durationS: number): string {
 }
 
 function applySessionBreaks(segs: Segment[]): Segment[] {
-  const real = segs.filter((s) => s.kind !== 'combined');
-  const kept = (store.breakSessionStarts.length ? real.filter((s) => !store.breakSessionStarts.includes(s.startTime)) : real)
-    // Break sections are removed from analysis, so their original index must
-    // not leave a gap in the playable session labels.
-    .map((segment, index) => ({ ...segment, label: `Session ${index + 1}` }));
+  const kept = playableSegments(segs, store.breakSessionStarts);
   if (!kept.length) return segs;
   if (kept.length === 1) return kept;
   const combined = segs.find((s) => s.kind === 'combined');

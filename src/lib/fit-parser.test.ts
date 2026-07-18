@@ -34,4 +34,9 @@ describe('FIT parser', () => {
   it('rejects an invalid FIT header', () => {
     expect(() => parse(new Uint8Array([12, 0, 0, 0, 0, 0, 0, 0, 70, 65, 75, 69]).buffer)).toThrow('Not a FIT file');
   });
+
+  it('rejects truncated FIT data rather than returning a partial activity', () => {
+    const bytes = new Uint8Array(fixture());
+    expect(() => parse(bytes.slice(0, bytes.length - 3).buffer)).toThrow();
+  });
 });

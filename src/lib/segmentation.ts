@@ -43,6 +43,15 @@ export interface RestInterval {
   end: number;
 }
 
+// Remove sections marked as rest and renumber the remaining playable sessions.
+// Keeping this pure prevents UI labels from depending on store implementation.
+export function playableSegments(segs: Segment[], restStarts: number[]): Segment[] {
+  const rest = new Set(restStarts);
+  return segs
+    .filter((segment) => segment.kind !== 'combined' && !rest.has(segment.startTime))
+    .map((segment, index) => ({ ...segment, label: `Session ${index + 1}` }));
+}
+
 // Detect sustained HR recovery valleys. The interval is retained so the split
 // editor can create play → rest → play, rather than cutting only at its midpoint.
 export function suggestRestIntervalsFromHR(fit: FitResult): RestInterval[] {
