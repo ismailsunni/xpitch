@@ -25,6 +25,16 @@ export const supabase: SupabaseClient<Database> | null = supabaseEnabled
     })
   : null;
 
+// Used only while resolving a capability-style unlisted share link. Keeping
+// the token on this short-lived client avoids attaching it to normal queries.
+export function sharedSupabase(shareToken: string | null | undefined): SupabaseClient<Database> | null {
+  if (!supabaseEnabled || !shareToken) return null;
+  return createClient<Database>(url as string, key as string, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: { 'x-xpitch-share': shareToken } },
+  });
+}
+
 // The app's own base URL (https://ismailsunni.id/xpitch/) for OAuth redirects.
 export function appRedirectUrl(): string {
   return window.location.origin + import.meta.env.BASE_URL;

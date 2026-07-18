@@ -27,9 +27,12 @@ import ShareButtons from '../components/ShareButtons.vue';
 import ShareImageModal from '../components/ShareImageModal.vue';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
 
-const shareUrl = computed(
-  () => window.location.origin + import.meta.env.BASE_URL + 'match/' + (route.params.shortId as string)
-);
+const shareToken = computed(() => typeof route.query.share === 'string' ? route.query.share : null);
+const shareUrl = computed(() => {
+  const base = window.location.origin + import.meta.env.BASE_URL + 'match/' + (route.params.shortId as string);
+  const token = matchRow.value?.visibility === 'unlisted' ? matchRow.value?.share_token : null;
+  return token ? `${base}?share=${encodeURIComponent(token)}` : base;
+});
 const shareTitle = computed(() =>
   matchRow.value?.title ? `${matchRow.value.title} — xPitch` : 'My match on xPitch'
 );
@@ -189,10 +192,10 @@ async function refreshMedia() {
   if (!matchRow.value) return;
   mediaLoading.value = true;
   try {
-    const rows = await listMatchMedia(matchRow.value.id);
+    const rows = await listMatchMedia(matchRow.value.id, shareToken.value);
     const next: MediaDraft[] = [];
     for (const row of rows) {
-      const blob = await downloadMatchMedia(row);
+      const blob = await downloadMatchMedia(row, shareToken.value);
       next.push({ row, url: URL.createObjectURL(blob), caption: row.caption || '', visibility: row.visibility, removed: false });
     }
     revokeMediaUrls();
@@ -289,7 +292,7 @@ async function load() {
   }
   try {
     const shortId = route.params.shortId as string;
-    const res = await getMatch(shortId);
+    const res = await getMatch(shortId, shareToken.value);
     if (!res) {
       state.value = 'notfound';
       return;

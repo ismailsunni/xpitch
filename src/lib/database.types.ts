@@ -156,6 +156,7 @@ export type Database = {
           manual_splits: Json | null
           owner_id: string
           primary_field_id: string | null
+          share_token: string
           short_id: string
           source: string
           source_activity_id: string | null
@@ -179,6 +180,7 @@ export type Database = {
           manual_splits?: Json | null
           owner_id: string
           primary_field_id?: string | null
+          share_token?: string
           short_id: string
           source?: string
           source_activity_id?: string | null
@@ -202,6 +204,7 @@ export type Database = {
           manual_splits?: Json | null
           owner_id?: string
           primary_field_id?: string | null
+          share_token?: string
           short_id?: string
           source?: string
           source_activity_id?: string | null
@@ -512,8 +515,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_shared_match: { Args: { p_short_id: string }; Returns: Json }
+      get_shared_match: {
+        Args: { p_share_token?: string; p_short_id: string }
+        Returns: Json
+      }
       is_xpitch_admin: { Args: never; Returns: boolean }
+      xpitch_share_token: { Args: never; Returns: string }
     }
     Enums: {
       visibility: "private" | "unlisted" | "public"

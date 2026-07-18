@@ -4,7 +4,7 @@
  * saved match by its short id (download .fit(s) from Storage + rows).
  */
 import { nanoid } from 'nanoid';
-import { supabase } from './supabase';
+import { sharedSupabase, supabase } from './supabase';
 import { auth, isAdmin, reloadProfile } from './auth';
 import { compute } from './analytics';
 import { fitTimestampToDate, parse as parseFit } from './fit-parser';
@@ -325,7 +325,7 @@ export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
 }
 
 // Fetch a saved match + sessions and download its .fit files from Storage.
-export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
+export async function getMatch(shortId: string, shareToken?: string | null): Promise<LoadedMatch | null> {
   const sb = requireClient();
   const { data: directMatch, error } = await sb.from('matches').select('*').eq('short_id', shortId).maybeSingle();
   if (error) throw error;
@@ -340,7 +340,7 @@ export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
       primaryField = data;
     }
   } else {
-    const { data, error: shareError } = await sb.rpc('get_shared_match', { p_short_id: shortId });
+    const { data, error: shareError } = await sb.rpc('get_shared_match', { p_short_id: shortId, p_share_token: shareToken || null });
     if (shareError) throw shareError;
     if (!isSharedMatchPayload(data) || !data.match) return null;
     const shared = data;
@@ -352,9 +352,10 @@ export async function getMatch(shortId: string): Promise<LoadedMatch | null> {
     ? match.file_names.filter((name): name is string => typeof name === 'string')
     : [];
   const rawFiles: { name: string; bytes: ArrayBuffer }[] = [];
+  const assetClient = sharedSupabase(shareToken) || sb;
   for (const name of names) {
     const path = `${match.owner_id}/${shortId}/${name}`;
-    const { data, error: dErr } = await sb.storage.from(BUCKET).download(path);
+    const { data, error: dErr } = await assetClient.storage.from(BUCKET).download(path);
     if (dErr) throw dErr;
     rawFiles.push({ name, bytes: await data.arrayBuffer() });
   }
@@ -453,8 +454,8 @@ export interface MatchMedia {
   created_at: string;
 }
 
-export async function listMatchMedia(matchId: string): Promise<MatchMedia[]> {
-  const sb = requireClient();
+export async function listMatchMedia(matchId: string, shareToken?: string | null): Promise<MatchMedia[]> {
+  const sb = sharedSupabase(shareToken) || requireClient();
   const { data, error } = await sb
     .from('match_media')
     .select('*')
@@ -510,8 +511,8 @@ export async function uploadMatchPhoto(match: {
   return data as MatchMedia;
 }
 
-export async function downloadMatchMedia(media: MatchMedia): Promise<Blob> {
-  const sb = requireClient();
+export async function downloadMatchMedia(media: MatchMedia, shareToken?: string | null): Promise<Blob> {
+  const sb = sharedSupabase(shareToken) || requireClient();
   const { data, error } = await sb.storage.from(MEDIA_BUCKET).download(media.storage_path);
   if (error) throw error;
   return data;

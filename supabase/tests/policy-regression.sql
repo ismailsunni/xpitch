@@ -1,0 +1,17 @@
+-- Run against a disposable local Supabase database after `supabase db reset`.
+-- This records the required RLS invariants; replace the fixture UUIDs/tokens
+-- with rows created by the test harness before executing.
+--
+-- 1. As anon: `select * from public.matches` returns public rows only.
+-- 2. As anon: `select * from public.sessions` returns sessions of public rows only.
+-- 3. As anon: `get_shared_match(short_id, null)` returns no unlisted match.
+-- 4. As anon: `get_shared_match(short_id, share_token)` returns exactly that
+--    unlisted match and its sessions.
+-- 5. With request.headers.x-xpitch-share set to the same token: the matching
+--    unlisted FIT/media can be read; no other unlisted object's data can.
+-- 6. A private match is unavailable both directly and through the RPC.
+-- 7. Demoting/deleting the final `user_privileges.level = 'admin'` row raises
+--    `At least one administrator is required.`
+--
+-- The assertions are intentionally documented rather than using a production
+-- project: RLS tests require isolated users, Storage fixtures, and role changes.

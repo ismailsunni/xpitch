@@ -50,7 +50,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
     <h3>5 · Save &amp; share</h3>
     <p>
       <strong>Log in</strong> (Google or email link), then <strong>Save match</strong> — it gets a
-      link at <code>/match/&lt;id&gt;</code> you can copy or share. Choose visibility (private /
+      secure link at <code>/match/&lt;id&gt;?share=&lt;token&gt;</code> you can copy or share. Choose visibility (private /
       unlisted / public); public matches show on your profile and in the feed. Everything stays
       yours; nothing is posted anywhere unless you share the link.
     </p>
