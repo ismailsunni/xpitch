@@ -264,3 +264,20 @@ export function centroid(pts: LatLon[]): LatLon | null {
     lon: v.reduce((a, p) => a + p.lon, 0) / v.length,
   };
 }
+
+// Order pitch-like objects by the distance from a reference location. Invalid
+// pitch geometry stays at the end so it never displaces a usable nearby pitch.
+export function rankByDistance<T extends { corners: LatLon[] }>(
+  items: T[],
+  location: LatLon,
+): { item: T; distance: number }[] {
+  return items
+    .map((item) => {
+      const center = centroid(item.corners);
+      return {
+        item,
+        distance: center ? haversine(location.lat, location.lon, center.lat, center.lon) : Infinity,
+      };
+    })
+    .sort((a, b) => a.distance - b.distance);
+}

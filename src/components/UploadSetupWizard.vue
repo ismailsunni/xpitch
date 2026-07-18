@@ -4,7 +4,8 @@ import PitchCanvas from './PitchCanvas.vue';
 import SessionSplitEditor from './SessionSplitEditor.vue';
 import { auth } from '../lib/auth';
 import { updateProfile } from '../lib/api';
-import { deriveAge } from '../lib/format';
+import { deriveAge, fmtDist } from '../lib/format';
+import { centroid, rankByDistance } from '../lib/geo';
 import { compute, FORMATS, type FormatKey } from '../lib/analytics';
 import {
   allFields,
@@ -41,6 +42,33 @@ const title = computed(() => ({
 }[step.value]));
 const formatOptions = computed(() => Object.values(FORMATS).filter((f) => f.key !== 'auto'));
 const automaticFieldLabel = computed(() => appliedField()?.name || 'nearby pitch');
+const uploadLocation = computed(() => {
+  const samples = store.analytics?.samples || [];
+  const trackCenter = centroid(
+    samples
+      .filter((sample) => sample.lat != null && sample.lon != null)
+      .map((sample) => ({ lat: sample.lat!, lon: sample.lon! })),
+  );
+  if (trackCenter) return trackCenter;
+  const meta = store.analytics?.meta;
+  return meta?.startLat != null && meta.startLon != null
+    ? { lat: meta.startLat, lon: meta.startLon }
+    : null;
+});
+const nearbyFields = computed(() => {
+  const fields = allFields();
+  const location = uploadLocation.value;
+  const ranked = location
+    ? rankByDistance(fields, location)
+    : fields.map((item) => ({ item, distance: Infinity }));
+  const closest = ranked.slice(0, 5);
+  const selected = store.selectedFieldId
+    ? ranked.find(({ item }) => item.id === store.selectedFieldId)
+    : undefined;
+  return selected && !closest.some(({ item }) => item.id === selected.item.id)
+    ? [selected, ...closest]
+    : closest;
+});
 const orientationPitches = computed(() => {
   const field = appliedField();
   return Object.fromEntries(
@@ -156,7 +184,9 @@ function previous() {
           <label>Pitch
             <select :value="store.selectedFieldId || ''" @change="setSelectedField(($event.target as HTMLSelectElement).value || null)">
               <option value="">No pitch yet{{ automaticFieldLabel ? ` (nearby: ${automaticFieldLabel})` : '' }}</option>
-              <option v-for="field in allFields()" :key="field.id" :value="field.id">{{ field.name }}</option>
+              <option v-for="{ item: field, distance } in nearbyFields" :key="field.id" :value="field.id">
+                {{ field.name }}{{ Number.isFinite(distance) ? ` · ${fmtDist(distance)} away` : '' }}
+              </option>
             </select>
           </label>
           <button class="btn ghost" @click="openFieldEditor(undefined, 'match')">＋ Create a pitch</button>

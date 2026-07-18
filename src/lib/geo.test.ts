@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFieldTransform, buildPitchTransform, centroid, haversine } from './geo';
+import { buildFieldTransform, buildPitchTransform, centroid, haversine, rankByDistance } from './geo';
 
 describe('geo helpers', () => {
   it('computes approximate great-circle distances', () => {
@@ -13,6 +13,16 @@ describe('geo helpers', () => {
       lon: 3,
     });
     expect(centroid([])).toBeNull();
+  });
+
+  it('ranks pitches by distance from the recording location', () => {
+    const ranked = rankByDistance([
+      { name: 'Far', corners: [{ lat: 0, lon: 2 }] },
+      { name: 'Near', corners: [{ lat: 0, lon: 0.01 }] },
+      { name: 'Invalid', corners: [] },
+    ], { lat: 0, lon: 0 });
+    expect(ranked.map(({ item }) => item.name)).toEqual(['Near', 'Far', 'Invalid']);
+    expect(ranked[2].distance).toBe(Infinity);
   });
 
   it('builds a normalized transform from GPS tracks', () => {
