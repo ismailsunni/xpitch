@@ -239,8 +239,12 @@ function close() {
   store.editFieldTarget = null;
   store.fieldEditorContext = 'standalone';
 }
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') close();
+}
 
 onMounted(() => {
+  document.addEventListener('keydown', onKeydown);
   osmLayer = new TileLayer({ source: new OSM(), visible: false });
   satLayer = new TileLayer({
     source: new XYZ({
@@ -337,17 +341,18 @@ function centerForNewPitch() {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown);
   map?.setTarget(undefined);
   map = null;
 });
 </script>
 
 <template>
-  <div class="fe-overlay">
-    <div class="fe-modal">
+  <div class="fe-overlay" @click.self="close">
+    <div class="fe-modal" role="dialog" aria-modal="true" aria-labelledby="field-editor-title">
       <header class="fe-head">
         <div>
-          <h3>{{ editingId ? 'Edit pitch' : hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
+          <h3 id="field-editor-title">{{ editingId ? 'Edit pitch' : hasTrack ? 'Set the pitch field' : 'New pitch' }}</h3>
           <p class="hint" style="margin: 2px 0 0">
             Click the <strong>4 corners</strong> of the pitch on the map ({{ cornersLL.length }}/4), then
             <strong>drag a corner</strong> to fine-tune it.

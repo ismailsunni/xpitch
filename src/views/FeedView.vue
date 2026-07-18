@@ -58,7 +58,7 @@ watch(
 <template>
   <main class="tabpane">
     <div class="feed-head">
-      <h2 style="margin: 0">Match feed</h2>
+      <h1 style="margin: 0">Match feed</h1>
       <div class="feed-actions">
         <div v-if="auth.user" class="seg" role="tablist" aria-label="Feed filter">
           <button class="seg-btn" :class="{ on: filter === 'all' }" @click="setFilter('all')">All</button>
@@ -76,8 +76,8 @@ watch(
       The cloud feed isn’t available on this deployment. You can still
       <RouterLink to="/analyze">analyze a file</RouterLink>.
     </p>
-    <p v-else-if="state === 'loading'" class="empty">Loading…</p>
-    <p v-else-if="state === 'error'" class="empty">{{ err }}</p>
+    <p v-else-if="state === 'loading'" class="empty">Loading matches…</p>
+    <p v-else-if="state === 'error'" class="empty">We couldn’t load matches. <button class="linkbtn" @click="load">Retry</button></p>
     <template v-else>
       <p v-if="!matches.length && filter === 'mine'" class="empty">
         You haven’t saved any matches yet — <RouterLink to="/analyze">analyze a file</RouterLink> and hit Save.

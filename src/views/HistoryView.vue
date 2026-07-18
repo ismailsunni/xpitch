@@ -208,7 +208,7 @@ watch(() => auth.user?.id, load);
   <main class="tabpane history">
     <header class="history-head">
       <div>
-        <h2>Historical analysis</h2>
+        <h1>Historical analysis</h1>
         <p class="hint">Trends across your saved matches and sessions.</p>
       </div>
       <RouterLink to="/analyze" class="btn primary small">＋ Analyze a .fit</RouterLink>
@@ -218,8 +218,8 @@ watch(() => auth.user?.id, load);
     <p v-else-if="state === 'signedout'" class="empty">
       Sign in to see your match history. <RouterLink to="/login">Log in</RouterLink>
     </p>
-    <p v-else-if="state === 'loading'" class="empty">Loading…</p>
-    <p v-else-if="state === 'error'" class="empty">{{ err }}</p>
+    <p v-else-if="state === 'loading'" class="empty">Loading history…</p>
+    <p v-else-if="state === 'error'" class="empty">We couldn’t load history. <button class="linkbtn" @click="load">Retry</button></p>
 
     <template v-else>
       <p v-if="!matches.length" class="empty">
@@ -353,7 +353,7 @@ watch(() => auth.user?.id, load);
   gap: 12px;
   flex-wrap: wrap;
 }
-.history-head h2 {
+.history-head h1 {
   margin: 0;
 }
 .filters {

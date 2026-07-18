@@ -26,7 +26,7 @@ async function google() {
 <template>
   <main class="login">
     <div class="card login-card">
-      <h2 style="margin-top: 0">Sign in to xPitch</h2>
+      <h1 style="margin-top: 0">Sign in to xPitch</h1>
       <template v-if="!supabaseEnabled">
         <p class="hint">Login isn’t configured on this deployment yet.</p>
       </template>

@@ -23,5 +23,5 @@ onBeforeUnmount(() => ro?.disconnect());
 </script>
 
 <template>
-  <div class="pitch-wrap"><canvas ref="canvas"></canvas></div>
+  <div class="pitch-wrap"><canvas ref="canvas" role="img" :aria-label="`${mode} pitch map based on the selected match GPS data`"></canvas></div>
 </template>

@@ -79,13 +79,13 @@ watch(
 
 <template>
   <main class="tabpane">
-    <p v-if="state === 'loading'" class="empty">Loading…</p>
-    <p v-else-if="state === 'error'" class="empty">{{ errMsg }}</p>
+    <p v-if="state === 'loading'" class="empty">Loading pitch…</p>
+    <p v-else-if="state === 'error'" class="empty">We couldn’t load this pitch. <button class="linkbtn" @click="load">Retry</button></p>
     <p v-else-if="state === 'notfound'" class="empty">No pitch “{{ route.params.slug }}”.</p>
     <template v-else>
       <header style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap">
         <div>
-          <h2 style="margin: 0">📍 {{ field.name }}</h2>
+          <h1 style="margin: 0">📍 {{ field.name }}</h1>
           <p class="hint" style="margin: 2px 0 0">{{ dims }}</p>
         </div>
         <div v-if="isOwner()" class="fv-owner">

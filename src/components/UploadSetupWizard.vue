@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import PitchCanvas from './PitchCanvas.vue';
 import SessionSplitEditor from './SessionSplitEditor.vue';
 import { auth } from '../lib/auth';
@@ -75,6 +75,11 @@ function updateFormat(value: string) {
 function close() {
   store.uploadWizardOpen = false;
 }
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') close();
+}
+onMounted(() => document.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 function continueFromHeartRate() {
   const i = stepIndex.value + 1;
   if (i < steps.value.length) step.value = steps.value[i];
@@ -128,8 +133,8 @@ function previous() {
 </script>
 
 <template>
-  <div class="wizard-overlay" role="dialog" aria-modal="true" aria-labelledby="setup-title">
-    <section class="wizard card">
+  <div class="wizard-overlay" @click.self="close">
+    <section class="wizard card" role="dialog" aria-modal="true" aria-labelledby="setup-title">
       <header class="wizard-head">
         <div>
           <span class="eyebrow">Upload setup · {{ stepIndex + 1 }}/{{ steps.length }}</span>

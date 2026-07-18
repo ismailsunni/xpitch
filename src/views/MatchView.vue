@@ -25,6 +25,7 @@ import { supabaseEnabled } from '../lib/supabase';
 import Dashboard from '../components/Dashboard.vue';
 import ShareButtons from '../components/ShareButtons.vue';
 import ShareImageModal from '../components/ShareImageModal.vue';
+import ConfirmDialog from '../components/ConfirmDialog.vue';
 
 const shareUrl = computed(
   () => window.location.origin + import.meta.env.BASE_URL + 'match/' + (route.params.shortId as string)
@@ -37,6 +38,7 @@ const route = useRoute();
 const router = useRouter();
 const state = ref<'loading' | 'ready' | 'error' | 'notfound'>('loading');
 const errMsg = ref('');
+const actionError = ref('');
 const matchRow = ref<any>(null);
 let sessionIdBySeq: Record<number, string> = {};
 let ownerId = '';
@@ -64,6 +66,7 @@ type MediaDraft = {
   removed: boolean;
 };
 const mediaItems = ref<MediaDraft[]>([]);
+const pendingDelete = ref<{ kind: 'match' | 'photo'; item?: MediaDraft } | null>(null);
 let editSnapshot: {
   title: string;
   visibility: string;
@@ -136,6 +139,7 @@ function beginEdit() {
 
 async function onSaveChanges() {
   if (!matchRow.value || saving.value) return;
+  actionError.value = '';
   saving.value = true;
   try {
     const title = draftTitle.value.trim();
@@ -175,7 +179,7 @@ async function onSaveChanges() {
     savedFlash.value = true;
     setTimeout(() => (savedFlash.value = false), 2500);
   } catch (e: any) {
-    alert('Could not save changes: ' + (e?.message || e));
+    actionError.value = `Could not save changes. ${e?.message || ''}`.trim();
   } finally {
     saving.value = false;
   }
@@ -208,7 +212,7 @@ function onPhotoUpload(event: Event) {
   if (!files.length) return;
   for (const file of files) {
     if (!file.type.startsWith('image/')) {
-      alert(`${file.name} is not an image.`);
+      actionError.value = `${file.name} is not an image.`;
       continue;
     }
     mediaItems.value.push({ file, url: URL.createObjectURL(file), caption: '', visibility: 'private', removed: false });
@@ -216,7 +220,9 @@ function onPhotoUpload(event: Event) {
 }
 
 function removeMedia(item: MediaDraft) {
-  if (!confirm('Delete this photo?')) return;
+  pendingDelete.value = { kind: 'photo', item };
+}
+function confirmRemoveMedia(item: MediaDraft) {
   if (item.file) {
     URL.revokeObjectURL(item.url);
     mediaItems.value = mediaItems.value.filter((m) => m !== item);
@@ -251,9 +257,24 @@ function cancelEdit() {
 }
 async function onDelete() {
   if (!matchRow.value) return;
-  if (!confirm('Delete this match and its files? This cannot be undone.')) return;
-  await deleteMatch(matchRow.value);
-  router.push('/' + (auth.profile?.username || ''));
+  pendingDelete.value = { kind: 'match' };
+}
+async function confirmDelete() {
+  const pending = pendingDelete.value;
+  if (!pending || !matchRow.value) return;
+  actionError.value = '';
+  try {
+    if (pending.kind === 'photo' && pending.item) {
+      confirmRemoveMedia(pending.item);
+    } else {
+      await deleteMatch(matchRow.value);
+      await router.push('/' + (auth.profile?.username || ''));
+    }
+  } catch (e: any) {
+    actionError.value = `Could not delete ${pending.kind === 'match' ? 'this match' : 'this photo'}. ${e?.message || ''}`.trim();
+  } finally {
+    pendingDelete.value = null;
+  }
 }
 
 async function load() {
@@ -406,9 +427,10 @@ watch(
           </button>
           <button class="btn ghost small" @click="shareImageOpen = true">Share image</button>
           <ShareButtons :url="shareUrl" :title="shareTitle" />
-          <button v-if="owned" class="btn ghost small mh-del" title="Delete match" @click="onDelete">🗑</button>
+          <button v-if="owned" class="btn ghost small mh-del" aria-label="Delete match" title="Delete match" @click="onDelete">🗑</button>
         </div>
       </header>
+      <p v-if="actionError" class="error action-error">{{ actionError }}</p>
       <Dashboard :editing-match="editMode">
         <template #after-settings>
       <section v-if="owned || visibleMediaItems.length" class="match-extras">
@@ -462,6 +484,13 @@ watch(
         </template>
       </Dashboard>
       <ShareImageModal v-if="shareImageOpen" @close="shareImageOpen = false" />
+      <ConfirmDialog
+        v-if="pendingDelete"
+        :title="pendingDelete.kind === 'match' ? 'Delete match?' : 'Delete photo?'"
+        :message="pendingDelete.kind === 'match' ? 'Delete this match and its FIT files? This cannot be undone.' : 'Delete this photo? This cannot be undone.'"
+        @cancel="pendingDelete = null"
+        @confirm="confirmDelete"
+      />
     </template>
   </main>
 </template>
@@ -480,6 +509,7 @@ watch(
   border-left: 3px solid var(--accent);
   background: linear-gradient(90deg, rgba(200, 247, 81, 0.12), rgba(200, 247, 81, 0.02) 55%, transparent);
 }
+.action-error { margin: 12px 22px 0; }
 .mh-title {
   min-width: 0;
   flex: 1;

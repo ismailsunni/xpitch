@@ -70,14 +70,14 @@ async function saveProfile() {
 
 <template>
   <main class="tabpane">
-    <p v-if="state === 'loading'" class="empty">Loading…</p>
-    <p v-else-if="state === 'error'" class="empty">{{ errMsg }}</p>
+    <p v-if="state === 'loading'" class="empty">Loading profile…</p>
+    <p v-else-if="state === 'error'" class="empty">We couldn’t load this profile. <button class="linkbtn" @click="load">Retry</button></p>
     <p v-else-if="state === 'notfound'" class="empty">No user “{{ route.params.username }}”.</p>
     <template v-else-if="data">
       <header class="profile-head">
         <div class="pf-avatar">{{ (data.profile.username || '?')[0].toUpperCase() }}</div>
         <div>
-          <h2 style="margin: 0">@{{ data.profile.username }}</h2>
+          <h1 style="margin: 0">@{{ data.profile.username }}</h1>
           <p v-if="data.profile.display_name" class="hint" style="margin: 2px 0 0">
             {{ data.profile.display_name }}
           </p>

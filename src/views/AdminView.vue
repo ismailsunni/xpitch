@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { auth, isAdmin } from '../lib/auth';
 import { deleteFieldCloud, deleteMatch, listAdminData, setMatchVisibility } from '../lib/api';
 import { fmtDur } from '../lib/format';
+import ConfirmDialog from '../components/ConfirmDialog.vue';
 
 const state = ref<'loading' | 'ready' | 'error'>('loading');
 const err = ref('');
@@ -11,6 +12,7 @@ const profiles = ref<any[]>([]);
 const matches = ref<any[]>([]);
 const fields = ref<any[]>([]);
 const savingId = ref('');
+const pendingDelete = ref<{ kind: 'match' | 'field'; item: any; message: string } | null>(null);
 
 const totalSessions = computed(() => matches.value.reduce((sum, m) => sum + (m.sessions?.length || 0), 0));
 
@@ -58,37 +60,48 @@ async function changeVisibility(match: any, visibility: string) {
     await setMatchVisibility(match.id, visibility);
     match.visibility = visibility;
   } catch (e: any) {
-    alert(e?.message || 'Could not update visibility.');
+    err.value = e?.message || 'Could not update visibility.';
   } finally {
     savingId.value = '';
   }
 }
 
+function requestRemoveMatch(match: any) {
+  pendingDelete.value = { kind: 'match', item: match, message: `Delete "${title(match)}" and its FIT files? This cannot be undone.` };
+}
 async function removeMatch(match: any) {
-  if (!confirm(`Delete "${title(match)}" and its FIT files? This cannot be undone.`)) return;
   savingId.value = match.id;
   try {
     await deleteMatch(match);
     matches.value = matches.value.filter((m) => m.id !== match.id);
   } catch (e: any) {
-    alert(e?.message || 'Could not delete match.');
+    err.value = e?.message || 'Could not delete match.';
   } finally {
     savingId.value = '';
   }
 }
 
-async function removeField(field: any) {
+function requestRemoveField(field: any) {
   if (isSystemField(field)) return;
-  if (!confirm(`Delete pitch "${field.name}"? Matches linked to it will keep their data but lose the pitch link.`)) return;
+  pendingDelete.value = { kind: 'field', item: field, message: `Delete pitch "${field.name}"? Matches linked to it will keep their data but lose the pitch link.` };
+}
+async function removeField(field: any) {
   savingId.value = field.id;
   try {
     await deleteFieldCloud(field.id);
     fields.value = fields.value.filter((f) => f.id !== field.id);
   } catch (e: any) {
-    alert(e?.message || 'Could not delete pitch.');
+    err.value = e?.message || 'Could not delete pitch.';
   } finally {
     savingId.value = '';
   }
+}
+async function confirmDelete() {
+  const pending = pendingDelete.value;
+  if (!pending) return;
+  if (pending.kind === 'match') await removeMatch(pending.item);
+  else await removeField(pending.item);
+  pendingDelete.value = null;
 }
 
 onMounted(load);
@@ -99,7 +112,7 @@ onMounted(load);
     <div class="admin-head">
       <div>
         <p class="eyebrow">Admin</p>
-        <h2>Super controls</h2>
+        <h1>Super controls</h1>
         <p class="hint">Restricted to privileged accounts. Use this for testing and data cleanup.</p>
       </div>
       <button class="btn ghost small" @click="load">Refresh</button>
@@ -136,7 +149,7 @@ onMounted(load);
                     <option value="public">Public</option>
                   </select>
                 </td>
-                <td><button class="btn ghost small danger" :disabled="savingId === m.id" @click="removeMatch(m)">Delete</button></td>
+                <td><button class="btn ghost small danger" :disabled="savingId === m.id" @click="requestRemoveMatch(m)">Delete</button></td>
               </tr>
             </tbody>
           </table>
@@ -159,7 +172,7 @@ onMounted(load);
                     class="btn ghost small danger"
                     :disabled="savingId === f.id || isSystemField(f)"
                     :title="isSystemField(f) ? 'System pitches cannot be deleted here' : 'Delete pitch'"
-                    @click="removeField(f)"
+                    @click="requestRemoveField(f)"
                   >Delete</button>
                 </td>
               </tr>
@@ -179,6 +192,14 @@ onMounted(load);
         </div>
       </section>
     </template>
+    <ConfirmDialog
+      v-if="pendingDelete"
+      :title="pendingDelete.kind === 'match' ? 'Delete match?' : 'Delete pitch?'"
+      :message="pendingDelete.message"
+      :busy="!!savingId"
+      @cancel="pendingDelete = null"
+      @confirm="confirmDelete"
+    />
   </main>
 </template>
 
@@ -190,7 +211,7 @@ onMounted(load);
   align-items: flex-start;
   margin-bottom: 18px;
 }
-.admin-head h2 {
+.admin-head h1 {
   margin: 0;
 }
 .eyebrow {

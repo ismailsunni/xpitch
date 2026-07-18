@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { store, allFields, dirsForSegment, nonCombinedSegments } from '../store';
 import { compute } from '../lib/analytics';
 import { recordsForPeriod } from '../lib/segmentation';
@@ -204,19 +204,29 @@ async function shareNative() {
 }
 
 watch([selectedSegmentId, mode, size], () => void render());
-onMounted(() => void render());
+function close() {
+  emit('close');
+}
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') close();
+}
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown);
+  void render();
+});
+onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
-  <div class="share-overlay" role="dialog" aria-modal="true" aria-labelledby="share-title">
-    <section class="share-modal card">
+  <div class="share-overlay" @click.self="close">
+    <section class="share-modal card" role="dialog" aria-modal="true" aria-labelledby="share-title">
       <header class="share-head">
         <div>
           <p class="eyebrow">Share image</p>
           <h2 id="share-title">Export match graphic</h2>
           <p class="hint">Choose a session and map. Defaults use the current match view.</p>
         </div>
-        <button class="btn ghost small" @click="emit('close')">✕ Close</button>
+        <button class="btn ghost small" @click="close">✕ Close</button>
       </header>
 
       <div class="share-controls">

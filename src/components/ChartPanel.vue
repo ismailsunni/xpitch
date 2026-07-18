@@ -20,5 +20,5 @@ onBeforeUnmount(() => chart?.destroy());
 </script>
 
 <template>
-  <div class="chart-box"><canvas ref="canvas"></canvas></div>
+  <div class="chart-box"><canvas ref="canvas" role="img" :aria-label="config?.options?.plugins?.title?.text || 'Match analysis chart'"></canvas></div>
 </template>

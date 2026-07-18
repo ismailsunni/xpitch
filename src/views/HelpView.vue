@@ -5,7 +5,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
 
 <template>
   <main class="tabpane help">
-    <h2 style="margin-top: 0">How xPitch works</h2>
+    <h1 style="margin-top: 0">How xPitch works</h1>
     <p class="lead">
       xPitch analyzes a <code>.fit</code> file recorded by a GPS watch or tracker during a football,
       mini-soccer or futsal match — positional heatmaps, running &amp; sprint stats, heart-rate zones

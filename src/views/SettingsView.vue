@@ -52,7 +52,7 @@ async function save() {
 
 <template>
   <main class="tabpane" style="max-width: 560px">
-    <h2 style="margin-top: 0">Your profile</h2>
+    <h1 style="margin-top: 0">Your profile</h1>
     <p v-if="!supabaseEnabled" class="empty">Not available on this deployment.</p>
     <p v-else-if="!auth.user" class="empty">Please <RouterLink to="/login">log in</RouterLink> first.</p>
     <div v-else class="panel form">

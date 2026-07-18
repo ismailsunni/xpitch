@@ -61,12 +61,12 @@ watch(() => auth.user?.id, load);
 <template>
   <main class="tabpane">
     <div class="fields-head">
-      <h2 style="margin: 0">Pitches</h2>
+      <h1 style="margin: 0">Pitches</h1>
       <button v-if="auth.user" class="btn primary small" @click="newPitch">＋ New pitch</button>
     </div>
     <p v-if="state === 'disabled'" class="empty">Pitches aren’t available on this deployment.</p>
-    <p v-else-if="state === 'loading'" class="empty">Loading…</p>
-    <p v-else-if="state === 'error'" class="empty">{{ err }}</p>
+    <p v-else-if="state === 'loading'" class="empty">Loading pitches…</p>
+    <p v-else-if="state === 'error'" class="empty">We couldn’t load pitches. <button class="linkbtn" @click="load">Retry</button></p>
     <template v-else>
       <p v-if="!fields.length" class="empty">No pitches yet.</p>
       <div v-else class="field-grid">
