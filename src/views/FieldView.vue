@@ -6,6 +6,7 @@ import { auth } from '../lib/auth';
 import { getField, listMatchesByField, setFieldVisibility } from '../lib/api';
 import { store, openFieldEditor } from '../store';
 import MatchCard from '../components/MatchCard.vue';
+import { userErrorMessage } from '../lib/errors';
 
 const PitchMap = defineAsyncComponent(() => import('../components/PitchMap.vue'));
 
@@ -52,7 +53,7 @@ async function load() {
     state.value = 'ready';
   } catch (e: any) {
     state.value = 'error';
-    errMsg.value = e?.message || String(e);
+    errMsg.value = userErrorMessage(e, 'Could not load this pitch. Try again.');
   }
 }
 onMounted(load);

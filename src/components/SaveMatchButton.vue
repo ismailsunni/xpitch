@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { auth, needsUsername } from '../lib/auth';
-import { isSaveable, store } from '../store';
+import { isSaveable, matchPersistenceSnapshot, store } from '../store';
 import { createMatchFromCurrent } from '../lib/api';
 import { userErrorMessage } from '../lib/errors';
 
@@ -18,7 +18,9 @@ async function save() {
   }
   busy.value = true;
   try {
-    const shortId = await createMatchFromCurrent({});
+    const snapshot = matchPersistenceSnapshot();
+    if (!snapshot) throw new Error('Nothing to save yet.');
+    const shortId = await createMatchFromCurrent(snapshot, {});
     router.push({ name: 'match', params: { shortId } });
   } catch (e: any) {
     err.value = userErrorMessage(e, 'Could not save this match. Try again.');

@@ -17,7 +17,7 @@ import {
   deleteMatchMedia,
   type MatchMedia,
 } from '../lib/api';
-import { store, getRawFiles, loadFromCloud, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
+import { store, getRawFiles, loadFromCloud, matchPersistenceSnapshot, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
 import * as FitParser from '../lib/fit-parser';
 import { mergeFiles } from '../lib/segmentation';
 import { auth } from '../lib/auth';
@@ -156,7 +156,9 @@ async function onSaveChanges() {
       await setMatchVisibility(matchRow.value.id, draftVisibility.value);
       matchRow.value.visibility = draftVisibility.value;
     }
-    const rows = await updateMatchFromCurrent(matchRow.value.id);
+    const snapshot = matchPersistenceSnapshot();
+    if (!snapshot) throw new Error('Nothing to save yet.');
+    const rows = await updateMatchFromCurrent(matchRow.value.id, snapshot);
     sessionIdBySeq = {};
     rows.forEach((s) => (sessionIdBySeq[s.seq] = s.id));
     if (hasNoteChanges.value) {
@@ -699,7 +701,7 @@ watch(
   font-size: 13px;
   line-height: 1.35;
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .match-head {
     padding: 14px;
     gap: 12px;

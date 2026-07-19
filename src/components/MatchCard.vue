@@ -254,7 +254,7 @@ const hasLegacyHeatmapCandidate = computed(
   color: var(--muted);
 }
 .activity-preview { margin-top: 24px; }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .matchcard.list {
     padding: 14px;
   }

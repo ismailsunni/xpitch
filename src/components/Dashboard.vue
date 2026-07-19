@@ -85,7 +85,7 @@ function openSessionSetup() {
   font-weight: 600;
   cursor: pointer;
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .tabs {
     display: none;
   }

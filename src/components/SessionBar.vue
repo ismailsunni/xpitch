@@ -111,7 +111,7 @@ const viewing = computed(() => {
   gap: 6px;
   margin-top: 1px;
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .sessionbar {
     gap: 14px 16px;
     padding: 12px 14px;

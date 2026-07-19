@@ -9,6 +9,7 @@ import { fmtDist, fmtDur, kmh } from '../lib/format';
 import { listMyHistory } from '../lib/api';
 import { supabaseEnabled } from '../lib/supabase';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
+import { userErrorMessage } from '../lib/errors';
 
 type HistoryMatch = {
   short_id: string;
@@ -90,7 +91,7 @@ async function load() {
     }
     state.value = 'ready';
   } catch (e: any) {
-    err.value = e?.message || String(e);
+    err.value = userErrorMessage(e, 'Could not load your history. Try again.');
     state.value = 'error';
   }
 }

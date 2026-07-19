@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { auth, signInWithEmail, signInWithGoogle } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
+import { userErrorMessage } from '../lib/errors';
 
 const email = ref('');
 const sent = ref(false);
@@ -13,13 +14,13 @@ async function magic() {
   busy.value = true;
   const { error } = await signInWithEmail(email.value.trim());
   busy.value = false;
-  if (error) err.value = error.message;
+  if (error) err.value = userErrorMessage(error, 'Could not send the sign-in link. Try again.');
   else sent.value = true;
 }
 async function google() {
   err.value = '';
   const { error } = await signInWithGoogle();
-  if (error) err.value = error.message;
+  if (error) err.value = userErrorMessage(error, 'Could not start Google sign-in. Try again.');
 }
 </script>
 

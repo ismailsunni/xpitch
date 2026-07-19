@@ -6,6 +6,7 @@ import { auth } from '../lib/auth';
 import { listFeed } from '../lib/api';
 import MatchCard from '../components/MatchCard.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
+import { userErrorMessage } from '../lib/errors';
 
 const PAGE = 12;
 const page = ref(0);
@@ -32,7 +33,7 @@ async function load() {
     state.value = 'ready';
   } catch (e: any) {
     state.value = 'error';
-    err.value = e?.message || String(e);
+    err.value = userErrorMessage(e, 'Could not load matches. Try again.');
   }
 }
 function go(p: number) {

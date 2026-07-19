@@ -177,7 +177,7 @@ function onGap(e: Event) {
   background: var(--border);
   margin: 2px 0;
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .stitle {
     padding: 12px 14px 0;
   }

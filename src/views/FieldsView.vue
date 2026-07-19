@@ -7,6 +7,7 @@ import { store, openFieldEditor } from '../store';
 import { listFields } from '../lib/api';
 import PitchMap from '../components/PitchMap.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
+import { userErrorMessage } from '../lib/errors';
 
 function newPitch() {
   openFieldEditor();
@@ -52,7 +53,7 @@ async function load() {
     state.value = 'ready';
   } catch (e: any) {
     state.value = 'error';
-    err.value = e?.message || String(e);
+    err.value = userErrorMessage(e, 'Could not load pitches. Try again.');
   }
 }
 onMounted(load);

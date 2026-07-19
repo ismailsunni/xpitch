@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { getProfileByUsername } from './lib/api';
+import { supabaseEnabled } from './lib/supabase';
 
 // Static routes must precede the dynamic /:username catch-all.
 const routes: RouteRecordRaw[] = [
@@ -12,7 +14,21 @@ const routes: RouteRecordRaw[] = [
   { path: '/help', name: 'help', component: () => import('./views/HelpView.vue') },
   { path: '/match/:shortId/:seq?', name: 'match', component: () => import('./views/MatchView.vue') },
   { path: '/field/:slug', name: 'field', component: () => import('./views/FieldView.vue') },
-  { path: '/:username', name: 'profile', component: () => import('./views/ProfileView.vue') },
+  {
+    path: '/:username',
+    name: 'profile',
+    component: () => import('./views/ProfileView.vue'),
+    beforeEnter: async (to) => {
+      if (!supabaseEnabled) return true;
+      try {
+        const profile = await getProfileByUsername(String(to.params.username));
+        return profile ? true : { name: 'not-found' };
+      } catch {
+        // Let ProfileView show its retry state when the lookup itself fails.
+        return true;
+      }
+    },
+  },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('./views/NotFoundView.vue') },
 ];
 

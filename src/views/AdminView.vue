@@ -5,6 +5,7 @@ import { auth, isAdmin } from '../lib/auth';
 import { deleteFieldCloud, deleteMatch, listAdminData, setMatchVisibility, setUserPrivilege } from '../lib/api';
 import { fmtDur } from '../lib/format';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
+import { userErrorMessage } from '../lib/errors';
 
 const state = ref<'loading' | 'ready' | 'error'>('loading');
 const err = ref('');
@@ -50,7 +51,7 @@ async function load() {
     state.value = 'ready';
   } catch (e: any) {
     state.value = 'error';
-    err.value = e?.message || String(e);
+    err.value = userErrorMessage(e, 'Could not load admin data. Try again.');
   }
 }
 
@@ -60,7 +61,7 @@ async function changeVisibility(match: any, visibility: string) {
     await setMatchVisibility(match.id, visibility);
     match.visibility = visibility;
   } catch (e: any) {
-    err.value = e?.message || 'Could not update visibility.';
+    err.value = userErrorMessage(e, 'Could not update visibility. Try again.');
   } finally {
     savingId.value = '';
   }
@@ -72,7 +73,7 @@ async function changePrivilege(profile: any, level: 'user' | 'admin') {
     await setUserPrivilege(profile.id, level);
     profile.privilege = level;
   } catch (e: any) {
-    err.value = e?.message || 'Could not update this role.';
+    err.value = userErrorMessage(e, 'Could not update this role. Try again.');
   } finally {
     savingId.value = '';
   }
@@ -87,7 +88,7 @@ async function removeMatch(match: any) {
     await deleteMatch(match);
     matches.value = matches.value.filter((m) => m.id !== match.id);
   } catch (e: any) {
-    err.value = e?.message || 'Could not delete match.';
+    err.value = userErrorMessage(e, 'Could not delete match. Try again.');
   } finally {
     savingId.value = '';
   }
@@ -103,7 +104,7 @@ async function removeField(field: any) {
     await deleteFieldCloud(field.id);
     fields.value = fields.value.filter((f) => f.id !== field.id);
   } catch (e: any) {
-    err.value = e?.message || 'Could not delete pitch.';
+    err.value = userErrorMessage(e, 'Could not delete pitch. Try again.');
   } finally {
     savingId.value = '';
   }

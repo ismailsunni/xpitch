@@ -79,7 +79,7 @@ const showBar = computed(() => props.editing || store.segments.length > 1 || (se
 .edit-sessions {
   margin-left: auto;
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .session-pills {
     display: none;
   }

@@ -11,6 +11,8 @@ import { reverseGeocode, deriveAge } from './lib/format';
 import { auth } from './lib/auth';
 import { haversine, centroid } from './lib/geo';
 import type { LatLon } from './lib/geo';
+import type { MatchPersistenceSnapshot } from './lib/match-persistence';
+import { userErrorMessage } from './lib/errors';
 
 export interface SavedField {
   id: string;
@@ -120,6 +122,30 @@ export function getCurrentFit(): FitResult | null {
 }
 export function isSaveable(): boolean {
   return currentRawFiles.length > 0 && !!store.analytics;
+}
+
+// Persistence gets an explicit immutable snapshot instead of reaching back
+// into this reactive singleton while an async save is underway.
+export function matchPersistenceSnapshot(): MatchPersistenceSnapshot | null {
+  if (!store.analytics) return null;
+  const segments = nonCombinedSegments();
+  return {
+    analytics: store.analytics,
+    rawFiles: getRawFiles().map((file) => ({ ...file })),
+    files: [...store.files],
+    segments,
+    fields: allFields().map((field) => ({ id: field.id, corners: field.corners })),
+    directions: Object.fromEntries(segments.map((segment) => [segment.id, dirsForSegment(segment)])),
+    selectedFieldId: store.selectedFieldId,
+    matchTitle: store.matchTitle,
+    location: store.location,
+    breakFiles: [...store.breakFiles],
+    breakSessionStarts: [...store.breakSessionStarts],
+    manualSplits: store.manualSplits
+      ? { sessionBreaks: [...store.manualSplits.sessionBreaks], halfBreaks: [...store.manualSplits.halfBreaks] }
+      : null,
+    options: { ...store.options },
+  };
 }
 
 export const store = reactive<AppState>({
@@ -445,7 +471,7 @@ export async function loadFiles(fileList: File[]): Promise<void> {
     // hooks intentionally retain their immediate-dashboard behaviour.
     store.uploadWizardOpen = !!store.analytics;
   } catch (e: any) {
-    store.error = 'Could not parse: ' + (e?.message || e);
+    store.error = userErrorMessage(e, 'Could not parse this FIT file. Check that it is a valid activity export.');
     store.analytics = null;
   } finally {
     store.loading = false;
@@ -467,7 +493,7 @@ export async function loadFromUrl(url: string, name?: string): Promise<void> {
     store.files = [nm];
     loadFit(FitParser.parse(buf), nm);
   } catch (e: any) {
-    store.error = 'Could not load sample: ' + (e?.message || e);
+    store.error = userErrorMessage(e, 'Could not load the sample file. Try again.');
   } finally {
     store.loading = false;
   }
@@ -490,7 +516,7 @@ export async function loadFromUrls(urls: string[]): Promise<void> {
     const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     loadFit(merged, parsed.length === 1 ? parsed[0].name : `${parsed.length} files`);
   } catch (e: any) {
-    store.error = 'Could not load: ' + (e?.message || e);
+    store.error = userErrorMessage(e, 'Could not load this file. Try again.');
   } finally {
     store.loading = false;
   }

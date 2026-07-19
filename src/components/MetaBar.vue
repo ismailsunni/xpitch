@@ -294,7 +294,7 @@ a.place:hover {
 .gear .caret.open {
   transform: rotate(180deg);
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .matchline {
     padding: 12px 14px;
   }

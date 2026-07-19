@@ -13,6 +13,7 @@
   --muted2: #89988f;
   --dim: #718177;
   --map-bg: #0d1712;
+  --scroll-thumb: #1e2a23;
 
   --accent: #c8f751; /* lime — button/badge fills */
   --accent-hover: #d8ff7a;
@@ -83,6 +84,7 @@
   --muted2: #5c6f63;
   --dim: #63756a;
   --map-bg: #dfe8dd;
+  --scroll-thumb: #c9d5c9;
   --accent-hover: #bced3d;
   --accent-ink: #4d7a12;
   --accent2: #159a5b;
@@ -165,7 +167,7 @@ a:hover {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e2a23;
+  background: var(--scroll-thumb);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {
@@ -686,7 +688,7 @@ textarea:focus-visible {
 }
 
 /* Responsive */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .controls,
   .metabar,
   .tabpane,

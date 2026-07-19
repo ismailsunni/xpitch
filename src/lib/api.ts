@@ -14,12 +14,9 @@ import type { Database, Json } from './database.types';
 import {
   store,
   recompute,
-  getRawFiles,
-  nonCombinedSegments,
-  dirsForSegment,
-  allFields,
   type CloudSession,
 } from '../store';
+import type { MatchPersistenceSnapshot } from './match-persistence';
 
 const FIELD_MATCH_M = 1500;
 
@@ -100,15 +97,15 @@ export interface CreateMatchOpts {
 }
 
 // Save the currently analyzed match. Returns the new match short_id.
-export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promise<string> {
+export async function createMatchFromCurrent(snapshot: MatchPersistenceSnapshot, opts: CreateMatchOpts = {}): Promise<string> {
   const sb = requireClient();
   const uid = auth.user?.id;
   if (!uid) throw new Error('Sign in to save matches.');
   if (!auth.profile?.username) throw new Error('Choose a username first.');
-  const raw = getRawFiles();
+  const raw = snapshot.rawFiles;
   if (!raw.length) throw new Error('This match has no source file (demo data can’t be saved).');
-  const segs = nonCombinedSegments();
-  if (!segs.length || !store.analytics) throw new Error('Nothing to save yet.');
+  const segs = snapshot.segments;
+  if (!segs.length) throw new Error('Nothing to save yet.');
 
   const shortId = nanoid(12);
 
@@ -122,30 +119,31 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
   }
 
   // 2. Insert the match row (link to the nearest known pitch, if any)
-  const meta = store.analytics.meta;
+  const meta = snapshot.analytics.meta;
+  if (!meta) throw new Error('Nothing to save yet.');
   const nearField =
     meta.startLat != null && meta.startLon != null
       ? await resolveNearestFieldId(meta.startLat, meta.startLon)
       : null;
-  const selectedFieldId = store.selectedFieldId || nearField?.id || null;
+  const selectedFieldId = snapshot.selectedFieldId || nearField?.id || null;
   const { data: match, error: mErr } = await sb
     .from('matches')
     .insert({
       short_id: shortId,
       owner_id: uid,
-      title: opts.title ?? (store.matchTitle.trim() || null),
+      title: opts.title ?? (snapshot.matchTitle.trim() || null),
       sport: typeof meta.sport === 'string' ? meta.sport : null,
-      format: store.options.format,
-      group_gap_min: store.options.groupGapMin,
+      format: snapshot.options.format,
+      group_gap_min: snapshot.options.groupGapMin,
       started_at: meta.startDate ? new Date(meta.startDate).toISOString() : null,
-      location_label: store.location,
+      location_label: snapshot.location,
       centroid_lat: meta.startLat ?? null,
       centroid_lon: meta.startLon ?? null,
       primary_field_id: selectedFieldId,
-      file_names: store.files,
-      break_files: store.breakFiles,
-      break_session_starts: store.breakSessionStarts,
-      manual_splits: asJson(store.manualSplits),
+      file_names: snapshot.files,
+      break_files: snapshot.breakFiles,
+      break_session_starts: snapshot.breakSessionStarts,
+      manual_splits: asJson(snapshot.manualSplits),
       visibility: opts.visibility ?? 'unlisted',
     })
     .select()
@@ -153,7 +151,7 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
   if (mErr) throw mErr;
 
   // 3. Insert one session row per non-combined segment (with cached summary)
-  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, selectedFieldId));
+  const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, selectedFieldId, snapshot));
   if (sErr) throw sErr;
 
   return shortId;
@@ -162,23 +160,23 @@ export async function createMatchFromCurrent(opts: CreateMatchOpts = {}): Promis
 // Build the session rows for the current in-memory analysis (used by both
 // create and update). Recomputes each segment with the current options so the
 // cached summary/role reflect the latest edits.
-function buildSessionRows(matchId: string, uid: string, fieldId: string | null) {
-  const field = fieldId ? allFields().find((value) => value.id === fieldId) : null;
-  return nonCombinedSegments().map((seg, i) => {
-    const dirs = dirsForSegment(seg);
+function buildSessionRows(matchId: string, uid: string, fieldId: string | null, snapshot: MatchPersistenceSnapshot) {
+  const field = fieldId ? snapshot.fields.find((value) => value.id === fieldId) : null;
+  return snapshot.segments.map((seg, i) => {
+    const dirs = snapshot.directions[seg.id] || { attacking_dir: 1, side_dir: 1, flips: { attack: {}, side: {} } };
     const a = compute(
       { records: seg.records, sessions: seg.session ? [seg.session] : [], laps: [], events: [], activity: null, file_id: null, other: {} },
       {
-        age: store.options.age,
-        maxHR: store.options.maxHR,
-        maxHRSource: store.options.maxHRSource,
-        restHR: store.options.restHR,
-        sprintKmh: store.options.sprintKmh,
-        highIntensityKmh: store.options.highIntensityKmh,
+        age: snapshot.options.age,
+        maxHR: snapshot.options.maxHR,
+        maxHRSource: snapshot.options.maxHRSource,
+        restHR: snapshot.options.restHR,
+        sprintKmh: snapshot.options.sprintKmh,
+        highIntensityKmh: snapshot.options.highIntensityKmh,
         attackingDir: dirs.attacking_dir,
         sideDir: dirs.side_dir,
         field: field?.corners || null,
-        format: store.options.format,
+        format: snapshot.options.format,
         periods: seg.periods.map((period) => ({ startSec: period.startTime - seg.startTime, endSec: period.endTime - seg.startTime })),
       }
     );
@@ -206,13 +204,13 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
           })
         : null,
       analysis_options: asJson({
-        age: store.options.age,
-        maxHR: store.options.maxHR,
-        maxHRSource: store.options.maxHRSource,
-        restHR: store.options.restHR,
-        sprintKmh: store.options.sprintKmh,
-        highIntensityKmh: store.options.highIntensityKmh,
-        format: store.options.format,
+        age: snapshot.options.age,
+        maxHR: snapshot.options.maxHR,
+        maxHRSource: snapshot.options.maxHRSource,
+        restHR: snapshot.options.restHR,
+        sprintKmh: snapshot.options.sprintKmh,
+        highIntensityKmh: snapshot.options.highIntensityKmh,
+        format: snapshot.options.format,
       }),
     };
   });
@@ -221,24 +219,24 @@ function buildSessionRows(matchId: string, uid: string, fieldId: string | null) 
 // Persist edits to an existing match: match-level options + rebuilt sessions
 // (delete + re-insert cleanly handles a changed manual split). Returns the new
 // session id/seq pairs so callers can refresh their seq→id map.
-export async function updateMatchFromCurrent(matchId: string): Promise<{ id: string; seq: number }[]> {
+export async function updateMatchFromCurrent(matchId: string, snapshot: MatchPersistenceSnapshot): Promise<{ id: string; seq: number }[]> {
   const sb = requireClient();
   const uid = auth.user?.id;
   if (!uid) throw new Error('Sign in to save changes.');
-  if (!store.analytics) throw new Error('Nothing to save.');
-  const meta = store.analytics.meta;
+  const meta = snapshot.analytics.meta;
+  if (!meta) throw new Error('Nothing to save.');
   const nearField =
     meta.startLat != null && meta.startLon != null ? await resolveNearestFieldId(meta.startLat, meta.startLon) : null;
 
-  const selectedFieldId = store.selectedFieldId || nearField?.id || null;
+  const selectedFieldId = snapshot.selectedFieldId || nearField?.id || null;
   const { error: mErr } = await sb
     .from('matches')
     .update({
-      format: store.options.format,
-      group_gap_min: store.options.groupGapMin,
-      manual_splits: asJson(store.manualSplits),
-      break_files: store.breakFiles,
-      break_session_starts: store.breakSessionStarts,
+      format: snapshot.options.format,
+      group_gap_min: snapshot.options.groupGapMin,
+      manual_splits: asJson(snapshot.manualSplits),
+      break_files: snapshot.breakFiles,
+      break_session_starts: snapshot.breakSessionStarts,
       primary_field_id: selectedFieldId,
     })
     .eq('id', matchId);
@@ -248,7 +246,7 @@ export async function updateMatchFromCurrent(matchId: string): Promise<{ id: str
   if (dErr) throw dErr;
   const { data: inserted, error: sErr } = await sb
     .from('sessions')
-    .insert(buildSessionRows(matchId, uid, selectedFieldId))
+    .insert(buildSessionRows(matchId, uid, selectedFieldId, snapshot))
     .select('id,seq');
   if (sErr) throw sErr;
   return inserted || [];
