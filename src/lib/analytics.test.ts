@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compute, FORMATS } from './analytics';
+import { compute, estimateRole, FORMATS } from './analytics';
+import type { PositionalAnalytics, RunEvent } from './analytics';
 import type { FitResult, RecordSample } from './fit-parser';
 
 function fit(records: RecordSample[]): FitResult {
@@ -114,5 +115,37 @@ describe('compute', () => {
     // This is intentionally loose enough for CI/older laptops, while catching
     // accidental quadratic work over a full-match recording.
     expect(elapsedMs).toBeLessThan(1_000);
+  });
+});
+
+function rolePosition(points: { u: number; v: number }[], hasField = false): Pick<PositionalAnalytics, 'points' | 'thirds' | 'hasField'> {
+  const thirds = [0, 0, 0];
+  for (const point of points) thirds[Math.min(2, Math.floor(point.u * 3))]++;
+  return {
+    hasField,
+    thirds,
+    points: points.map((point, i) => ({ ...point, tSec: i * 10, dt: 10, speed: 2 })),
+  };
+}
+
+const noSprints: RunEvent[] = [];
+
+describe('role estimation', () => {
+  it('does not offer goalkeeper from PCA-normalized GPS alone', () => {
+    const role = estimateRole(
+      rolePosition([{ u: 0.12, v: 0.5 }, { u: 0.13, v: 0.51 }, { u: 0.11, v: 0.49 }]),
+      { sprints: noSprints, totalDistance: 350, durationS: 3600 },
+      'full',
+    );
+    expect(role.ranked.some((candidate) => candidate.role.startsWith('Goalkeeper'))).toBe(false);
+  });
+
+  it('recognizes a deep, central and low-movement player as a goalkeeper when a pitch is known', () => {
+    const role = estimateRole(
+      rolePosition([{ u: 0.08, v: 0.5 }, { u: 0.1, v: 0.51 }, { u: 0.09, v: 0.49 }], true),
+      { sprints: noSprints, totalDistance: 350, durationS: 3600 },
+      'full',
+    );
+    expect(role.top).toBe('Goalkeeper');
   });
 });

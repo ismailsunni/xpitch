@@ -106,6 +106,7 @@ function choosePitch(value: string) {
         <button
           v-if="canEditInline && hasGPS"
           class="pitch-edit"
+          :aria-label="usingField ? 'Edit or create pitch' : 'Create pitch'"
           :title="usingField ? 'Edit or create pitch' : 'Create pitch'"
           @click="openFieldEditor(undefined, 'match')"
         >
@@ -131,6 +132,7 @@ function choosePitch(value: string) {
       v-if="canEditInline"
       class="gear"
       :class="{ on: store.settingsOpen }"
+      aria-label="Analysis settings"
       :aria-expanded="store.settingsOpen"
       title="Analysis settings"
       @click="store.settingsOpen = !store.settingsOpen"

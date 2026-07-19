@@ -5,6 +5,7 @@ import { supabaseEnabled } from '../lib/supabase';
 import { auth } from '../lib/auth';
 import { deriveAge } from '../lib/format';
 import { listMatches, updateProfile } from '../lib/api';
+import { userErrorMessage } from '../lib/errors';
 import MatchCard from '../components/MatchCard.vue';
 
 const route = useRoute();
@@ -30,7 +31,7 @@ async function load() {
     if (res.isOwner && route.query.edit) openEdit();
   } catch (e: any) {
     state.value = 'error';
-    errMsg.value = e?.message || String(e);
+    errMsg.value = userErrorMessage(e, 'Could not load this profile. Try again.');
   }
 }
 onMounted(load);
@@ -63,7 +64,7 @@ async function saveProfile() {
     if (data.value) data.value.profile.display_name = form.value.display_name;
     editing.value = false;
   } catch (e: any) {
-    saveErr.value = e?.message || String(e);
+    saveErr.value = userErrorMessage(e, 'Could not save your profile. Try again.');
   }
 }
 </script>

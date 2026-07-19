@@ -35,6 +35,9 @@ onMounted(() => {
   <main v-else>
     <div v-if="store.cloud.mode === 'local' && isSaveable()" class="savebar">
       <span class="sb-text">Analysis ready — save it to your profile to keep and share it.</span>
+      <span v-if="auth.user && (auth.profile?.birth_date || auth.profile?.max_hr || auth.profile?.rest_hr)" class="sb-text muted">
+        Using your saved profile age and heart-rate defaults.
+      </span>
       <SaveMatchButton v-if="supabaseEnabled && auth.user" />
       <RouterLink v-else-if="supabaseEnabled" to="/login" class="btn primary">Log in to save</RouterLink>
     </div>
@@ -56,5 +59,6 @@ onMounted(() => {
   font-size: 13.5px;
   color: var(--text);
 }
+.muted { color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 </style>

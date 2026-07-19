@@ -594,7 +594,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
   const fmt = resolveFormat(opt.format, positional);
   if (positional) positional.templateAspect = FORMATS[fmt.key].aspect;
   const role = positional
-    ? estimateRole(positional, { sprints, highIntensityRuns, totalDistance, durationS }, fmt.key)
+    ? estimateRole(positional, { sprints, totalDistance, durationS }, fmt.key)
     : null;
 
   return {
@@ -801,10 +801,20 @@ function detectRepeatedSprints(sprints: any[]): any[] {
   }));
 }
 
-function estimateRole(positional: any, ctx: any, format: FormatKey): any {
+export interface RoleContext {
+  sprints: RunEvent[];
+  totalDistance: number;
+  durationS: number;
+}
+
+export function estimateRole(
+  positional: Pick<PositionalAnalytics, 'points' | 'thirds' | 'hasField'>,
+  ctx: RoleContext,
+  format: FormatKey,
+): RoleEstimate {
   const pts = positional.points;
-  const us = pts.map((p: any) => p.u);
-  const vs = pts.map((p: any) => p.v);
+  const us = pts.map((p) => p.u);
+  const vs = pts.map((p) => p.v);
   const avgU = mean(us);
   const avgV = mean(vs);
   const spreadU = std(us);

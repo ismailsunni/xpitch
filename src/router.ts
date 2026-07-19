@@ -13,6 +13,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/match/:shortId/:seq?', name: 'match', component: () => import('./views/MatchView.vue') },
   { path: '/field/:slug', name: 'field', component: () => import('./views/FieldView.vue') },
   { path: '/:username', name: 'profile', component: () => import('./views/ProfileView.vue') },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('./views/NotFoundView.vue') },
 ];
 
 export const router = createRouter({

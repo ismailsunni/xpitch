@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { auth, setUsername } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { updateProfile } from '../lib/api';
+import { userErrorMessage } from '../lib/errors';
 
 const form = ref({ username: '', display_name: '', birth_date: '', max_hr: '', rest_hr: '', bio: '' });
 const err = ref('');
@@ -55,7 +56,7 @@ async function save() {
     });
     ok.value = true;
   } catch (e: any) {
-    err.value = e?.message || String(e);
+    err.value = userErrorMessage(e, 'Could not save your profile. Try again.');
   } finally {
     busy.value = false;
   }

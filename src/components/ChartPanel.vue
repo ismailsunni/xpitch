@@ -1,7 +1,34 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import Chart from 'chart.js/auto';
+import {
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Filler,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+} from 'chart.js';
 import { theme } from '../lib/theme';
+
+Chart.register(
+  BarController,
+  BarElement,
+  CategoryScale,
+  Filler,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+);
 
 const props = defineProps<{ config: any }>();
 const canvas = ref<HTMLCanvasElement>();

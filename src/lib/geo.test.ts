@@ -42,6 +42,21 @@ describe('geo helpers', () => {
     expect(p.v).toBeLessThan(0.55);
   });
 
+  it('keeps normalized track coordinates stable when the GPS path is reversed', () => {
+    const points = [
+      { lat: 0, lon: 0 },
+      { lat: 0, lon: 0.001 },
+      { lat: 0.0002, lon: 0 },
+      { lat: 0.0002, lon: 0.001 },
+    ];
+    const forward = buildPitchTransform(points)!;
+    const reversed = buildPitchTransform([...points].reverse())!;
+    const a = forward.project(0.0001, 0.0005);
+    const b = reversed.project(0.0001, 0.0005);
+    expect(a.u).toBeCloseTo(b.u, 6);
+    expect(a.v).toBeCloseTo(b.v, 6);
+  });
+
   it('maps field corners into a usable pitch transform', () => {
     const transform = buildFieldTransform([
       { lat: 0, lon: 0 },

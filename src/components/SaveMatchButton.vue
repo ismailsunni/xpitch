@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { auth, needsUsername } from '../lib/auth';
 import { isSaveable, store } from '../store';
 import { createMatchFromCurrent } from '../lib/api';
+import { userErrorMessage } from '../lib/errors';
 
 const router = useRouter();
 const busy = ref(false);
@@ -20,7 +21,7 @@ async function save() {
     const shortId = await createMatchFromCurrent({});
     router.push({ name: 'match', params: { shortId } });
   } catch (e: any) {
-    err.value = e?.message || String(e);
+    err.value = userErrorMessage(e, 'Could not save this match. Try again.');
   } finally {
     busy.value = false;
   }

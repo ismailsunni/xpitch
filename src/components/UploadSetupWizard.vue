@@ -4,6 +4,7 @@ import PitchCanvas from './PitchCanvas.vue';
 import SessionSplitEditor from './SessionSplitEditor.vue';
 import { auth } from '../lib/auth';
 import { updateProfile } from '../lib/api';
+import { userErrorMessage } from '../lib/errors';
 import { deriveAge, fmtDist } from '../lib/format';
 import { centroid, rankByDistance } from '../lib/geo';
 import { compute, FORMATS, type FormatKey } from '../lib/analytics';
@@ -139,7 +140,7 @@ async function saveHeartRate() {
     recompute();
     continueFromHeartRate();
   } catch (e: any) {
-    error.value = e?.message || 'Could not save your birth date.';
+    error.value = userErrorMessage(e, 'Could not save your birth date. Try again.');
   } finally {
     savingBirthDate.value = false;
   }

@@ -15,7 +15,9 @@ function initial(): Mode {
   } catch {
     /* storage blocked */
   }
-  // Light by default; users who prefer dark can toggle (their choice is saved).
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
   return 'light';
 }
 

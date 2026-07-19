@@ -26,6 +26,7 @@ import Dashboard from '../components/Dashboard.vue';
 import ShareButtons from '../components/ShareButtons.vue';
 import ShareImageModal from '../components/ShareImageModal.vue';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
+import { userErrorMessage } from '../lib/errors';
 
 const shareToken = computed(() => typeof route.query.share === 'string' ? route.query.share : null);
 const shareUrl = computed(() => {
@@ -182,7 +183,7 @@ async function onSaveChanges() {
     savedFlash.value = true;
     setTimeout(() => (savedFlash.value = false), 2500);
   } catch (e: any) {
-    actionError.value = `Could not save changes. ${e?.message || ''}`.trim();
+    actionError.value = userErrorMessage(e, 'Could not save changes. Try again.');
   } finally {
     saving.value = false;
   }
@@ -274,7 +275,7 @@ async function confirmDelete() {
       await router.push('/' + (auth.profile?.username || ''));
     }
   } catch (e: any) {
-    actionError.value = `Could not delete ${pending.kind === 'match' ? 'this match' : 'this photo'}. ${e?.message || ''}`.trim();
+    actionError.value = userErrorMessage(e, `Could not delete ${pending.kind === 'match' ? 'this match' : 'this photo'}. Try again.`);
   } finally {
     pendingDelete.value = null;
   }
@@ -342,7 +343,7 @@ async function load() {
     void nextTick(() => (dirty.value = false));
   } catch (e: any) {
     state.value = 'error';
-    errMsg.value = e?.message || String(e);
+    errMsg.value = userErrorMessage(e, 'Could not load this match. Try again.');
   }
 }
 

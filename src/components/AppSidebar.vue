@@ -56,7 +56,7 @@ watch(
       <span class="logo-badge"><span class="logo-glyph">◉</span></span>
       <span class="wordmark">xPitch</span>
     </RouterLink>
-    <button class="hamburger" aria-label="Open menu" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">
+    <button class="hamburger" :aria-label="drawerOpen ? 'Close menu' : 'Open menu'" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M4 6h16M4 12h16M4 18h16" />
       </svg>
@@ -66,6 +66,7 @@ watch(
   <div v-if="drawerOpen" class="mobile-menu">
     <nav class="mobile-nav" aria-label="Mobile menu">
       <RouterLink to="/">Feed</RouterLink>
+      <RouterLink to="/analyze">Analyze</RouterLink>
       <RouterLink to="/fields">Pitches</RouterLink>
       <RouterLink v-if="auth.user" to="/history">History</RouterLink>
       <RouterLink to="/help">Help</RouterLink>
@@ -93,6 +94,10 @@ watch(
       <RouterLink to="/" class="nav-item" exact-active-class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
         <span>Feed</span>
+      </RouterLink>
+      <RouterLink to="/analyze" class="nav-item" active-class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5" /><path d="M4 19h16" /><path d="m7 15 3-4 3 2 4-7" /><circle cx="7" cy="15" r="1" fill="currentColor" /><circle cx="10" cy="11" r="1" fill="currentColor" /><circle cx="13" cy="13" r="1" fill="currentColor" /><circle cx="17" cy="6" r="1" fill="currentColor" /></svg>
+        <span>Analyze</span>
       </RouterLink>
       <RouterLink to="/fields" class="nav-item" active-class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /><circle cx="12" cy="12" r="2.5" /></svg>
@@ -402,6 +407,7 @@ watch(
   display: none;
   align-items: center;
   justify-content: space-between;
+  min-height: var(--mobile-topbar-height, 62px);
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-sidebar);
@@ -432,7 +438,7 @@ watch(
     display: grid;
     gap: 10px;
     position: fixed;
-    top: 62px;
+    top: var(--mobile-topbar-height, 62px);
     right: 12px;
     left: 12px;
     z-index: 30;
@@ -441,7 +447,7 @@ watch(
     border-radius: 8px;
     background: var(--bg-elev);
     box-shadow: var(--shadow);
-    max-height: calc(100vh - 74px);
+    max-height: calc(100vh - var(--mobile-topbar-height, 62px) - 12px);
     overflow-y: auto;
   }
   .mobile-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }

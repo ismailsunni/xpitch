@@ -19,6 +19,7 @@ import { store, addField, updateField, setSelectedField } from '../store';
 import { auth } from '../lib/auth';
 import { upsertFieldCloud } from '../lib/api';
 import { useDialog } from '../composables/useDialog';
+import { userErrorMessage } from '../lib/errors';
 
 // Logged in: pitches live in the cloud; guests: localStorage.
 const userFields = computed(() => (auth.user ? store.cloudFields : store.fields));
@@ -41,6 +42,7 @@ const placeQuery = ref('');
 const placeResults = ref<{ display_name: string; lat: string; lon: string; boundingbox?: string[] }[]>([]);
 const placeSearching = ref(false);
 const placeError = ref('');
+const activePlaceIndex = ref(-1);
 
 let map: Map | null = null;
 let cornerSource: VectorSource;
@@ -118,6 +120,16 @@ function onMapClick(e: MapBrowserEvent<any>) {
   redrawCorners();
 }
 
+function onMapKeydown(event: KeyboardEvent) {
+  if ((event.key !== 'Enter' && event.key !== ' ') || !map || cornersLL.value.length >= 4) return;
+  event.preventDefault();
+  const center = map.getView().getCenter();
+  if (!center) return;
+  const [lon, lat] = toLonLat(center);
+  cornersLL.value = [...cornersLL.value, [lon, lat]];
+  redrawCorners();
+}
+
 function resetCorners() {
   cornersLL.value = [];
   err.value = '';
@@ -140,6 +152,7 @@ async function searchPlaces() {
   if (query.length < 2) {
     placeError.value = 'Enter at least two characters to search.';
     placeResults.value = [];
+    activePlaceIndex.value = -1;
     return;
   }
   placeSearching.value = true;
@@ -152,9 +165,10 @@ async function searchPlaces() {
     });
     if (!response.ok) throw new Error('Search is temporarily unavailable.');
     placeResults.value = await response.json();
+    activePlaceIndex.value = placeResults.value.length ? 0 : -1;
     if (!placeResults.value.length) placeError.value = 'No places found.';
   } catch (e: any) {
-    placeError.value = e?.message || 'Could not search for that place.';
+    placeError.value = userErrorMessage(e, 'Could not search for that place. Try again.');
   } finally {
     placeSearching.value = false;
   }
@@ -173,7 +187,23 @@ function selectPlace(place: { display_name: string; lat: string; lon: string; bo
   }
   placeQuery.value = place.display_name;
   placeResults.value = [];
+  activePlaceIndex.value = -1;
   placeError.value = '';
+}
+
+function onPlaceSearchKeydown(event: KeyboardEvent) {
+  if (!placeResults.value.length) return;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    activePlaceIndex.value = (activePlaceIndex.value + delta + placeResults.value.length) % placeResults.value.length;
+  } else if (event.key === 'Enter' && activePlaceIndex.value >= 0) {
+    event.preventDefault();
+    selectPlace(placeResults.value[activePlaceIndex.value]);
+  } else if (event.key === 'Escape') {
+    placeResults.value = [];
+    activePlaceIndex.value = -1;
+  }
 }
 
 function applyManual() {
@@ -228,7 +258,7 @@ async function save() {
       else savedId = addField(name, corners);
     }
   } catch (e: any) {
-    err.value = e?.message || 'Could not save pitch';
+    err.value = userErrorMessage(e, 'Could not save pitch. Try again.');
     return;
   }
   if (savedId) setSelectedField(savedId);
@@ -371,10 +401,29 @@ onBeforeUnmount(() => {
       </div>
 
       <form class="place-search" @submit.prevent="searchPlaces">
-        <input v-model="placeQuery" type="search" placeholder="Search for a place or address" aria-label="Search for a place or address" />
+        <input
+          v-model="placeQuery"
+          type="search"
+          placeholder="Search for a place or address"
+          aria-label="Search for a place or address"
+          aria-autocomplete="list"
+          aria-controls="place-results"
+          :aria-activedescendant="activePlaceIndex >= 0 ? `place-result-${activePlaceIndex}` : undefined"
+          @keydown="onPlaceSearchKeydown"
+        />
         <button class="btn ghost small" type="submit" :disabled="placeSearching">{{ placeSearching ? 'Searching…' : 'Search' }}</button>
-        <div v-if="placeResults.length || placeError" class="place-results">
-          <button v-for="place in placeResults" :key="`${place.lat}:${place.lon}:${place.display_name}`" type="button" @click="selectPlace(place)">{{ place.display_name }}</button>
+        <div v-if="placeResults.length || placeError" id="place-results" class="place-results" role="listbox" aria-label="Place search results">
+          <button
+            v-for="(place, index) in placeResults"
+            :id="`place-result-${index}`"
+            :key="`${place.lat}:${place.lon}:${place.display_name}`"
+            type="button"
+            role="option"
+            :aria-selected="index === activePlaceIndex"
+            :class="{ active: index === activePlaceIndex }"
+            @mouseenter="activePlaceIndex = index"
+            @click="selectPlace(place)"
+          >{{ place.display_name }}</button>
           <p v-if="placeError" class="error">{{ placeError }}</p>
         </div>
       </form>
@@ -392,7 +441,14 @@ onBeforeUnmount(() => {
         <button class="btn small" @click="applyManual">Apply coordinates</button>
       </div>
 
-      <div ref="mapEl" class="fe-map"></div>
+      <div
+        ref="mapEl"
+        class="fe-map"
+        tabindex="0"
+        role="application"
+        aria-label="Pitch map. Click to add a corner. Press Enter or Space to add a corner at the map centre."
+        @keydown="onMapKeydown"
+      ></div>
 
       <footer class="fe-foot">
         <label class="fe-name">
@@ -511,6 +567,10 @@ onBeforeUnmount(() => {
 .place-results button:hover {
   background: var(--bg-elev2);
 }
+.place-results button.active {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
 .place-results .error {
   margin: 0;
   padding: 9px 10px;
@@ -537,6 +597,10 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   background: var(--map-bg);
+}
+.fe-map:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .fe-foot {
   display: flex;
