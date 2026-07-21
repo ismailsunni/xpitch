@@ -489,7 +489,12 @@ watch(
       </section>
         </template>
       </Dashboard>
-      <ShareImageModal v-if="shareImageOpen" @close="shareImageOpen = false" />
+      <ShareImageModal
+        v-if="shareImageOpen"
+        :photos="visibleMediaItems.map((item) => ({ id: item.row?.id || item.url, url: item.url, caption: item.caption }))"
+        :url="shareUrl"
+        @close="shareImageOpen = false"
+      />
       <ConfirmDialog
         v-if="pendingDelete"
         :title="pendingDelete.kind === 'match' ? 'Delete match?' : 'Delete photo?'"

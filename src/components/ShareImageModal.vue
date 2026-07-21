@@ -8,6 +8,10 @@ import { fmtDist, fmtDur, kmh } from '../lib/format';
 import { useDialog } from '../composables/useDialog';
 
 const emit = defineEmits<{ close: [] }>();
+const props = defineProps<{
+  photos?: { id: string; url: string; caption?: string | null }[];
+  url?: string;
+}>();
 
 const WHOLE_MATCH = '__whole_match__';
 const sessions = computed(() => nonCombinedSegments());
@@ -16,6 +20,7 @@ const activeAtOpen = store.segments.find((s) => s.id === store.activeSegmentId);
 const selectedSegmentId = ref(activeAtOpen?.kind === 'combined' ? WHOLE_MATCH : store.activeSegmentId || WHOLE_MATCH);
 const mode = ref<PitchMode>(store.activeTab === 'positional' ? 'heatmap' : 'heatmap');
 const size = ref<'story' | 'post'>('story');
+const selectedPhotoId = ref('');
 const canvas = ref<HTMLCanvasElement>();
 const error = ref('');
 
@@ -38,6 +43,7 @@ const selectedPitch = computed(() => {
   const id = store.selectedFieldId || store.appliedFieldId;
   return id ? allFields().find((field) => field.id === id) || null : null;
 });
+const selectedPhoto = computed(() => props.photos?.find((photo) => photo.id === selectedPhotoId.value) || null);
 
 function analyticsForSelection() {
   const seg = selectedSegment.value;
@@ -78,10 +84,13 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
 }
 
 function fitText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
+  ctx.fillText(truncateText(ctx, text, maxWidth), x, y);
+}
+
+function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
   let out = text;
   while (out.length > 8 && ctx.measureText(out).width > maxWidth) out = out.slice(0, -2);
-  if (out !== text) out += '…';
-  ctx.fillText(out, x, y);
+  return out === text ? out : `${out}…`;
 }
 
 function drawStat(ctx: CanvasRenderingContext2D, label: string, value: string, x: number, y: number, w: number) {
@@ -91,6 +100,18 @@ function drawStat(ctx: CanvasRenderingContext2D, label: string, value: string, x
   ctx.fillStyle = '#13211b';
   ctx.font = '700 44px Space Grotesk, system-ui, sans-serif';
   fitText(ctx, value, x, y + 54, w);
+}
+
+function drawStoryMetric(ctx: CanvasRenderingContext2D, label: string, value: string, x: number, y: number, w: number) {
+  const center = x + w / 2;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#5b675e';
+  ctx.font = '22px Hanken Grotesk, system-ui, sans-serif';
+  ctx.fillText(label, center, y);
+  ctx.fillStyle = '#13211b';
+  ctx.font = '700 34px Space Grotesk, system-ui, sans-serif';
+  ctx.fillText(truncateText(ctx, value, w), center, y + 44);
+  ctx.textAlign = 'start';
 }
 
 function makePitchImage(positional: any): HTMLCanvasElement {
@@ -107,6 +128,29 @@ function makePitchImage(positional: any): HTMLCanvasElement {
   drawPitch(pitch, positional, mode.value);
   document.body.removeChild(wrap);
   return pitch;
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Could not load the selected photo.'));
+    image.src = src;
+  });
+}
+
+function drawCoverImage(ctx: CanvasRenderingContext2D, image: CanvasImageSource, x: number, y: number, w: number, h: number, r: number) {
+  const source = image as HTMLImageElement;
+  const sourceW = source.naturalWidth || source.width;
+  const sourceH = source.naturalHeight || source.height;
+  const scale = Math.max(w / sourceW, h / sourceH);
+  const drawW = sourceW * scale;
+  const drawH = sourceH * scale;
+  roundedRect(ctx, x, y, w, h, r);
+  ctx.save();
+  ctx.clip();
+  ctx.drawImage(image, x + (w - drawW) / 2, y + (h - drawH) / 2, drawW, drawH);
+  ctx.restore();
 }
 
 async function render() {
@@ -126,48 +170,115 @@ async function render() {
   ctx.fillStyle = '#f2f5ef';
   ctx.fillRect(0, 0, w, h);
 
-  ctx.fillStyle = '#c8f751';
-  roundedRect(ctx, 56, 54, 84, 84, 24);
-  ctx.fill();
-  ctx.fillStyle = '#102018';
-  ctx.font = '700 44px Space Grotesk, system-ui, sans-serif';
-  ctx.fillText('◉', 78, 111);
-  ctx.fillStyle = '#13211b';
-  ctx.font = '700 38px Space Grotesk, system-ui, sans-serif';
-  ctx.fillText('xPitch', 158, 108);
-
-  ctx.fillStyle = '#5b675e';
-  ctx.font = '28px Hanken Grotesk, system-ui, sans-serif';
-  ctx.fillText(modeLabel.value, 56, 190);
-  ctx.fillStyle = '#13211b';
-  ctx.font = '700 58px Space Grotesk, system-ui, sans-serif';
-  fitText(ctx, title.value, 56, 260, w - 112);
-  ctx.fillStyle = '#5b675e';
-  ctx.font = '30px Hanken Grotesk, system-ui, sans-serif';
   const started = a.meta?.startDate ? new Date(a.meta.startDate).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
-  fitText(ctx, [selectedLabel.value, started].filter(Boolean).join(' · '), 56, 312, w - 112);
 
   const pitch = makePitchImage(a.positional);
   const pitchX = 56;
-  const pitchY = size.value === 'story' ? 390 : 350;
   const pitchW = w - 112;
-  const pitchH = size.value === 'story' ? 760 : 560;
-  roundedRect(ctx, pitchX, pitchY, pitchW, pitchH, 34);
-  ctx.save();
-  ctx.clip();
-  ctx.drawImage(pitch, pitchX, pitchY, pitchW, pitchH);
-  ctx.restore();
+  if (size.value === 'story') {
+    // Stories lead with the actual movement map, then give it a concise
+    // football context before ending with the human match photo.
+    const hasPhoto = !!selectedPhoto.value;
+    const pitchY = 70;
+    const pitchH = hasPhoto ? 650 : 1_280;
+    roundedRect(ctx, pitchX, pitchY, pitchW, pitchH, 34);
+    ctx.save();
+    ctx.clip();
+    ctx.drawImage(pitch, pitchX, pitchY, pitchW, pitchH);
+    ctx.restore();
 
-  const statsY = pitchY + pitchH + 78;
-  const colW = (w - 144) / 2;
-  drawStat(ctx, 'Distance', fmtDist(a.summary.totalDistance), 56, statsY, colW);
-  drawStat(ctx, 'Duration', fmtDur(a.summary.durationS), 56 + colW + 32, statsY, colW);
-  drawStat(ctx, 'Top speed', `${kmh(a.summary.topSpeed)} km/h`, 56, statsY + 150, colW);
-  drawStat(ctx, a.physio ? 'Avg heart rate' : 'Moving time', a.physio ? `${a.physio.avgHR} bpm` : fmtDur(a.summary.movingTime), 56 + colW + 32, statsY + 150, colW);
+    const role = a.football?.role?.top || 'Football player';
+    const titleY = pitchY + pitchH + 70;
+    const titleInset = 32;
+    const titleX = pitchX + titleInset;
+    const titleRight = pitchX + pitchW - titleInset;
+    ctx.font = '700 54px Space Grotesk, system-ui, sans-serif';
+    const titleText = truncateText(ctx, title.value, 590);
+    ctx.fillStyle = '#13211b';
+    ctx.fillText(titleText, titleX, titleY + 52);
+    ctx.fillStyle = '#5b675e';
+    ctx.font = '26px Hanken Grotesk, system-ui, sans-serif';
+    const subtitle = truncateText(ctx, [selectedLabel.value, started].filter(Boolean).join(' · '), titleRight - titleX);
+    ctx.fillText(subtitle, titleX, titleY + 94);
 
-  ctx.fillStyle = '#5b675e';
-  ctx.font = '24px Hanken Grotesk, system-ui, sans-serif';
-  ctx.fillText('Generated from GPS/HR data · estimates only', 56, h - 70);
+    ctx.font = '700 42px Space Grotesk, system-ui, sans-serif';
+    const brandX = titleRight - 80 - 20 - ctx.measureText('xPitch').width;
+    roundedRect(ctx, brandX, titleY - 4, 80, 80, 22);
+    ctx.fillStyle = '#c8f751';
+    ctx.fill();
+    ctx.fillStyle = '#102018';
+    ctx.fillText('◉', brandX + 19, titleY + 47);
+    ctx.fillStyle = '#13211b';
+    ctx.font = '700 42px Space Grotesk, system-ui, sans-serif';
+    ctx.fillText('xPitch', brandX + 100, titleY + 51);
+
+    const metricsY = titleY + 136;
+    roundedRect(ctx, 56, metricsY, pitchW, 142, 28);
+    ctx.fillStyle = '#e4ecd8';
+    ctx.fill();
+    const metricW = (pitchW - 56) / 3;
+    drawStoryMetric(ctx, 'Distance', fmtDist(a.summary.totalDistance), 84, metricsY + 55, metricW);
+    drawStoryMetric(ctx, 'Top speed', `${kmh(a.summary.topSpeed)} km/h`, 84 + metricW, metricsY + 55, metricW);
+    drawStoryMetric(ctx, 'Playing role', role, 84 + metricW * 2, metricsY + 55, metricW);
+    ctx.strokeStyle = '#cfdbc0';
+    ctx.lineWidth = 1;
+    for (const divider of [84 + metricW, 84 + metricW * 2]) {
+      ctx.beginPath();
+      ctx.moveTo(divider, metricsY + 24);
+      ctx.lineTo(divider, metricsY + 118);
+      ctx.stroke();
+    }
+
+    if (selectedPhoto.value) {
+      try {
+        const image = await loadImage(selectedPhoto.value.url);
+        drawCoverImage(ctx, image, pitchX, metricsY + 180, pitchW, 700, 34);
+      } catch (e: any) {
+        error.value = e.message || 'Could not load the selected photo.';
+      }
+    }
+    if (props.url) {
+      ctx.fillStyle = '#5b675e';
+      ctx.font = '20px Hanken Grotesk, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      fitText(ctx, props.url.replace(/^https?:\/\//, ''), w / 2, h - 34, w - 112);
+      ctx.textAlign = 'start';
+    }
+  } else {
+    ctx.fillStyle = '#c8f751';
+    roundedRect(ctx, 56, 54, 84, 84, 24);
+    ctx.fill();
+    ctx.fillStyle = '#102018';
+    ctx.font = '700 44px Space Grotesk, system-ui, sans-serif';
+    ctx.fillText('◉', 78, 111);
+    ctx.fillStyle = '#13211b';
+    ctx.font = '700 38px Space Grotesk, system-ui, sans-serif';
+    ctx.fillText('xPitch', 158, 108);
+    ctx.fillStyle = '#5b675e';
+    ctx.font = '28px Hanken Grotesk, system-ui, sans-serif';
+    ctx.fillText(modeLabel.value, 56, 190);
+    ctx.fillStyle = '#13211b';
+    ctx.font = '700 58px Space Grotesk, system-ui, sans-serif';
+    fitText(ctx, title.value, 56, 260, w - 112);
+    ctx.fillStyle = '#5b675e';
+    ctx.font = '30px Hanken Grotesk, system-ui, sans-serif';
+    fitText(ctx, [selectedLabel.value, started].filter(Boolean).join(' · '), 56, 312, w - 112);
+    const pitchY = 350;
+    const pitchH = 560;
+    roundedRect(ctx, pitchX, pitchY, pitchW, pitchH, 34);
+    ctx.save();
+    ctx.clip();
+    ctx.drawImage(pitch, pitchX, pitchY, pitchW, pitchH);
+    ctx.restore();
+
+    const statsY = pitchY + pitchH + 78;
+    const colW = (w - 144) / 2;
+    drawStat(ctx, 'Distance', fmtDist(a.summary.totalDistance), 56, statsY, colW);
+    drawStat(ctx, 'Duration', fmtDur(a.summary.durationS), 56 + colW + 32, statsY, colW);
+    drawStat(ctx, 'Top speed', `${kmh(a.summary.topSpeed)} km/h`, 56, statsY + 150, colW);
+    drawStat(ctx, a.physio ? 'Avg heart rate' : 'Moving time', a.physio ? `${a.physio.avgHR} bpm` : fmtDur(a.summary.movingTime), 56 + colW + 32, statsY + 150, colW);
+  }
+
 }
 
 function fileName() {
@@ -204,12 +315,13 @@ async function shareNative() {
   }
 }
 
-watch([selectedSegmentId, mode, size], () => void render());
+watch([selectedSegmentId, mode, size, selectedPhotoId], () => void render());
 function close() {
   emit('close');
 }
 const { dialogRef } = useDialog(close);
 onMounted(() => {
+  if (props.photos?.length) selectedPhotoId.value = props.photos[0].id;
   void render();
 });
 </script>
@@ -218,47 +330,50 @@ onMounted(() => {
   <div class="share-overlay" @click.self="close">
     <section ref="dialogRef" class="share-modal card" role="dialog" aria-modal="true" aria-labelledby="share-title">
       <header class="share-head">
-        <div>
-          <p class="eyebrow">Share image</p>
-          <h2 id="share-title">Export match graphic</h2>
-          <p class="hint">Choose a session and map. Defaults use the current match view.</p>
-        </div>
-        <button class="btn ghost small" @click="close">✕ Close</button>
+        <h2 id="share-title">Export match graphic</h2>
       </header>
 
-      <div class="share-controls">
-        <label>Session
-          <select v-model="selectedSegmentId">
-            <option v-for="s in sessionChoices" :key="s.id" :value="s.id">{{ s.label }} · {{ s.sublabel }}</option>
-          </select>
-        </label>
-        <label>Map
-          <select v-model="mode">
-            <option value="heatmap">Heatmap</option>
-            <option value="trail">Movement trail</option>
-            <option value="zones">Zone occupancy</option>
-          </select>
-        </label>
-        <label>Size
-          <select v-model="size">
-            <option value="story">Instagram story · 1080×1920</option>
-            <option value="post">Instagram post · 1080×1350</option>
-          </select>
-        </label>
-      </div>
-
-      <p v-if="error" class="error">{{ error }}</p>
-      <div class="preview" :class="size">
-        <canvas ref="canvas"></canvas>
-      </div>
-
-      <footer class="share-foot">
-        <span class="hint">{{ sizeSpec.label }} PNG</span>
-        <div>
-          <button class="btn ghost" @click="shareNative">Share</button>
-          <button class="btn primary" @click="download">Download PNG</button>
+      <div class="share-workspace">
+        <aside class="share-sidebar">
+          <p class="hint sidebar-hint">Choose a session, map, and optional photo for the exported graphic.</p>
+          <div class="share-controls">
+            <label>Session
+              <select v-model="selectedSegmentId">
+                <option v-for="s in sessionChoices" :key="s.id" :value="s.id">{{ s.label }} · {{ s.sublabel }}</option>
+              </select>
+            </label>
+            <label>Map
+              <select v-model="mode">
+                <option value="heatmap">Heatmap</option>
+                <option value="trail">Movement trail</option>
+                <option value="zones">Zone occupancy</option>
+              </select>
+            </label>
+            <label>Size
+              <select v-model="size">
+                <option value="story">Instagram story · 1080×1920</option>
+                <option value="post">Instagram post · 1080×1350</option>
+              </select>
+            </label>
+            <label v-if="size === 'story' && props.photos?.length">Photo
+              <select v-model="selectedPhotoId">
+                <option value="">No photo</option>
+                <option v-for="photo in props.photos" :key="photo.id" :value="photo.id">{{ photo.caption || 'Match photo' }}</option>
+              </select>
+            </label>
+          </div>
+          <p v-if="error" class="error">{{ error }}</p>
+          <div class="share-actions">
+            <span class="hint">{{ sizeSpec.label }} PNG</span>
+            <button class="btn ghost" @click="shareNative">Share</button>
+            <button class="btn primary" @click="download">Download PNG</button>
+            <button class="btn ghost small" @click="close">Close</button>
+          </div>
+        </aside>
+        <div class="preview" :class="size">
+          <canvas ref="canvas"></canvas>
         </div>
-      </footer>
+      </div>
     </section>
   </div>
 </template>
@@ -274,32 +389,32 @@ onMounted(() => {
   background: rgba(4, 8, 14, 0.72);
 }
 .share-modal {
-  width: min(1040px, 100%);
+  width: min(810px, 100%);
   max-height: calc(100vh - 36px);
   overflow: auto;
-}
-.share-head,
-.share-foot {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: flex-start;
 }
 .share-head h2 {
   margin: 0;
 }
-.eyebrow {
-  margin: 0 0 4px;
-  font: 11px var(--font-mono);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
+.share-workspace {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 468px);
+  justify-content: center;
+  gap: 20px;
+  align-items: start;
+  margin: 18px 0;
+}
+.share-sidebar {
+  display: grid;
+  gap: 16px;
+  padding-right: 18px;
+}
+.sidebar-hint {
+  margin: 0;
 }
 .share-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin: 18px 0;
 }
 label {
   display: grid;
@@ -330,27 +445,25 @@ canvas {
   box-shadow: var(--shadow);
 }
 .preview.story canvas {
-  width: min(360px, 100%);
+  width: min(440px, 100%);
 }
 .preview.post canvas {
   width: min(440px, 100%);
 }
-.share-foot {
-  margin-top: 16px;
-  align-items: center;
-}
-.share-foot > div {
-  display: flex;
+.share-actions {
+  display: grid;
   gap: 8px;
-  flex-wrap: wrap;
+  align-items: start;
+}
+.share-actions .hint {
+  margin: 0 0 2px;
 }
 @media (max-width: 700px) {
-  .share-head,
-  .share-foot {
-    flex-direction: column;
-  }
-  .share-controls {
+  .share-workspace {
     grid-template-columns: 1fr;
+  }
+  .share-sidebar {
+    padding-right: 0;
   }
 }
 </style>
