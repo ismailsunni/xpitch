@@ -1,8 +1,7 @@
 # xPitch
 
 xPitch is a football, mini-soccer, and futsal match analyzer for GPS FIT, GPX,
-and TCX activity files.
-recordings. Upload a recording to turn it into positional, running,
+and TCX activity recordings. Upload a recording to turn it into positional, running,
 physiological, and football-specific analysis. Use it without an account for
 local analysis, or connect Supabase to save matches, share them, manage fields,
 and keep a history.
@@ -10,6 +9,10 @@ and keep a history.
 Built with Vue 3, Vite, TypeScript, and Supabase. The production app is
 published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
 Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpitch).
+Demo: [YouTube](https://www.youtube.com/watch?v=WCeoq0-hS1k).
+Submission: [Devpost](https://devpost.com/software/xpitch).
+
+![xPitch preview: football GPS analytics with a pitch heatmap](xpitch-thumbnail.png)
 
 ## Features
 
@@ -17,11 +20,15 @@ Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpit
 - Analyze pitch position, movement trail, heatmap, distance, speed zones,
   sprints, heart rate, recovery, workload, fatigue, and estimated role.
 - Define a field on a map or from coordinates for more accurate pitch mapping.
-- Split a recording into sessions and matches, including manual split editing.
+- Split recordings into sessions and matches, automatically treating sustained
+  missing-record periods as rest; refine every play/rest boundary in the split editor.
 - Save and share matches with a Supabase account, browse public profiles and
   match feeds, and review a personal history dashboard.
 - Keep owner-only match notes and upload match photos with public or private
   visibility.
+- Export a match map as an Instagram Story or post image. Stories can include
+  an uploaded match photo, distance, top speed, inferred playing role, and the
+  saved-match URL.
 - Load a bundled real sample or a generated synthetic demo when no activity file is
   available.
 
@@ -144,12 +151,14 @@ dispatch. It runs `npm run ci` on Node 20.
 xPitch was initially developed with Claude assistance, recorded in commit
 [`a9acd52`](https://github.com/ismailsunni/xpitch/commit/a9acd52)
 through its co-author trailer. Most subsequent work, including the guided FIT
-upload flow, reusable session splitting, saved-match editing, Supabase schema
-and media, pitch creation/editing with map search, history dashboard, tests,
-and CI, has been developed with GPT-5.6 through Codex as the coding
-collaborator. Codex was used for implementation, refactoring, database
-migrations, verification, and CI integration; product direction and review
-remained with the project maintainer.
+upload flow, GPX/TCX normalization, reusable play/rest session splitting,
+saved-match editing, Supabase schema and media, pitch creation/editing with map
+search, Story image export, history dashboard, tests, and CI, has been developed
+with GPT-5.6 through Codex as the coding collaborator. Codex was used for
+implementation, refactoring, spatial-analysis work such as homography-based
+pitch mapping and great-circle distance calculations, database migrations,
+verification, and CI integration; product direction and review remained with
+the project maintainer.
 
 ## How Analysis Works
 
@@ -162,8 +171,10 @@ fields and slightly imperfect rectangles are supported.
 
 GPS and heart-rate metrics are estimates. Accuracy depends on GPS quality,
 sampling rate, watch placement, and the input data available in the recording.
-Adding age or maximum heart rate improves zone calculations. The attacking end
-can be flipped per match and period when teams switch sides.
+Sustained gaps in record timestamps are treated as rest when a recording is
+split into sessions. Adding age or maximum heart rate improves zone
+calculations. The attacking end can be flipped per match and period when teams
+switch sides.
 
 No recording handy? Use **Load sample** for the bundled sample in
 `public/samples/`, or use the synthetic demo from the analyze screen. Developer
