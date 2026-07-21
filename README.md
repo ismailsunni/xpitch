@@ -1,6 +1,6 @@
 # xPitch
 
-xPitch is a football, mini-soccer, and futsal match analyzer for GPS FIT, GPX,
+[xPitch](https://ismailsunni.id/xpitch/) is a football, mini-soccer, and futsal match analyzer for GPS FIT, GPX,
 and TCX activity recordings. Upload a recording to turn it into positional, running,
 physiological, and football-specific analysis. Use it without an account for
 local analysis, or connect Supabase to save matches, share them, manage fields,
@@ -8,9 +8,10 @@ and keep a history.
 
 Built with Vue 3, Vite, TypeScript, and Supabase. The production app is
 published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
-Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpitch).
-Demo: [YouTube](https://www.youtube.com/watch?v=WCeoq0-hS1k).
-Submission: [Devpost](https://devpost.com/software/xpitch).
+
+- Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpitch).
+- Demo: [YouTube](https://www.youtube.com/watch?v=WCeoq0-hS1k).
+- Submission: [Devpost](https://devpost.com/software/xpitch).
 
 ![xPitch preview: football GPS analytics with a pitch heatmap](xpitch-thumbnail.png)
 
