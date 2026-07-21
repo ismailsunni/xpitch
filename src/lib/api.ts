@@ -1,13 +1,14 @@
 /*
  * api.ts — typed Supabase data/storage access for saved matches.
  * Phase 1: create a match from the current in-memory analysis, and re-open a
- * saved match by its short id (download .fit(s) from Storage + rows).
+ * saved match by its short id (download source activity files from Storage + rows).
  */
 import { nanoid } from 'nanoid';
 import { sharedSupabase, supabase } from './supabase';
 import { auth, isAdmin, reloadProfile } from './auth';
 import { compute } from './analytics';
-import { fitTimestampToDate, parse as parseFit } from './fit-parser';
+import { fitTimestampToDate } from './fit-parser';
+import { parseActivityFile } from './activity-parser';
 import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, mergeFiles } from './segmentation';
 import { centroid, haversine, type LatLon } from './geo';
 import type { Database, Json } from './database.types';
@@ -109,7 +110,7 @@ export async function createMatchFromCurrent(snapshot: MatchPersistenceSnapshot,
 
   const shortId = nanoid(12);
 
-  // 1. Upload raw .fit files to fits/{uid}/{shortId}/{filename}
+  // 1. Upload raw source files to fits/{uid}/{shortId}/{filename}
   for (const f of raw) {
     const path = `${uid}/${shortId}/${f.name}`;
     const { error } = await sb.storage
@@ -283,7 +284,7 @@ export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
     if (error) throw error;
     rawFiles.push({ name, bytes: await data.arrayBuffer() });
   }
-  const parsed = rawFiles.map((file) => ({ name: file.name, fit: parseFit(file.bytes) }));
+  const parsed = rawFiles.map((file) => ({ name: file.name, fit: parseActivityFile(file.bytes, file.name) }));
   const fit = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
   const start = fit.records.find((record) => record.timestamp != null)?.timestamp as number | undefined;
   const splits = match.manual_splits;
@@ -322,7 +323,7 @@ export async function buildLegacyFeedHeatmap(match: any): Promise<any | null> {
   return analysis.ok ? analysis.positional : null;
 }
 
-// Fetch a saved match + sessions and download its .fit files from Storage.
+// Fetch a saved match + sessions and download its source files from Storage.
 export async function getMatch(shortId: string, shareToken?: string | null): Promise<LoadedMatch | null> {
   const sb = requireClient();
   const { data: directMatch, error } = await sb.from('matches').select('*').eq('short_id', shortId).maybeSingle();
@@ -532,7 +533,7 @@ export async function deleteMatchMedia(media: MatchMedia): Promise<void> {
   if (error) throw error;
 }
 
-// Delete a match: remove its .fit files from Storage, then the row (sessions cascade).
+// Delete a match: remove its source files from Storage, then the row (sessions cascade).
 export async function deleteMatch(match: {
   id: string;
   short_id: string;

@@ -180,18 +180,16 @@ function previous() {
           </select>
         </label>
         <p v-if="hasGps" class="hint">A pitch improves positional accuracy and unlocks attack-direction setup. You can continue without one and add it later.</p>
-        <p v-else class="hint">This file has no GPS coordinates, so a pitch cannot be mapped to it.</p>
-        <template v-if="hasGps">
-          <label>Pitch
-            <select :value="store.selectedFieldId || ''" @change="setSelectedField(($event.target as HTMLSelectElement).value || null)">
-              <option value="">No pitch yet{{ automaticFieldLabel ? ` (nearby: ${automaticFieldLabel})` : '' }}</option>
-              <option v-for="{ item: field, distance } in nearbyFields" :key="field.id" :value="field.id">
-                {{ field.name }}{{ Number.isFinite(distance) ? ` · ${fmtDist(distance)} away` : '' }}
-              </option>
-            </select>
-          </label>
-          <button class="btn ghost" @click="openFieldEditor(undefined, 'match')">＋ Create a pitch</button>
-        </template>
+        <p v-else class="hint">This file has no GPS coordinates. Choose or create a pitch to set the match location; positional analysis will remain unavailable.</p>
+        <label>Pitch
+          <select :value="store.selectedFieldId || ''" @change="setSelectedField(($event.target as HTMLSelectElement).value || null)">
+            <option value="">No pitch yet{{ hasGps && automaticFieldLabel ? ` (nearby: ${automaticFieldLabel})` : '' }}</option>
+            <option v-for="{ item: field, distance } in nearbyFields" :key="field.id" :value="field.id">
+              {{ field.name }}{{ Number.isFinite(distance) ? ` · ${fmtDist(distance)} away` : '' }}
+            </option>
+          </select>
+        </label>
+        <button class="btn ghost" @click="openFieldEditor(undefined, 'match')">＋ Create a pitch</button>
       </div>
 
       <div v-else-if="step === 'split'" class="wizard-body"><SessionSplitEditor /></div>

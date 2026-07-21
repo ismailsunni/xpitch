@@ -179,7 +179,9 @@ function autoSplitFromHR() {
     }))
     : suggestRestIntervalsFromHR(fit);
   if (!intervals.length) {
-    error.value = 'No additional HR recovery breaks were detected. The file sessions are kept as-is.';
+    // Timestamp-gap rests are already present; this button only adds extra
+    // breaks inferred from an HR recovery valley.
+    error.value = breakSessionStarts.value.length ? '' : 'No HR recovery break was detected. Add a split manually if needed.';
     return;
   }
   const fileSplit = initialSplitState();

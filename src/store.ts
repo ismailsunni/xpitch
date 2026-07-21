@@ -2,10 +2,11 @@
 import { markRaw, reactive } from 'vue';
 import * as FitParser from './lib/fit-parser';
 import type { FitResult, RecordSample } from './lib/fit-parser';
+import { parseActivityFile } from './lib/activity-parser';
 import { compute, FORMATS } from './lib/analytics';
 import type { MatchAnalytics, FormatKey } from './lib/analytics';
 import { generate } from './lib/demo';
-import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, recordsForPeriod, mergeFiles, playableSegments, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
+import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, missingRecordRestIntervals, recordsForPeriod, mergeFiles, playableSegments, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
 import type { Segment, ParsedFile } from './lib/segmentation';
 import { reverseGeocode, deriveAge } from './lib/format';
 import { auth } from './lib/auth';
@@ -112,7 +113,7 @@ let currentFit: FitResult | null = null;
 let currentRawFiles: { name: string; bytes: ArrayBuffer }[] = [];
 let geoToken = 0;
 
-// Raw .fit bytes of the currently loaded match (for saving to cloud Storage).
+// Raw uploaded bytes (FIT, GPX, or TCX) for saving to cloud Storage.
 // Empty for the synthetic demo (not saveable).
 export function getRawFiles(): { name: string; bytes: ArrayBuffer }[] {
   return currentRawFiles;
@@ -399,6 +400,20 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
     store.sessionSplitEditorOpen = false;
     store.fieldEditorContext = 'standalone';
   }
+  // A sustained timestamp gap means recording was stopped. Seed the editable
+  // split model with play → rest → play boundaries instead of treating it as
+  // elapsed match time, whether it was uploaded as one or many source files.
+  if (resetFlips) {
+    const origin = recordingStartTime(fit);
+    const rests = missingRecordRestIntervals(fit);
+    if (origin != null && rests.length) {
+      store.manualSplits = {
+        sessionBreaks: rests.flatMap((rest) => [rest.start - origin, rest.end - origin]),
+        halfBreaks: [],
+      };
+      store.breakSessionStarts = rests.map((rest) => rest.start);
+    }
+  }
   store.activeTab = 'overview';
   store.segments = store.manualSplits
     ? applySessionBreaks(buildSegmentsManual(fitWithoutBreaks(fit), store.manualSplits.sessionBreaks, store.manualSplits.halfBreaks, recordingStartTime(fit)))
@@ -447,7 +462,12 @@ export function loadSample(): Promise<void> {
   return loadFromUrls(SAMPLE_FILES.map((f) => `${base}samples/${f}`));
 }
 
-// Parse and load one or more .fit files, merged into a single timeline.
+export function loadRoleSample(): Promise<void> {
+  const base = import.meta.env.BASE_URL || './';
+  return loadFromUrl(`${base}samples/mini-soccer-4-sessions-roles.fit`);
+}
+
+// Parse and load FIT, GPX, or TCX files into one normalized timeline.
 export async function loadFiles(fileList: File[]): Promise<void> {
   store.loading = true;
   store.error = '';
@@ -456,7 +476,7 @@ export async function loadFiles(fileList: File[]): Promise<void> {
     const raw: { name: string; bytes: ArrayBuffer }[] = [];
     for (const f of fileList) {
       const buf = await f.arrayBuffer();
-      const fit = FitParser.parse(buf);
+      const fit = parseActivityFile(buf, f.name);
       if (!fit.records.length) throw new Error(`${f.name}: no record messages found`);
       parsed.push({ name: f.name, fit });
       raw.push({ name: f.name, bytes: buf });
@@ -471,7 +491,7 @@ export async function loadFiles(fileList: File[]): Promise<void> {
     // hooks intentionally retain their immediate-dashboard behaviour.
     store.uploadWizardOpen = !!store.analytics;
   } catch (e: any) {
-    store.error = userErrorMessage(e, 'Could not parse this FIT file. Check that it is a valid activity export.');
+    store.error = userErrorMessage(e, 'Could not parse this file. Choose a valid FIT, GPX, or TCX activity export.');
     store.analytics = null;
   } finally {
     store.loading = false;
@@ -491,7 +511,7 @@ export async function loadFromUrl(url: string, name?: string): Promise<void> {
     const nm = name || url.split('/').pop() || 'match.fit';
     currentRawFiles = [{ name: nm, bytes: buf }];
     store.files = [nm];
-    loadFit(FitParser.parse(buf), nm);
+    loadFit(parseActivityFile(buf, nm), nm);
   } catch (e: any) {
     store.error = userErrorMessage(e, 'Could not load the sample file. Try again.');
   } finally {
@@ -508,7 +528,7 @@ export async function loadFromUrls(urls: string[]): Promise<void> {
     for (const u of urls) {
       const buf = await (await fetch(u)).arrayBuffer();
       const name = u.split('/').pop() || u;
-      parsed.push({ name, fit: FitParser.parse(buf) });
+      parsed.push({ name, fit: parseActivityFile(buf, name) });
       raw.push({ name, bytes: buf });
     }
     currentRawFiles = raw;

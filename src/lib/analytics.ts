@@ -871,7 +871,7 @@ export function estimateRole(
       { role: 'Winger', score: wide * 3.2 + spreadU * 1.1 + sp * 1.2 + Math.max(0, avgU - 0.45) * 1.0 },
       { role: 'Midfielder', score: (1 - Math.min(wide * 2, 1)) * 1.5 + Math.min(kmPerHour / 8, 1) * 2.0 + spreadU * 2.0 + midFrac * 1.3 },
       { role: 'Defender', score: back * 3.0 + defFrac * 1.7 + (1 - sp) * 0.9 },
-      { role: 'Full-back', score: wide * 2.2 + back * 1.6 + spreadU * 1.5 + sp * 0.7 },
+      { role: 'Full-back', score: wide * 2.8 + back * 2.0 + spreadU * 1.7 + sp * 0.9 },
     ];
   } else {
     // full (11-a-side)

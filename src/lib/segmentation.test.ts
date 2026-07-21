@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, playableSegments, recordsForPeriod, suggestRestIntervalsFromHR, suggestSessionBreaksFromHR } from './segmentation';
+import { buildSegmentsManual, buildSegmentsPerFile, mergeFiles, missingRecordRestIntervals, playableSegments, recordsForPeriod, suggestRestIntervalsFromHR, suggestSessionBreaksFromHR } from './segmentation';
 import type { FitResult, RecordSample } from './fit-parser';
 
 function records(from: number, to: number, step = 10, fileName?: string): RecordSample[] {
@@ -42,6 +42,28 @@ describe('segmentation helpers', () => {
     expect(segments.map((s) => s.label)).toEqual(['Whole upload', 'Session 1', 'Session 2']);
     expect(segments[1].sourceFile).toBe('a.fit');
     expect(segments[2].sourceFile).toBe('b.fit');
+  });
+
+  it('treats missing time between uploaded files as rest in the combined timeline', () => {
+    const merged = mergeFiles([
+      { name: 'first.fit', fit: fit(records(100, 130)) },
+      { name: 'second.fit', fit: fit(records(730, 760)) },
+    ]);
+    const [whole, first, second] = buildSegmentsPerFile(merged);
+
+    expect(first.startTime).toBe(100);
+    expect(second.startTime).toBe(730);
+    expect(whole.startTime).toBe(100);
+    expect(whole.endTime).toBe(160);
+    expect(whole.records.map((record) => record.timestamp)).toEqual([100, 110, 120, 130, 130, 140, 150, 160]);
+    expect(missingRecordRestIntervals(merged)).toEqual([{ start: 131, end: 730 }]);
+  });
+
+  it('finds rest gaps inside a single uploaded recording', () => {
+    expect(missingRecordRestIntervals(fit([
+      ...records(100, 130),
+      ...records(800, 830),
+    ]))).toEqual([{ start: 131, end: 800 }]);
   });
 
   it('removes rest sections without leaving gaps in playable session labels', () => {

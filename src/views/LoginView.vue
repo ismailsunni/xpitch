@@ -48,7 +48,7 @@ async function google() {
         <p v-if="err" class="error">{{ err }}</p>
       </template>
       <p class="hint" style="margin-top: 16px">
-        You can analyze <code>.fit</code> files without an account — an account is only needed to
+        You can analyze FIT, GPX, and TCX files without an account — an account is only needed to
         save matches, get a profile, and reuse pitches.
       </p>
     </div>

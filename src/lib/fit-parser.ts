@@ -144,6 +144,12 @@ export function fitTimestampToDate(raw: number | null | undefined): Date | null 
   return new Date((raw + FIT_EPOCH_OFFSET) * 1000);
 }
 
+// External XML formats use Unix timestamps. Normalize them to FIT's epoch so
+// segmentation and display code can handle every import format consistently.
+export function dateToFitTimestamp(date: Date): number {
+  return Math.floor(date.getTime() / 1000) - FIT_EPOCH_OFFSET;
+}
+
 function readValue(view: DataView, offset: number, baseType: BaseType, le: boolean): number {
   switch (baseType.name) {
     case 'enum':

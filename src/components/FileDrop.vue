@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { store, loadFiles, loadDemo, loadSample } from '../store';
+import { store, loadFiles, loadDemo, loadRoleSample, loadSample } from '../store';
 
 const dragging = ref(false);
 const picker = ref<HTMLInputElement>();
@@ -47,19 +47,23 @@ function cancelSelection() {
   >
     <div class="dz-inner">
       <div class="dz-icon">📂</div>
-      <h2>Drop your <code>.fit</code> file(s) here</h2>
+      <h2>Drop your activity file(s) here</h2>
       <p>
-        One or several files — matches recorded close together are grouped into one session
+        FIT, GPX, or TCX — one or several files recorded close together are grouped into one session
         automatically. Nothing is uploaded; parsing happens locally in your browser.
       </p>
       <p class="dz-or">
         No file handy? <button class="linkbtn" @click="loadSample">Load a real sample</button>
         <span style="color: var(--muted)"> — an afternoon of 4 mini-soccer matches</span>
       </p>
+      <p class="dz-or">
+        <button class="linkbtn" @click="loadRoleSample">Load the 4-session role sample</button>
+        <span style="color: var(--muted)"> — striker, goalkeeper, left-back, striker</span>
+      </p>
       <p style="font-size: 12.5px">
         or a <button class="linkbtn" @click="loadDemo">synthetic demo</button>
       </p>
-      <input ref="picker" class="file-picker" type="file" accept=".fit,application/octet-stream" multiple @change="onPick" />
+      <input ref="picker" class="file-picker" type="file" accept=".fit,.gpx,.tcx,application/octet-stream,application/gpx+xml,application/vnd.garmin.tcx+xml" multiple @change="onPick" />
       <template v-if="pendingFiles.length">
         <div class="chosen-files">
           <strong>{{ pendingFiles.length }} file{{ pendingFiles.length === 1 ? '' : 's' }} selected</strong>
@@ -70,7 +74,7 @@ function cancelSelection() {
           <button class="btn ghost" @click="cancelSelection">Cancel</button>
         </div>
       </template>
-      <button v-else class="btn ghost" @click="picker?.click()">Choose .fit file(s)</button>
+      <button v-else class="btn ghost" @click="picker?.click()">Choose FIT, GPX, or TCX file(s)</button>
       <p v-if="store.loading" class="hint">Parsing…</p>
       <p v-else-if="store.files.length" class="hint">{{ store.files.length }} file{{ store.files.length === 1 ? '' : 's' }} loaded</p>
       <p v-if="store.error" class="error">{{ store.error }}</p>

@@ -244,7 +244,7 @@ watch(() => auth.user?.id, load);
         <h1>Historical analysis</h1>
         <p class="hint">Trends across your saved matches and sessions.</p>
       </div>
-      <RouterLink to="/analyze" class="btn primary small">＋ Analyze a .fit</RouterLink>
+      <RouterLink to="/analyze" class="btn primary small">＋ Analyze activity</RouterLink>
     </header>
 
     <p v-if="state === 'disabled'" class="empty">History is not available on this deployment.</p>
@@ -256,7 +256,7 @@ watch(() => auth.user?.id, load);
 
     <template v-else>
       <p v-if="!matches.length" class="empty">
-        No saved matches yet. Analyze a <code>.fit</code> file, then save it to build your history.
+        No saved matches yet. Analyze a FIT, GPX, or TCX file, then save it to build your history.
       </p>
 
       <template v-else>

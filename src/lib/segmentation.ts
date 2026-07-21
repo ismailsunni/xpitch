@@ -43,6 +43,21 @@ export interface RestInterval {
   end: number;
 }
 
+// A sustained absence of samples means recording was stopped, whether it came
+// from separate source files or separate sessions inside one source file.
+export function missingRecordRestIntervals(fit: FitResult): RestInterval[] {
+  const records = fit.records
+    .filter((record) => record.timestamp != null)
+    .sort((a, b) => ts(a) - ts(b));
+  const intervals: RestInterval[] = [];
+  for (let index = 1; index < records.length; index++) {
+    const start = ts(records[index - 1]) + 1;
+    const end = ts(records[index]);
+    if (end - start >= ATOMIC_GAP_S) intervals.push({ start, end });
+  }
+  return intervals;
+}
+
 // Remove sections marked as rest and renumber the remaining playable sessions.
 // Keeping this pure prevents UI labels from depending on store implementation.
 export function playableSegments(segs: Segment[], restStarts: number[]): Segment[] {
@@ -306,6 +321,7 @@ export function buildSegmentsPerFile(fit: FitResult, breakFiles: string[] = []):
   const activeFiles = files.filter((file) => !breakFiles.includes(file.name));
   if (!activeFiles.length) return [];
   const activeRecords = activeFiles.flatMap((file) => file.records).sort((a, b) => ts(a) - ts(b));
+  const hasMissingPeriod = activeFiles.some((file, index) => index > 0 && file.start - activeFiles[index - 1].end > 1);
   const segs: Segment[] = activeFiles.map((file, i) => ({
     id: 'f' + i,
     label: 'Session ' + (i + 1),
@@ -318,7 +334,27 @@ export function buildSegmentsPerFile(fit: FitResult, breakFiles: string[] = []):
     periods: [],
     sourceFile: file.name,
   }));
-  return [combinedSeg(activeRecords, 'Whole upload'), ...segs];
+  // Source files commonly stop the recording during a break. Keep every
+  // file's original timeline for its own session, but remove those missing
+  // intervals from the whole-upload view so they are treated as rest rather
+  // than elapsed match time.
+  const combined = combinedSeg(hasMissingPeriod ? compactFileTimeline(activeFiles) : activeRecords, 'Whole upload');
+  return [combined, ...segs];
+}
+
+function compactFileTimeline(files: { records: RecordSample[]; start: number; end: number }[]): RecordSample[] {
+  const first = files[0]?.start ?? 0;
+  let cursor = first;
+  const records: RecordSample[] = [];
+  for (const file of files) {
+    const shift = cursor - file.start;
+    for (const record of file.records) {
+      const timestamp = ts(record) + shift;
+      records.push({ ...record, timestamp, date: fitTimestampToDate(timestamp) || record.date });
+    }
+    cursor += Math.max(0, file.end - file.start);
+  }
+  return records;
 }
 
 // Manual splitting: carve the recording into sessions at `sessionBreaksSec`

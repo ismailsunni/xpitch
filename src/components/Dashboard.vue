@@ -64,7 +64,7 @@ function openSessionSetup() {
     <component :is="activeComp" :key="store.activeTab" />
 
     <footer class="foot">
-      <p>All processing is local · FIT decoded in-browser · Metrics are estimates from GPS/HR data.</p>
+      <p>All processing is local · FIT, GPX, and TCX decoded in-browser · Metrics are estimates from GPS/HR data.</p>
     </footer>
   </div>
 </template>

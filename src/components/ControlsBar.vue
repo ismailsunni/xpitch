@@ -83,7 +83,7 @@ function onGap(e: Event) {
 
       <div class="fld" v-if="multiFile">
         <span class="lbl">Files</span>
-        <span class="ok">each file is a session</span>
+        <span class="ok">each file is a session; missing time is rest</span>
       </div>
       <div class="fld" v-else>
         <label for="gap">Group within</label>

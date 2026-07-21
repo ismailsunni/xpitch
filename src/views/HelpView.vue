@@ -7,7 +7,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
   <main class="tabpane help">
     <h1 style="margin-top: 0">How xPitch works</h1>
     <p class="lead">
-      xPitch analyzes a <code>.fit</code> file recorded by a GPS watch or tracker during a football,
+      xPitch analyzes FIT, GPX, or TCX activity files recorded by a GPS watch or tracker during a football,
       mini-soccer or futsal match — positional heatmaps, running &amp; sprint stats, heart-rate zones
       and football metrics — all in your browser. An account lets you save matches, get shareable
       links, reuse pitches and build a history.
@@ -20,20 +20,17 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       xPitch can split and group them. Higher GPS sample rate (1 s) gives better heatmaps.
     </p>
 
-    <h3>2 · Get the <code>.fit</code> file</h3>
+    <h3>2 · Export an activity file</h3>
     <ul>
-      <li><strong>Garmin</strong> — Garmin Connect (web) → open the activity → <em>⚙ / ⋯ → Export Original</em> → downloads a <code>.fit</code>.</li>
-      <li><strong>Coros</strong> — COROS app → activity → <em>… → Export → Original / FIT</em>.</li>
-      <li><strong>Polar</strong> — Polar Flow (web) → activity → <em>Export → FIT / Export session</em>.</li>
-      <li><strong>Suunto</strong> — Suunto app / movescount → export original <code>.fit</code>.</li>
-      <li><strong>Wahoo / others</strong> — most companion apps have “Export original / FIT”.</li>
-      <li><strong>Apple Watch</strong> — the built-in Workout app doesn’t export <code>.fit</code>; record with an app that does (e.g. <em>HealthFit</em>, <em>WorkOutDoors</em>) and export FIT.</li>
-      <li><strong>Strava</strong> — you can’t download the original <code>.fit</code> via Strava; direct Strava import is planned. For now use the file from your device app above.</li>
+      <li><strong>Garmin</strong> — Garmin Connect (web) → open the activity → <em>⚙ / ⋯ → Export Original</em> for FIT, or export GPX/TCX.</li>
+      <li><strong>Coros / Polar / Suunto / Wahoo</strong> — export FIT when available; GPX or TCX also work.</li>
+      <li><strong>Apple Watch</strong> — use an export app such as <em>HealthFit</em> or <em>WorkOutDoors</em> to create FIT, GPX, or TCX.</li>
+      <li><strong>Strava</strong> — export GPX or TCX from the activity when available. Direct Strava import requires an API subscription and is not enabled.</li>
     </ul>
 
     <h3>3 · Analyze</h3>
     <p>
-      Click <strong>Import .fit file</strong> in the navigation, or drop the file on the
+      Click <strong>Import activity file</strong> in the navigation, or drop the file on the
       <RouterLink to="/analyze">Analyze</RouterLink> page. Upload several files at once — matches
       recorded close together are grouped into one match with multiple sessions (halves show as
       periods). No file? Use <strong>Load a real sample</strong>.

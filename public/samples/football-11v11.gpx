@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="xPitch test data" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
+  <trk><name>xPitch 11v11 GPX test</name><trkseg>
+    <trkpt lat="-7.775000" lon="110.375000"><ele>120</ele><time>2026-07-19T08:00:00Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>132</gpxtpx:hr><gpxtpx:cad>78</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.774920" lon="110.375160"><ele>120</ele><time>2026-07-19T08:00:15Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>140</gpxtpx:hr><gpxtpx:cad>84</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.774820" lon="110.375340"><ele>121</ele><time>2026-07-19T08:00:30Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>149</gpxtpx:hr><gpxtpx:cad>92</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.774700" lon="110.375520"><ele>121</ele><time>2026-07-19T08:00:45Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>158</gpxtpx:hr><gpxtpx:cad>98</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.774780" lon="110.375720"><ele>120</ele><time>2026-07-19T08:01:00Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>164</gpxtpx:hr><gpxtpx:cad>96</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.774900" lon="110.375580"><ele>120</ele><time>2026-07-19T08:01:15Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>160</gpxtpx:hr><gpxtpx:cad>91</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.775020" lon="110.375360"><ele>120</ele><time>2026-07-19T08:01:30Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>154</gpxtpx:hr><gpxtpx:cad>86</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+    <trkpt lat="-7.775100" lon="110.375140"><ele>120</ele><time>2026-07-19T08:01:45Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>146</gpxtpx:hr><gpxtpx:cad>82</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>
+  </trkseg></trk>
+</gpx>

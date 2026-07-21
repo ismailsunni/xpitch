@@ -1,6 +1,7 @@
 # xPitch
 
-xPitch is a football, mini-soccer, and futsal match analyzer for GPS `.fit`
+xPitch is a football, mini-soccer, and futsal match analyzer for GPS FIT, GPX,
+and TCX activity files.
 recordings. Upload a recording to turn it into positional, running,
 physiological, and football-specific analysis. Use it without an account for
 local analysis, or connect Supabase to save matches, share them, manage fields,
@@ -12,7 +13,7 @@ Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpit
 
 ## Features
 
-- Parse FIT recordings in the browser, with no upload required for local use.
+- Parse FIT, GPX, and TCX recordings in the browser, with no upload required for local use.
 - Analyze pitch position, movement trail, heatmap, distance, speed zones,
   sprints, heart rate, recovery, workload, fatigue, and estimated role.
 - Define a field on a map or from coordinates for more accurate pitch mapping.
@@ -21,7 +22,7 @@ Source code: [github.com/ismailsunni/xpitch](https://github.com/ismailsunni/xpit
   match feeds, and review a personal history dashboard.
 - Keep owner-only match notes and upload match photos with public or private
   visibility.
-- Load a bundled real sample or a generated synthetic demo when no FIT file is
+- Load a bundled real sample or a generated synthetic demo when no activity file is
   available.
 
 ## Quick Start
@@ -186,7 +187,14 @@ docs/
 
 ## Data and Privacy
 
-Personal FIT files are ignored by Git because they can contain location data.
+Personal activity files are ignored by Git because they can contain location data.
+
+For manual parser checks, use the synthetic 11-a-side fixtures in
+`public/samples/football-11v11.gpx` and `public/samples/football-11v11.tcx`,
+or the four-session mini-soccer FIT fixture
+`public/samples/mini-soccer-4-sessions-roles.fit`. The FIT sessions model a
+striker, goalkeeper, left-back, then striker on the seeded Amikom Soccer Arena
+pitch.
 Local analysis keeps recordings in the browser. When a signed-in user saves a
 match, the selected match data is stored in Supabase under the permissions
 defined by the migrations. Private notes and private media are only accessible

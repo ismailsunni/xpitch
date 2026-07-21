@@ -110,7 +110,7 @@ async function saveProfile() {
 
       <p v-if="!data.matches.length" class="empty">
         <template v-if="data.isOwner">
-          No saved matches yet. Open a <code>.fit</code> file, then hit <strong>Save match</strong>.
+          No saved matches yet. Open a FIT, GPX, or TCX file, then hit <strong>Save match</strong>.
         </template>
         <template v-else>No public matches.</template>
       </p>

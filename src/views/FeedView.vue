@@ -70,7 +70,7 @@ watch(
           <button class="seg-btn" :class="{ on: layout === 'card' }" @click="layout = 'card'">Cards</button>
           <button class="seg-btn" :class="{ on: layout === 'list' }" @click="layout = 'list'">List</button>
         </div>
-        <RouterLink to="/analyze" class="btn primary small">＋ Analyze a .fit</RouterLink>
+        <RouterLink to="/analyze" class="btn primary small">＋ Analyze activity</RouterLink>
       </div>
     </div>
 
@@ -82,10 +82,10 @@ watch(
     <p v-else-if="state === 'error'" class="empty">We couldn’t load matches. <button class="linkbtn" @click="load">Retry</button></p>
     <template v-else>
       <p v-if="!matches.length && filter === 'mine'" class="empty">
-        You haven’t saved any matches yet — <RouterLink to="/analyze">analyze a file</RouterLink> and hit Save.
+        You haven’t saved any matches yet — <RouterLink to="/analyze">analyze an activity file</RouterLink> and hit Save.
       </p>
       <p v-else-if="!matches.length" class="empty">
-        No matches yet — <RouterLink to="/analyze">analyze a file</RouterLink> and hit Save.
+        No matches yet — <RouterLink to="/analyze">analyze an activity file</RouterLink> and hit Save.
       </p>
       <div v-else :class="layout === 'list' ? 'match-list' : 'match-grid'">
         <MatchCard v-for="m in matches" :key="m.short_id" :match="m" :variant="layout" show-author />

@@ -76,7 +76,7 @@ watch(
       <RouterLink v-else-if="supabaseEnabled" to="/login">Log in</RouterLink>
     </nav>
     <div class="mobile-actions">
-      <label class="import-cta"><input type="file" accept=".fit" multiple hidden @change="onPick" />Import .fit file</label>
+      <label class="import-cta"><input type="file" accept=".fit,.gpx,.tcx" multiple hidden @change="onPick" />Import activity file</label>
       <SaveMatchButton />
       <button class="theme-toggle" @click="toggleTheme">{{ theme.mode === 'dark' ? 'Light mode' : 'Dark mode' }}</button>
       <button v-if="auth.user" class="mobile-signout" @click="doSignOut">Sign out</button>
@@ -120,9 +120,9 @@ watch(
     <div class="spacer"></div>
 
     <label class="import-cta">
-      <input type="file" accept=".fit" multiple hidden @change="onPick" />
+      <input type="file" accept=".fit,.gpx,.tcx" multiple hidden @change="onPick" />
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
-      Import .fit file
+      Import activity file
     </label>
 
     <SaveMatchButton class="save-in-sidebar" />

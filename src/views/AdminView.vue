@@ -80,7 +80,7 @@ async function changePrivilege(profile: any, level: 'user' | 'admin') {
 }
 
 function requestRemoveMatch(match: any) {
-  pendingDelete.value = { kind: 'match', item: match, message: `Delete "${title(match)}" and its FIT files? This cannot be undone.` };
+  pendingDelete.value = { kind: 'match', item: match, message: `Delete "${title(match)}" and its source files? This cannot be undone.` };
 }
 async function removeMatch(match: any) {
   savingId.value = match.id;

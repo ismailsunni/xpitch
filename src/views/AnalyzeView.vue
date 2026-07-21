@@ -27,9 +27,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <!-- Landing here comes from the Import .fit action; a plain drop zone if visited empty. -->
+  <!-- Landing here comes from Import activity; a plain drop zone if visited empty. -->
   <main v-if="!store.analytics" class="analyze-empty">
-    <h1 class="sr-only">Analyze a FIT file</h1>
+    <h1 class="sr-only">Analyze an activity file</h1>
     <FileDrop />
   </main>
   <main v-else>

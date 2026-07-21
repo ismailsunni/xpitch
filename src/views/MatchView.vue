@@ -18,7 +18,7 @@ import {
   type MatchMedia,
 } from '../lib/api';
 import { store, getRawFiles, loadFromCloud, matchPersistenceSnapshot, nonCombinedSegments, recompute, selectSegment, setSelectedField } from '../store';
-import * as FitParser from '../lib/fit-parser';
+import { parseActivityFile } from '../lib/activity-parser';
 import { mergeFiles } from '../lib/segmentation';
 import { auth } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
@@ -88,7 +88,7 @@ const hasDraftChanges = computed(
     (draftTitle.value.trim() !== (matchRow.value.title || '') ||
       draftVisibility.value !== (matchRow.value.visibility || 'unlisted'))
 );
-const fitDownloadLabel = computed(() => (getRawFiles().length > 1 ? 'Download .fit files' : 'Download .fit'));
+const activityDownloadLabel = computed(() => (getRawFiles().length > 1 ? 'Download source files' : 'Download source file'));
 const hasNoteChanges = computed(() => noteDraft.value !== noteSaved.value);
 const hasMediaChanges = computed(() =>
   mediaItems.value.some(
@@ -109,7 +109,7 @@ function revokeMediaUrls() {
 function downloadFitFiles() {
   const files = getRawFiles();
   for (const file of files) {
-    const name = file.name.toLowerCase().endsWith('.fit') ? file.name : `${file.name}.fit`;
+    const name = file.name;
     const url = URL.createObjectURL(new Blob([file.bytes], { type: 'application/octet-stream' }));
     const a = document.createElement('a');
     a.href = url;
@@ -311,7 +311,7 @@ async function load() {
     }
     sessionIdBySeq = {};
     res.sessions.forEach((s: any) => (sessionIdBySeq[s.seq] = s.id));
-    const parsed = res.rawFiles.map((f) => ({ name: f.name, fit: FitParser.parse(f.bytes) }));
+    const parsed = res.rawFiles.map((f) => ({ name: f.name, fit: parseActivityFile(f.bytes, f.name) }));
     const fit = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     const seq = route.params.seq ? parseInt(route.params.seq as string, 10) : undefined;
     loadFromCloud(fit, {
@@ -429,7 +429,7 @@ watch(
           </button>
           <span v-else-if="owned && savedFlash" class="saved-note">Saved ✓</span>
           <button class="btn ghost small" :disabled="!getRawFiles().length" @click="downloadFitFiles">
-            {{ fitDownloadLabel }}
+              {{ activityDownloadLabel }}
           </button>
           <button class="btn ghost small" @click="shareImageOpen = true">Share image</button>
           <ShareButtons :url="shareUrl" :title="shareTitle" />
@@ -493,7 +493,7 @@ watch(
       <ConfirmDialog
         v-if="pendingDelete"
         :title="pendingDelete.kind === 'match' ? 'Delete match?' : 'Delete photo?'"
-        :message="pendingDelete.kind === 'match' ? 'Delete this match and its FIT files? This cannot be undone.' : 'Delete this photo? This cannot be undone.'"
+        :message="pendingDelete.kind === 'match' ? 'Delete this match and its source files? This cannot be undone.' : 'Delete this photo? This cannot be undone.'"
         @cancel="pendingDelete = null"
         @confirm="confirmDelete"
       />
