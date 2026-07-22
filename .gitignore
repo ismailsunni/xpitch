@@ -21,3 +21,6 @@ Thumbs.db
 
 # ...except the sample matches shipped with the app (user-provided, public).
 !public/samples/*.fit
+
+# Hackathon demo video (separate Remotion project + media) — not part of the app
+video/
