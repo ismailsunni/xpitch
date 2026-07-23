@@ -78,6 +78,7 @@ watch(
     </nav>
     <div class="mobile-actions">
       <label class="import-cta"><input type="file" accept=".fit,.gpx,.tcx" multiple hidden @change="onPick" />Import activity file</label>
+      <RouterLink v-if="supabaseEnabled && auth.user" to="/settings" class="strava-cta">Strava import</RouterLink>
       <SaveMatchButton />
       <button v-if="pwa.canInstall" class="theme-toggle" @click="installPwa">Install xPitch</button>
       <button v-if="pwa.updateAvailable" class="theme-toggle" @click="applyPwaUpdate">Update xPitch</button>
@@ -127,6 +128,11 @@ watch(
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
       Import activity file
     </label>
+
+    <RouterLink v-if="supabaseEnabled && auth.user" to="/settings" class="strava-cta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12l-2 6 3 2-7 8 2-6-3-2z" /></svg>
+      Strava import
+    </RouterLink>
 
     <SaveMatchButton class="save-in-sidebar" />
 
@@ -284,6 +290,22 @@ watch(
   width: 16px;
   height: 16px;
 }
+.strava-cta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--bg-elev2);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.strava-cta:hover { border-color: var(--accent-tint-strong); color: var(--accent-ink); }
+.strava-cta svg { width: 16px; height: 16px; color: var(--accent-ink); }
 .save-in-sidebar {
   margin-top: 8px;
 }

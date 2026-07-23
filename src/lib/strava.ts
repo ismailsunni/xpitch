@@ -1,6 +1,6 @@
 import { dateToFitTimestamp, type FitResult, type RecordSample, type SessionMessage } from './fit-parser';
 import { supabase } from './supabase';
-import { loadImportedStravaActivity } from '../store';
+import { loadImportedStravaActivities } from '../store';
 
 export interface StravaConnection {
   athlete_id: number;
@@ -127,9 +127,15 @@ function gpxSource(data: ImportedStravaActivity): ArrayBuffer {
   return new TextEncoder().encode(source).buffer;
 }
 
-export async function importStravaActivity(activityId: number): Promise<void> {
-  const imported = await invoke<ImportedStravaActivity>('strava-import', { activityId });
-  const fit = importedToFit(imported);
-  const name = `strava-${activityId}.gpx`;
-  loadImportedStravaActivity(fit, name, gpxSource(imported), String(activityId), imported.activity.name || 'Strava activity');
+export async function importStravaActivities(activityIds: number[]): Promise<void> {
+  const result = await invoke<{ activities: ImportedStravaActivity[] }>('strava-import', { activityIds });
+  if (!result.activities?.length) throw new Error('No Strava activities were returned.');
+  const activities = result.activities.map((imported) => ({
+    fit: importedToFit(imported),
+    name: `strava-${imported.activity.id}.gpx`,
+    bytes: gpxSource(imported),
+    activityId: String(imported.activity.id),
+    title: imported.activity.name || 'Strava activity',
+  }));
+  loadImportedStravaActivities(activities);
 }

@@ -111,7 +111,7 @@ function loadStoredFormat(): FormatKey {
 
 let currentFit: FitResult | null = null;
 let currentRawFiles: { name: string; bytes: ArrayBuffer }[] = [];
-let currentImportSource: { type: 'strava'; activityId: string } | null = null;
+let currentImportSource: { type: 'strava'; activityIds: string[] } | null = null;
 let geoToken = 0;
 
 // Raw uploaded bytes (FIT, GPX, or TCX) for saving to cloud Storage.
@@ -430,12 +430,18 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
 
 // Strava streams are normalized to the same FitResult shape as local files.
 // A generated GPX source keeps the normal cloud-save and reopen flow intact.
-export function loadImportedStravaActivity(fit: FitResult, name: string, bytes: ArrayBuffer, activityId: string, title: string): void {
-  currentRawFiles = [{ name, bytes }];
-  currentImportSource = { type: 'strava', activityId };
-  store.files = [name];
-  loadFit(fit, name);
-  store.matchTitle = title;
+export function loadImportedStravaActivities(activities: { fit: FitResult; name: string; bytes: ArrayBuffer; activityId: string; title: string }[]): void {
+  const ordered = [...activities].sort((a, b) => {
+    const aStart = a.fit.records[0]?.timestamp || 0;
+    const bStart = b.fit.records[0]?.timestamp || 0;
+    return aStart - bStart;
+  });
+  const fit = ordered.length === 1 ? ordered[0].fit : mergeFiles(ordered.map((activity) => ({ name: activity.name, fit: activity.fit })));
+  currentRawFiles = ordered.map(({ name, bytes }) => ({ name, bytes }));
+  currentImportSource = { type: 'strava', activityIds: ordered.map((activity) => activity.activityId) };
+  store.files = ordered.map((activity) => activity.name);
+  loadFit(fit, ordered.length === 1 ? ordered[0].name : `${ordered.length} Strava activities`);
+  store.matchTitle = ordered.length === 1 ? ordered[0].title : `${ordered.length} Strava activities`;
   store.uploadWizardOpen = !!store.analytics;
 }
 

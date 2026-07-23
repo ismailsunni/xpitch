@@ -146,7 +146,7 @@ export async function createMatchFromCurrent(snapshot: MatchPersistenceSnapshot,
       break_session_starts: snapshot.breakSessionStarts,
       manual_splits: asJson(snapshot.manualSplits),
       source: snapshot.source?.type || 'fit',
-      source_activity_id: snapshot.source?.activityId || null,
+      source_activity_id: snapshot.source?.activityIds.join(',') || null,
       visibility: opts.visibility ?? 'unlisted',
     })
     .select()
@@ -161,7 +161,7 @@ export async function createMatchFromCurrent(snapshot: MatchPersistenceSnapshot,
     const { error: sourceError } = await sb.from('strava_activities')
       .update({ imported_match_id: match.id })
       .eq('user_id', uid)
-      .eq('strava_activity_id', Number(snapshot.source.activityId));
+      .in('strava_activity_id', snapshot.source.activityIds.map(Number));
     if (sourceError) throw sourceError;
   }
 

@@ -7,7 +7,7 @@ heatmap, running/sprint/HR stats and football metrics, parsed in the browser. Ac
 ## Stack & deploy
 
 - Vue 3 + Vite + TypeScript. Router: history mode, base `/xpitch/`.
-- Backend: Supabase only (Postgres + Auth + Storage + RLS); browser uses the anon key.
+- Backend: Supabase only (Postgres + Auth + Storage + RLS + Edge Functions); browser uses the anon key.
   Migrations in `supabase/migrations/`. `.env.local` holds the anon key (gitignored).
 - Deploys to GitHub Pages from `main` via `.github/workflows/deploy.yml` (Actions).
   `.fit` is gitignored except `public/samples/*.fit` (the bundled "Load sample").
@@ -15,6 +15,8 @@ heatmap, running/sprint/HR stats and football metrics, parsed in the browser. Ac
 ## Commands
 
 - `npm run dev` · `npm run build` · `npm run typecheck` (`vue-tsc --noEmit`).
+- `npx supabase db push` applies linked-project migrations. Deploy Strava functions with
+  `npx supabase functions deploy strava-connect strava-callback strava-sync strava-import strava-disconnect`.
 
 ## Conventions
 
@@ -35,6 +37,12 @@ heatmap, running/sprint/HR stats and football metrics, parsed in the browser. Ac
 - Match detail (`Dashboard.vue`) order: match line (`MetaBar`, natural-language, inline
   format/pitch + settings gear) → session chooser (`SegmentBar`) → this-session
   (`SessionBar`) → section tabs → content tabs (`tabs/`).
+- Strava: Settings drives the browser UI through `src/lib/strava.ts`. OAuth/token exchange,
+  refresh, activity sync, and stream reads are Edge Functions in `supabase/functions/`.
+  Secrets are `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`, and
+  `STRAVA_STATE_SECRET`; never put them in Vite/browser configuration. `strava-callback`
+  has `verify_jwt = false`; every other Strava function verifies the caller. A Strava import
+  is normalized to a generated GPX then handled by the existing upload/session-split flow.
 
 ## Design system
 
