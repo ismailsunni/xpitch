@@ -3,6 +3,7 @@ import App from './App.vue';
 import { router } from './router';
 import { initAuth } from './lib/auth';
 import { applyTheme } from './lib/theme';
+import { registerPwa } from './lib/pwa';
 import './style.css';
 
 applyTheme(); // set <html data-theme> before first paint
@@ -11,4 +12,5 @@ applyTheme(); // set <html data-theme> before first paint
 // initAuth() no-ops quickly when Supabase isn't configured.
 initAuth().finally(() => {
   createApp(App).use(router).mount('#app');
+  registerPwa();
 });

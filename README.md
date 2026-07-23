@@ -18,6 +18,9 @@ published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
 ## Features
 
 - Parse FIT, GPX, and TCX recordings in the browser, with no upload required for local use.
+- Install xPitch as a PWA for an app-like shell; Android users can share FIT, GPX,
+  or TCX files directly from their file manager, while desktop Chromium can open
+  those files with xPitch. The regular file picker remains available everywhere.
 - Analyze pitch position, movement trail, heatmap, distance, speed zones,
   sprints, heart rate, recovery, workload, fatigue, and estimated role.
 - Define a field on a map or from coordinates for more accurate pitch mapping.
@@ -142,7 +145,10 @@ Pages to use **GitHub Actions** as its source, then set these repository secrets
 The deploy build can run without those secrets, but the resulting site is
 local-only. `vite.config.ts` uses `/xpitch/` as the base path and the build
 copies `index.html` to `404.html`, allowing direct navigation to app routes on
-GitHub Pages.
+GitHub Pages. The same build generates the web manifest and service worker for
+the installed PWA. It pre-caches only the application shell; activity files
+shared into xPitch are held locally only long enough to hand them to the normal
+browser-side importer.
 
 The separate CI workflow runs on pull requests, pushes to `main`, and manual
 dispatch. It runs `npm run ci` on Node 20.

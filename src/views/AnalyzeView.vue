@@ -1,14 +1,38 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { RouterLink } from 'vue-router';
-import { store, loadDemo, loadSample, loadFromUrl, loadFromUrls, isSaveable, openFieldEditor } from '../store';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { store, loadDemo, loadSample, loadFromUrl, loadFromUrls, loadFiles, isSaveable, openFieldEditor } from '../store';
 import { auth } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
+import { takeSharedActivityFiles } from '../lib/pwa-files';
 import FileDrop from '../components/FileDrop.vue';
 import Dashboard from '../components/Dashboard.vue';
 import SaveMatchButton from '../components/SaveMatchButton.vue';
 
-onMounted(() => {
+const route = useRoute();
+const router = useRouter();
+
+onMounted(async () => {
+  const sharedId = typeof route.query.shared === 'string' ? route.query.shared : '';
+  const shareError = typeof route.query.shareError === 'string' ? route.query.shareError : '';
+  if (sharedId) {
+    try {
+      const files = await takeSharedActivityFiles(sharedId);
+      if (files.length) await loadFiles(files);
+      else store.error = 'The shared activity file is no longer available. Try sharing it to xPitch again.';
+    } catch {
+      store.error = 'Could not open the shared activity file. Try sharing it to xPitch again.';
+    } finally {
+      await router.replace({ query: {} });
+    }
+    return;
+  }
+  if (shareError) {
+    store.error = shareError === 'missing'
+      ? 'No activity file was received. Share a FIT, GPX, or TCX file to xPitch.'
+      : 'Only FIT, GPX, and TCX files up to 64 MB can be shared to xPitch.';
+    await router.replace({ query: {} });
+  }
   // Dev/test hooks: #autosample, #autodemo[/tab], #autoload=<url>[,...]
   const hash = location.hash;
   if (hash.indexOf('autosample') !== -1) {

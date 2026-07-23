@@ -5,6 +5,7 @@ import { loadFiles } from '../store';
 import { auth, isAdmin, signOut } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { theme, toggleTheme } from '../lib/theme';
+import { applyPwaUpdate, installPwa, pwa } from '../lib/pwa';
 import SaveMatchButton from './SaveMatchButton.vue';
 
 const router = useRouter();
@@ -78,6 +79,8 @@ watch(
     <div class="mobile-actions">
       <label class="import-cta"><input type="file" accept=".fit,.gpx,.tcx" multiple hidden @change="onPick" />Import activity file</label>
       <SaveMatchButton />
+      <button v-if="pwa.canInstall" class="theme-toggle" @click="installPwa">Install xPitch</button>
+      <button v-if="pwa.updateAvailable" class="theme-toggle" @click="applyPwaUpdate">Update xPitch</button>
       <button class="theme-toggle" @click="toggleTheme">{{ theme.mode === 'dark' ? 'Light mode' : 'Dark mode' }}</button>
       <button v-if="auth.user" class="mobile-signout" @click="doSignOut">Sign out</button>
     </div>
@@ -126,6 +129,13 @@ watch(
     </label>
 
     <SaveMatchButton class="save-in-sidebar" />
+
+    <button v-if="pwa.canInstall" class="theme-toggle" @click="installPwa">
+      <span>Install xPitch</span>
+    </button>
+    <button v-if="pwa.updateAvailable" class="theme-toggle" @click="applyPwaUpdate">
+      <span>Update xPitch</span>
+    </button>
 
     <button class="theme-toggle" @click="toggleTheme">
       <svg v-if="theme.mode === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>

@@ -33,7 +33,8 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       Click <strong>Import activity file</strong> in the navigation, or drop the file on the
       <RouterLink to="/analyze">Analyze</RouterLink> page. Upload several files at once — matches
       recorded close together are grouped into one match with multiple sessions (halves show as
-      periods). No file? Use <strong>Load a real sample</strong>.
+      periods). On Android, install xPitch and share a FIT, GPX, or TCX file directly from your
+      file manager to open it here. No file? Use <strong>Load a real sample</strong>.
     </p>
 
     <h3>4 · Make it accurate</h3>
