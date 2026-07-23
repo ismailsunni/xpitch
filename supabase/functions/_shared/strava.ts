@@ -45,6 +45,16 @@ export async function requireUser(request: Request): Promise<User> {
   return data.user;
 }
 
+export async function requireAdmin(request: Request): Promise<User> {
+  const user = await requireUser(request);
+  const { data, error } = await serviceClient().from('user_privileges')
+    .select('level')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error || data?.level !== 'admin') throw new Error('Admin access is required.');
+  return user;
+}
+
 function base64url(bytes: Uint8Array): string {
   let value = '';
   for (const byte of bytes) value += String.fromCharCode(byte);

@@ -83,6 +83,10 @@ export async function disconnectStrava(): Promise<void> {
   await invoke<{ ok: boolean }>('strava-disconnect', {});
 }
 
+export async function adminDisconnectStrava(userId: string): Promise<void> {
+  await invoke<{ ok: boolean }>('strava-admin-disconnect', { userId });
+}
+
 function xml(value: string | number | null | undefined): string {
   return String(value ?? '').replace(/[<>&'\"]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[char] || char));
 }

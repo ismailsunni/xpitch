@@ -128,7 +128,7 @@ Edge Functions. Set `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`,
 the client secret in `VITE_` variables. Deploy the functions after changes with:
 
 ```bash
-npx supabase functions deploy strava-connect strava-callback strava-sync strava-import strava-disconnect
+npx supabase functions deploy strava-connect strava-callback strava-sync strava-import strava-disconnect strava-admin-disconnect
 ```
 
 The schema rationale and outstanding work are in

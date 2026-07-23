@@ -16,7 +16,7 @@ heatmap, running/sprint/HR stats and football metrics, parsed in the browser. Ac
 
 - `npm run dev` · `npm run build` · `npm run typecheck` (`vue-tsc --noEmit`).
 - `npx supabase db push` applies linked-project migrations. Deploy Strava functions with
-  `npx supabase functions deploy strava-connect strava-callback strava-sync strava-import strava-disconnect`.
+  `npx supabase functions deploy strava-connect strava-callback strava-sync strava-import strava-disconnect strava-admin-disconnect`.
 
 ## Conventions
 
@@ -41,7 +41,8 @@ heatmap, running/sprint/HR stats and football metrics, parsed in the browser. Ac
   refresh, activity sync, and stream reads are Edge Functions in `supabase/functions/`.
   Secrets are `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`, and
   `STRAVA_STATE_SECRET`; never put them in Vite/browser configuration. `strava-callback`
-  has `verify_jwt = false`; every other Strava function verifies the caller. A Strava import
+  has `verify_jwt = false`; every other Strava function verifies the caller. Admin cleanup uses
+  `strava-admin-disconnect` so tokens remain server-only. A Strava import
   is normalized to a generated GPX then handled by the existing upload/session-split flow.
 
 ## Design system

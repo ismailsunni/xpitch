@@ -625,7 +625,7 @@ export async function listMyHistory(): Promise<{ matches: any[]; fields: any[] }
 export async function listAdminData(): Promise<{ profiles: any[]; matches: any[]; fields: any[] }> {
   if (!isAdmin()) throw new Error('Admin access only.');
   const sb = requireClient();
-  const [profilesRes, matchesRes, fieldsRes, privilegesRes] = await Promise.all([
+  const [profilesRes, matchesRes, fieldsRes, privilegesRes, stravaRes] = await Promise.all([
     sb.from('profiles').select('id, username, display_name, avatar_url, bio, created_at, updated_at').order('created_at', { ascending: false }),
     sb
       .from('matches')
@@ -635,14 +635,17 @@ export async function listAdminData(): Promise<{ profiles: any[]; matches: any[]
       .order('created_at', { ascending: false }),
     sb.from('fields').select('id, slug, name, owner_id, visibility, centroid_lat, centroid_lon, created_at, updated_at').order('created_at', { ascending: false }),
     sb.from('user_privileges').select('user_id, level'),
+    sb.from('strava_connections').select('user_id, athlete_username, connected_at'),
   ]);
   if (profilesRes.error) throw profilesRes.error;
   if (matchesRes.error) throw matchesRes.error;
   if (fieldsRes.error) throw fieldsRes.error;
   if (privilegesRes.error) throw privilegesRes.error;
+  if (stravaRes.error) throw stravaRes.error;
   const levels = new Map((privilegesRes.data || []).map((item) => [item.user_id, item.level]));
+  const strava = new Map((stravaRes.data || []).map((connection) => [connection.user_id, connection]));
   return {
-    profiles: (profilesRes.data || []).map((profile) => ({ ...profile, privilege: levels.get(profile.id) || 'user' })),
+    profiles: (profilesRes.data || []).map((profile) => ({ ...profile, privilege: levels.get(profile.id) || 'user', strava: strava.get(profile.id) || null })),
     matches: await attachAuthors(matchesRes.data || []),
     fields: fieldsRes.data || [],
   };

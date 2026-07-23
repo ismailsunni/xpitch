@@ -6,6 +6,7 @@ import { deleteFieldCloud, deleteMatch, listAdminData, setMatchVisibility, setUs
 import { fmtDur } from '../lib/format';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
 import { userErrorMessage } from '../lib/errors';
+import { adminDisconnectStrava } from '../lib/strava';
 
 const state = ref<'loading' | 'ready' | 'error'>('loading');
 const err = ref('');
@@ -13,7 +14,7 @@ const profiles = ref<any[]>([]);
 const matches = ref<any[]>([]);
 const fields = ref<any[]>([]);
 const savingId = ref('');
-const pendingDelete = ref<{ kind: 'match' | 'field'; item: any; message: string } | null>(null);
+const pendingDelete = ref<{ kind: 'match' | 'field' | 'strava'; item: any; message: string } | null>(null);
 
 const totalSessions = computed(() => matches.value.reduce((sum, m) => sum + (m.sessions?.length || 0), 0));
 
@@ -109,11 +110,27 @@ async function removeField(field: any) {
     savingId.value = '';
   }
 }
+function requestDisconnectStrava(profile: any) {
+  const name = profile.display_name || profile.username || profile.id.slice(0, 8);
+  pendingDelete.value = { kind: 'strava', item: profile, message: `Disconnect Strava for ${name}? Their Strava tokens and cached Strava activities will be deleted.` };
+}
+async function removeStravaConnection(profile: any) {
+  savingId.value = profile.id;
+  try {
+    await adminDisconnectStrava(profile.id);
+    profile.strava = null;
+  } catch (e: any) {
+    err.value = userErrorMessage(e, 'Could not disconnect this Strava account. Try again.');
+  } finally {
+    savingId.value = '';
+  }
+}
 async function confirmDelete() {
   const pending = pendingDelete.value;
   if (!pending) return;
   if (pending.kind === 'match') await removeMatch(pending.item);
-  else await removeField(pending.item);
+  else if (pending.kind === 'field') await removeField(pending.item);
+  else await removeStravaConnection(pending.item);
   pendingDelete.value = null;
 }
 
@@ -209,15 +226,20 @@ onMounted(load);
                 <option value="admin">Admin</option>
               </select>
             </label>
+            <div v-if="p.strava" class="strava-admin">
+              <span>Strava {{ p.strava.athlete_username ? '@' + p.strava.athlete_username : 'connected' }}</span>
+              <button class="btn ghost small danger" :disabled="savingId === p.id" @click="requestDisconnectStrava(p)">Disconnect Strava</button>
+            </div>
           </article>
         </div>
       </section>
     </template>
     <ConfirmDialog
       v-if="pendingDelete"
-      :title="pendingDelete.kind === 'match' ? 'Delete match?' : 'Delete pitch?'"
+      :title="pendingDelete.kind === 'match' ? 'Delete match?' : pendingDelete.kind === 'field' ? 'Delete pitch?' : 'Disconnect Strava?'"
       :message="pendingDelete.message"
       :busy="!!savingId"
+      :confirm-label="pendingDelete.kind === 'strava' ? 'Disconnect' : 'Delete'"
       @cancel="pendingDelete = null"
       @confirm="confirmDelete"
     />
@@ -322,4 +344,5 @@ select {
   text-transform: uppercase;
   color: var(--muted);
 }
+.strava-admin { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
 </style>
