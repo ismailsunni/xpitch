@@ -25,7 +25,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       <li><strong>Garmin</strong> — Garmin Connect (web) → open the activity → <em>⚙ / ⋯ → Export Original</em> for FIT, or export GPX/TCX.</li>
       <li><strong>Coros / Polar / Suunto / Wahoo</strong> — export FIT when available; GPX or TCX also work.</li>
       <li><strong>Apple Watch</strong> — use an export app such as <em>HealthFit</em> or <em>WorkOutDoors</em> to create FIT, GPX, or TCX.</li>
-      <li><strong>Strava</strong> — export GPX or TCX from the activity when available. Direct Strava import requires an API subscription and is not enabled.</li>
+      <li><strong>Strava</strong> — connect it from <RouterLink to="/settings">settings</RouterLink> to sync and import recent activities directly. GPX or TCX export also works.</li>
     </ul>
 
     <h3>3 · Analyze</h3>

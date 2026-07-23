@@ -386,15 +386,13 @@ Insert/update should usually happen from Edge Functions using service role.
 
 ### Strava import flow
 
-1. User clicks “Connect Strava”.
-2. Browser redirects to Strava OAuth.
-3. Strava redirects back to Supabase Edge Function callback.
-4. Edge Function exchanges `code` for tokens.
-5. Edge Function stores connection metadata and tokens.
+1. User clicks “Connect Strava” in Settings.
+2. `strava-connect` verifies the Supabase session, signs short-lived OAuth state, and returns the Strava authorization URL.
+3. Strava redirects to the public `strava-callback` Edge Function, which exchanges the code server-side and stores the connection plus private tokens.
 6. App shows Strava activities from `strava_activities`.
 7. User selects an activity to import.
-8. Edge Function fetches streams for that activity and converts it into xPitch records/session data.
-9. App creates/saves a match from the imported stream, with `source = 'strava'` if such a column is added.
+8. `strava-import` refreshes the token if needed and downloads time, GPS, distance, speed, altitude, and heart-rate streams.
+9. The client normalizes streams into the existing match pipeline and saves a generated GPX source, with `source = 'strava'` and `source_activity_id` set.
 
 Optional useful additions to `matches`:
 

@@ -31,4 +31,5 @@ export interface MatchPersistenceSnapshot {
   breakSessionStarts: number[];
   manualSplits: { sessionBreaks: number[]; halfBreaks: number[] } | null;
   options: MatchPersistenceOptions;
+  source: { type: 'strava'; activityId: string } | null;
 }

@@ -111,6 +111,7 @@ function loadStoredFormat(): FormatKey {
 
 let currentFit: FitResult | null = null;
 let currentRawFiles: { name: string; bytes: ArrayBuffer }[] = [];
+let currentImportSource: { type: 'strava'; activityId: string } | null = null;
 let geoToken = 0;
 
 // Raw uploaded bytes (FIT, GPX, or TCX) for saving to cloud Storage.
@@ -146,6 +147,7 @@ export function matchPersistenceSnapshot(): MatchPersistenceSnapshot | null {
       ? { sessionBreaks: [...store.manualSplits.sessionBreaks], halfBreaks: [...store.manualSplits.halfBreaks] }
       : null,
     options: { ...store.options },
+    source: currentImportSource ? { ...currentImportSource } : null,
   };
 }
 
@@ -426,6 +428,17 @@ export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
   if (store.analytics) geocodeCurrent();
 }
 
+// Strava streams are normalized to the same FitResult shape as local files.
+// A generated GPX source keeps the normal cloud-save and reopen flow intact.
+export function loadImportedStravaActivity(fit: FitResult, name: string, bytes: ArrayBuffer, activityId: string, title: string): void {
+  currentRawFiles = [{ name, bytes }];
+  currentImportSource = { type: 'strava', activityId };
+  store.files = [name];
+  loadFit(fit, name);
+  store.matchTitle = title;
+  store.uploadWizardOpen = !!store.analytics;
+}
+
 // Non-combined segments in order; session `seq` (1-based) maps to index seq-1.
 export function nonCombinedSegments(): Segment[] {
   return store.segments.filter((s) => s.kind !== 'combined');
@@ -446,6 +459,7 @@ export function selectPeriod(index: number): void {
 export function loadDemo(): void {
   store.files = ['demo-afternoon.fit'];
   currentRawFiles = []; // synthetic — no real bytes, not saveable
+  currentImportSource = null;
   loadFit(generate(), 'demo-afternoon.fit');
 }
 
@@ -483,6 +497,7 @@ export async function loadFiles(fileList: File[]): Promise<void> {
     }
     if (!parsed.length) return;
     currentRawFiles = raw;
+    currentImportSource = null;
     store.files = parsed.map((p) => p.name);
     const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     const label = parsed.length === 1 ? parsed[0].name : `${parsed.length} files`;
@@ -510,6 +525,7 @@ export async function loadFromUrl(url: string, name?: string): Promise<void> {
     const buf = await res.arrayBuffer();
     const nm = name || url.split('/').pop() || 'match.fit';
     currentRawFiles = [{ name: nm, bytes: buf }];
+    currentImportSource = null;
     store.files = [nm];
     loadFit(parseActivityFile(buf, nm), nm);
   } catch (e: any) {
@@ -532,6 +548,7 @@ export async function loadFromUrls(urls: string[]): Promise<void> {
       raw.push({ name, bytes: buf });
     }
     currentRawFiles = raw;
+    currentImportSource = null;
     store.files = parsed.map((p) => p.name);
     const merged = parsed.length === 1 ? parsed[0].fit : mergeFiles(parsed);
     loadFit(merged, parsed.length === 1 ? parsed[0].name : `${parsed.length} files`);
@@ -755,6 +772,7 @@ export interface CloudLoadMeta {
 // deterministically (same group gap), seed per-session flips, select `seq`.
 export function loadFromCloud(fit: FitResult, meta: CloudLoadMeta): void {
   currentRawFiles = meta.rawFiles;
+  currentImportSource = null;
   store.files = meta.fileNames;
   if (meta.cloudFields) {
     const byId = new Map([...store.cloudFields, ...meta.cloudFields].map((field) => [field.id, field]));

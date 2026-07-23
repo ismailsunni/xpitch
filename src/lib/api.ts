@@ -145,6 +145,8 @@ export async function createMatchFromCurrent(snapshot: MatchPersistenceSnapshot,
       break_files: snapshot.breakFiles,
       break_session_starts: snapshot.breakSessionStarts,
       manual_splits: asJson(snapshot.manualSplits),
+      source: snapshot.source?.type || 'fit',
+      source_activity_id: snapshot.source?.activityId || null,
       visibility: opts.visibility ?? 'unlisted',
     })
     .select()
@@ -154,6 +156,14 @@ export async function createMatchFromCurrent(snapshot: MatchPersistenceSnapshot,
   // 3. Insert one session row per non-combined segment (with cached summary)
   const { error: sErr } = await sb.from('sessions').insert(buildSessionRows(match.id, uid, selectedFieldId, snapshot));
   if (sErr) throw sErr;
+
+  if (snapshot.source?.type === 'strava') {
+    const { error: sourceError } = await sb.from('strava_activities')
+      .update({ imported_match_id: match.id })
+      .eq('user_id', uid)
+      .eq('strava_activity_id', Number(snapshot.source.activityId));
+    if (sourceError) throw sourceError;
+  }
 
   return shortId;
 }

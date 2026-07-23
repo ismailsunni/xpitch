@@ -21,6 +21,8 @@ published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
 - Install xPitch as a PWA for an app-like shell; Android users can share FIT, GPX,
   or TCX files directly from their file manager, while desktop Chromium can open
   those files with xPitch. The regular file picker remains available everywhere.
+- Connect Strava to sync the latest 100 activities and import their GPS, speed,
+  distance, and heart-rate streams into the same analysis and save flow.
 - Analyze pitch position, movement trail, heatmap, distance, speed zones,
   sprints, heart rate, recovery, workload, fatigue, and estimated role.
 - Define a field on a map or from coordinates for more accurate pitch mapping.
@@ -119,7 +121,15 @@ prevents removal of the final administrator.
 
 `0007_schema_review_additions.sql` creates the privilege, private-note, Strava,
 and match-media schema, including the private `match-media` storage bucket.
-Strava tables are ready, but OAuth/import is intentionally not implemented yet.
+Strava OAuth, token refresh, activity sync, and stream import run in Supabase
+Edge Functions. Set `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`,
+`STRAVA_REDIRECT_URI`, and `STRAVA_STATE_SECRET` as function secrets; never put
+the client secret in `VITE_` variables. Deploy the functions after changes with:
+
+```bash
+npx supabase functions deploy strava-connect strava-callback strava-sync strava-import strava-disconnect
+```
+
 The schema rationale and outstanding work are in
 [docs/db-schema-review.md](docs/db-schema-review.md).
 

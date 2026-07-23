@@ -29,6 +29,7 @@ export default defineConfig({
         theme_color: '#c8f751',
         background_color: '#f5f7f1',
         icons: [
+          { src: 'icons/xpitch.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
           { src: 'icons/xpitch-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/xpitch-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],

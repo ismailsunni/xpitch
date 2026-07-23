@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">xPitch</title>
+  <rect width="512" height="512" rx="112" fill="#c8f751"/>
+  <rect x="58" y="58" width="396" height="396" rx="66" fill="#0b110e"/>
+  <g fill="none" stroke="#c8f751" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="112" y="146" width="288" height="220" rx="8" stroke-width="12"/>
+    <path d="M256 146v220M112 256h288" stroke-width="10" opacity=".68"/>
+    <circle cx="256" cy="256" r="42" stroke-width="10" opacity=".68"/>
+    <path d="M112 202h44v108h-44M400 202h-44v108h44" stroke-width="10" opacity=".68"/>
+  </g>
+  <circle cx="256" cy="256" r="48" fill="#c8f751"/>
+  <circle cx="256" cy="256" r="23" fill="#08120a"/>
+  <circle cx="256" cy="256" r="10" fill="#3fe6a0"/>
+</svg>
