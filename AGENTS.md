@@ -44,6 +44,10 @@ heatmap, running/sprint/HR stats and football metrics, parsed in the browser. Ac
   has `verify_jwt = false`; every other Strava function verifies the caller. Admin cleanup uses
   `strava-admin-disconnect` so tokens remain server-only. A Strava import
   is normalized to a generated GPX then handled by the existing upload/session-split flow.
+  The primary entry is `/analyze?source=strava`: `StravaImporter.vue` is shared between that
+  full importer and Settings' compact connection management. Guests are sent through
+  `/login?next=/analyze?source=strava`; preserve the `next` query for both Google and magic-link
+  redirects. The Strava OAuth callback returns to that same Analyze route.
 
 ## Design system
 

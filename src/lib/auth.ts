@@ -94,12 +94,12 @@ export async function initAuth(): Promise<void> {
   auth.ready = true;
 }
 
-export function signInWithEmail(email: string) {
-  return supabase!.auth.signInWithOtp({ email, options: { emailRedirectTo: appRedirectUrl() } });
+export function signInWithEmail(email: string, redirectTo?: string) {
+  return supabase!.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo || appRedirectUrl() } });
 }
 
-export function signInWithGoogle() {
-  return supabase!.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appRedirectUrl() } });
+export function signInWithGoogle(redirectTo?: string) {
+  return supabase!.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectTo || appRedirectUrl() } });
 }
 
 export async function signOut(): Promise<void> {

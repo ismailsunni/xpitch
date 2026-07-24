@@ -5,6 +5,7 @@ import { store, loadFiles, loadDemo, loadRoleSample, loadSample } from '../store
 const dragging = ref(false);
 const picker = ref<HTMLInputElement>();
 const pendingFiles = ref<File[]>([]);
+const emit = defineEmits<{ strava: [] }>();
 
 function stage(files: File[]) {
   pendingFiles.value = files;
@@ -74,7 +75,10 @@ function cancelSelection() {
           <button class="btn ghost" @click="cancelSelection">Cancel</button>
         </div>
       </template>
-      <button v-else class="btn ghost" @click="picker?.click()">Choose FIT, GPX, or TCX file(s)</button>
+      <div v-else class="source-actions">
+        <button class="btn primary" @click="picker?.click()">Choose FIT, GPX, or TCX file(s)</button>
+        <button class="btn ghost" @click="emit('strava')">Import from Strava</button>
+      </div>
       <p v-if="store.loading" class="hint">Parsing…</p>
       <p v-else-if="store.files.length" class="hint">{{ store.files.length }} file{{ store.files.length === 1 ? '' : 's' }} loaded</p>
       <p v-if="store.error" class="error">{{ store.error }}</p>
@@ -87,4 +91,5 @@ function cancelSelection() {
 .chosen-files { display: grid; gap: 3px; max-width: 480px; margin: 12px auto 8px; font-size: 13px; }
 .chosen-files span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .choose-actions { display: flex; justify-content: center; gap: 8px; }
+.source-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 </style>

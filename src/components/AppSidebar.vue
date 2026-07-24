@@ -78,7 +78,7 @@ watch(
     </nav>
     <div class="mobile-actions">
       <label class="import-cta"><input type="file" accept=".fit,.gpx,.tcx" multiple hidden @change="onPick" />Import activity file</label>
-      <RouterLink v-if="supabaseEnabled && auth.user" to="/settings" class="strava-cta">Strava import</RouterLink>
+      <RouterLink v-if="supabaseEnabled" to="/analyze?source=strava" class="strava-cta">Strava import</RouterLink>
       <SaveMatchButton />
       <button v-if="pwa.canInstall" class="theme-toggle" @click="installPwa">Install xPitch</button>
       <button v-if="pwa.updateAvailable" class="theme-toggle" @click="applyPwaUpdate">Update xPitch</button>
@@ -129,7 +129,7 @@ watch(
       Import activity file
     </label>
 
-    <RouterLink v-if="supabaseEnabled && auth.user" to="/settings" class="strava-cta">
+    <RouterLink v-if="supabaseEnabled" to="/analyze?source=strava" class="strava-cta">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12l-2 6 3 2-7 8 2-6-3-2z" /></svg>
       Strava import
     </RouterLink>

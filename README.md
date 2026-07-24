@@ -23,7 +23,8 @@ published at [ismailsunni.id/xpitch](https://ismailsunni.id/xpitch/).
   those files with xPitch. The regular file picker remains available everywhere.
 - Connect Strava to sync the latest 100 activities and import their GPS, speed,
   distance, and heart-rate streams into the same analysis and save flow. Select
-  up to ten activities to bring a continuous afternoon into one match setup.
+  up to ten activities to bring a continuous afternoon into one match setup. The
+  Strava path is available from Analyze; signing in returns the user there.
 - Analyze pitch position, movement trail, heatmap, distance, speed zones,
   sprints, heart rate, recovery, workload, fatigue, and estimated role.
 - Define a field on a map or from coordinates for more accurate pitch mapping.

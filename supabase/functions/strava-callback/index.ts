@@ -1,7 +1,7 @@
 import { appUrl, exchangeAuthorizationCode, serviceClient, verifyState } from '../_shared/strava.ts';
 
 function redirect(status: 'connected' | 'denied' | 'error', message?: string): Response {
-  const url = new URL(appUrl('/settings'));
+  const url = new URL(appUrl('/analyze?source=strava'));
   url.searchParams.set('strava', status);
   if (message) url.searchParams.set('stravaMessage', message.slice(0, 180));
   return Response.redirect(url.toString(), 302);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { store, loadDemo, loadSample, loadFromUrl, loadFromUrls, loadFiles, isSaveable, openFieldEditor } from '../store';
 import { auth } from '../lib/auth';
@@ -8,9 +8,30 @@ import { takeSharedActivityFiles } from '../lib/pwa-files';
 import FileDrop from '../components/FileDrop.vue';
 import Dashboard from '../components/Dashboard.vue';
 import SaveMatchButton from '../components/SaveMatchButton.vue';
+import StravaImporter from '../components/StravaImporter.vue';
 
 const route = useRoute();
 const router = useRouter();
+
+function openStravaImporter() {
+  if (!supabaseEnabled) {
+    store.error = 'Strava import is not configured on this deployment.';
+    return;
+  }
+  if (!auth.user) {
+    void router.push({ name: 'login', query: { next: '/analyze?source=strava' } });
+    return;
+  }
+  void router.replace({ query: { source: 'strava' } });
+}
+
+watch(
+  () => [route.query.source, auth.ready, auth.user?.id],
+  ([source, ready, userId]) => {
+    if (source === 'strava' && ready && !userId) void router.replace({ name: 'login', query: { next: '/analyze?source=strava' } });
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
   const sharedId = typeof route.query.shared === 'string' ? route.query.shared : '';
@@ -54,7 +75,8 @@ onMounted(async () => {
   <!-- Landing here comes from Import activity; a plain drop zone if visited empty. -->
   <main v-if="!store.analytics" class="analyze-empty">
     <h1 class="sr-only">Analyze an activity file</h1>
-    <FileDrop />
+    <StravaImporter v-if="route.query.source === 'strava' && auth.user" />
+    <FileDrop v-else @strava="openStravaImporter" />
   </main>
   <main v-else>
     <div v-if="store.cloud.mode === 'local' && isSaveable()" class="savebar">

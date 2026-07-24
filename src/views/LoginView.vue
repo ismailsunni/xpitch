@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { RouterLink, useRoute } from 'vue-router';
 import { auth, signInWithEmail, signInWithGoogle } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { userErrorMessage } from '../lib/errors';
@@ -8,18 +9,21 @@ const email = ref('');
 const sent = ref(false);
 const err = ref('');
 const busy = ref(false);
+const route = useRoute();
+const nextPath = computed(() => typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/');
+const authReturnUrl = computed(() => new URL(import.meta.env.BASE_URL.replace(/\/$/, '') + nextPath.value, window.location.origin).toString());
 
 async function magic() {
   err.value = '';
   busy.value = true;
-  const { error } = await signInWithEmail(email.value.trim());
+  const { error } = await signInWithEmail(email.value.trim(), authReturnUrl.value);
   busy.value = false;
   if (error) err.value = userErrorMessage(error, 'Could not send the sign-in link. Try again.');
   else sent.value = true;
 }
 async function google() {
   err.value = '';
-  const { error } = await signInWithGoogle();
+  const { error } = await signInWithGoogle(authReturnUrl.value);
   if (error) err.value = userErrorMessage(error, 'Could not start Google sign-in. Try again.');
 }
 </script>
@@ -33,7 +37,7 @@ async function google() {
       </template>
       <template v-else-if="auth.user">
         <p>You’re signed in as <strong>{{ auth.profile?.username || auth.user.email }}</strong>.</p>
-        <RouterLink class="btn primary" to="/">Go to xPitch</RouterLink>
+        <RouterLink class="btn primary" :to="nextPath">Continue</RouterLink>
       </template>
       <template v-else-if="sent">
         <p>✅ Check your email for a sign-in link.</p>
