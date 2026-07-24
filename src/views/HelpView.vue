@@ -7,7 +7,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
   <main class="tabpane help">
     <h1 style="margin-top: 0">How xPitch works</h1>
     <p class="lead">
-      xPitch analyzes FIT, GPX, or TCX activity files recorded by a GPS watch or tracker during a football,
+      xPitch analyzes FIT, GPX, or TCX activity files, or GPS and heart-rate streams imported from Strava, during a football,
       mini-soccer or futsal match — positional heatmaps, running &amp; sprint stats, heart-rate zones
       and football metrics — all in your browser. An account lets you save matches, get shareable
       links, reuse pitches and build a history.
@@ -25,7 +25,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       <li><strong>Garmin</strong> — Garmin Connect (web) → open the activity → <em>⚙ / ⋯ → Export Original</em> for FIT, or export GPX/TCX.</li>
       <li><strong>Coros / Polar / Suunto / Wahoo</strong> — export FIT when available; GPX or TCX also work.</li>
       <li><strong>Apple Watch</strong> — use an export app such as <em>HealthFit</em> or <em>WorkOutDoors</em> to create FIT, GPX, or TCX.</li>
-      <li><strong>Strava</strong> — connect it from <RouterLink to="/settings">settings</RouterLink> to sync and import recent activities directly. GPX or TCX export also works.</li>
+      <li><strong>Strava</strong> — choose <strong>Import from Strava</strong> on the <RouterLink to="/analyze?source=strava">Analyze</RouterLink> page. xPitch asks you to log in, then you connect Strava and select activities. GPX or TCX export also works.</li>
     </ul>
 
     <h3>3 · Analyze</h3>
@@ -33,8 +33,9 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       Click <strong>Import activity file</strong> in the navigation, or drop the file on the
       <RouterLink to="/analyze">Analyze</RouterLink> page. Upload several files at once — matches
       recorded close together are grouped into one match with multiple sessions (halves show as
-      periods). On Android, install xPitch and share a FIT, GPX, or TCX file directly from your
-      file manager to open it here. No file? Use <strong>Load a real sample</strong>.
+      periods). Or choose <strong>Import from Strava</strong>: after connecting, sync recent activities
+      and select up to ten for one match setup. On Android, install xPitch and share a FIT, GPX,
+      or TCX file directly from your file manager to open it here. No file? Use <strong>Load a real sample</strong>.
     </p>
 
     <h3>4 · Make it accurate</h3>
@@ -50,7 +51,8 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       <strong>Log in</strong> (Google or email link), then <strong>Save match</strong> — it gets a
       secure link at <code>/match/&lt;id&gt;?share=&lt;token&gt;</code> you can copy or share. Choose visibility (private /
       unlisted / public); public matches show on your profile and in the feed. Everything stays
-      yours; nothing is posted anywhere unless you share the link.
+      yours; nothing is posted anywhere unless you share the link. A saved Strava import keeps a
+      generated GPX source with the match, so it remains available even if you later disconnect Strava.
     </p>
 
     <h3>6 · What the numbers mean</h3>
@@ -71,9 +73,10 @@ import { METRIC_SECTIONS } from '../lib/metrics';
     </div>
 
     <p class="hint" style="margin-top: 24px">
-      Privacy: files are parsed in your browser. Saving uploads the file to your private storage;
-      matches default to <em>unlisted</em>. GPS reveals real locations — keep sensitive matches
-      private.
+      Privacy: local files are parsed in your browser. Strava access tokens stay in secure server-side
+      storage and can be disconnected from Settings; disconnecting removes the connection and cached
+      activity list, not matches you have already saved. Matches default to <em>unlisted</em>. GPS reveals
+      real locations — keep sensitive matches private.
     </p>
   </main>
 </template>

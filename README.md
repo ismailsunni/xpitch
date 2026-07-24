@@ -65,6 +65,21 @@ The anonymous key is intentionally browser-visible; database and storage access
 is enforced by Supabase Row Level Security policies. Never put a service-role
 key in a `VITE_` variable or in client code.
 
+## Import Workflows
+
+**Local file:** Open **Analyze**, choose a FIT, GPX, or TCX file, or drop one or
+more files onto the page. Local analysis needs no account. On Android, an
+installed xPitch app can receive those files from the system share sheet; desktop
+Chromium can open them through its file-handler integration.
+
+**Strava:** Open **Analyze** and choose **Import from Strava**. xPitch asks a
+guest to sign in and returns them to the importer. Connect Strava, sync the 100
+most recent activities, then select one to ten activities for one match setup.
+The imported GPS, speed, distance, altitude, and heart-rate streams use the
+normal upload/session-splitting and save flow. Saving creates a generated GPX
+source in private storage, so the saved match remains available after Strava is
+disconnected.
+
 ## Common Commands
 
 ```bash
@@ -118,8 +133,10 @@ values ('<auth-user-uuid>', 'admin')
 on conflict (user_id) do update set level = excluded.level;
 ```
 
-Administrators can then grant or revoke roles from `/admin`. The database
-prevents removal of the final administrator.
+Administrators can then grant or revoke roles from `/admin`, delete matches and
+pitches, and disconnect a user’s Strava connection. Disconnecting removes that
+user’s Strava tokens and cached activity list but preserves their saved matches.
+The database prevents removal of the final administrator.
 
 `0007_schema_review_additions.sql` creates the privilege, private-note, Strava,
 and match-media schema, including the private `match-media` storage bucket.
@@ -171,8 +188,9 @@ xPitch was initially developed with Claude assistance, recorded in commit
 [`a9acd52`](https://github.com/ismailsunni/xpitch/commit/a9acd52)
 through its co-author trailer. Most subsequent work, including the guided FIT
 upload flow, GPX/TCX normalization, reusable play/rest session splitting,
-saved-match editing, Supabase schema and media, pitch creation/editing with map
-search, Story image export, history dashboard, tests, and CI, has been developed
+saving and sharing, PWA share imports, Strava OAuth and stream import, Supabase
+schema and media, pitch creation/editing with map search, Story image export,
+history dashboard, tests, and CI, has been developed
 with GPT-5.6 through Codex as the coding collaborator. Codex was used for
 implementation, refactoring, spatial-analysis work such as homography-based
 pitch mapping and great-circle distance calculations, database migrations,
@@ -229,4 +247,6 @@ Local analysis keeps recordings in the browser. When a signed-in user saves a
 match, the selected match data is stored in Supabase under the permissions
 defined by the migrations. Private notes and private media are only accessible
 to their match owner; public media follows the visibility selected by that
-owner.
+owner. For Strava, refresh tokens are only available to Edge Functions. A
+disconnect removes the Strava connection, tokens, and cached activity summaries;
+saved xPitch matches and their generated GPX sources remain intact.
