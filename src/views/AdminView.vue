@@ -22,10 +22,14 @@ function title(m: any) {
   return m.title || m.location_label || 'Untitled match';
 }
 function owner(m: any) {
-  return m._author?.username ? `@${m._author.username}` : m.owner_id?.slice(0, 8) || 'unknown';
+  if (!m.owner_id) return 'System';
+  if (m._author?.display_name) return m._author.display_name;
+  if (m._author?.username) return `@${m._author.username}`;
+  return 'Deleted account';
 }
 function when(value: string | null) {
-  return value ? new Date(value).toLocaleString() : '—';
+  if (!value) return '—';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 function matchDuration(m: any) {
   const seconds = (m.sessions || []).reduce((sum: number, s: any) => sum + (s.duration_s || 0), 0);
@@ -33,6 +37,13 @@ function matchDuration(m: any) {
 }
 function isSystemField(field: any) {
   return !field.owner_id;
+}
+function fieldLocation(field: any) {
+  if (field.centroid_lat == null || field.centroid_lon == null) return 'No map position';
+  return `${Number(field.centroid_lat).toFixed(4)}, ${Number(field.centroid_lon).toFixed(4)}`;
+}
+function fieldMapUrl(field: any) {
+  return `https://www.openstreetmap.org/?mlat=${field.centroid_lat}&mlon=${field.centroid_lon}#map=17/${field.centroid_lat}/${field.centroid_lon}`;
 }
 
 async function load() {
@@ -88,6 +99,8 @@ async function removeMatch(match: any) {
   try {
     await deleteMatch(match);
     matches.value = matches.value.filter((m) => m.id !== match.id);
+    const profile = profiles.value.find((p) => p.id === match.owner_id);
+    if (profile) profile.match_count = Math.max(0, profile.match_count - 1);
   } catch (e: any) {
     err.value = userErrorMessage(e, 'Could not delete match. Try again.');
   } finally {
@@ -167,7 +180,7 @@ onMounted(load);
             </thead>
             <tbody>
               <tr v-for="m in matches" :key="m.id">
-                <td><RouterLink :to="`/match/${m.short_id}`">{{ title(m) }}</RouterLink><small>{{ m.short_id }}</small></td>
+                <td><RouterLink :to="`/match/${m.short_id}`">{{ title(m) }}</RouterLink></td>
                 <td>{{ owner(m) }}</td>
                 <td>{{ when(m.started_at || m.created_at) }}</td>
                 <td>{{ matchDuration(m) }}</td>
@@ -190,12 +203,12 @@ onMounted(load);
         <h3>Pitches</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Slug</th><th>Owner</th><th>Visibility</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Location</th><th>Owner</th><th>Visibility</th><th></th></tr></thead>
             <tbody>
               <tr v-for="f in fields" :key="f.id">
                 <td><RouterLink v-if="f.slug" :to="`/field/${f.slug}`">{{ f.name }}</RouterLink><span v-else>{{ f.name }}</span></td>
-                <td>{{ f.slug || '—' }}</td>
-                <td>{{ f.owner_id ? f.owner_id.slice(0, 8) : 'system' }}</td>
+                <td><a v-if="f.centroid_lat != null && f.centroid_lon != null" :href="fieldMapUrl(f)" target="_blank" rel="noreferrer">{{ fieldLocation(f) }}</a><span v-else>{{ fieldLocation(f) }}</span></td>
+                <td>{{ owner(f) }}</td>
                 <td>{{ f.visibility }}</td>
                 <td>
                   <button
@@ -213,24 +226,28 @@ onMounted(load);
 
       <section class="panel">
         <h3>Profiles</h3>
-        <div class="profile-grid">
-          <article v-for="p in profiles" :key="p.id" class="profile-card card">
-            <RouterLink :to="p.username ? `/${p.username}` : '/admin'">
-              <strong>{{ p.display_name || p.username || p.id.slice(0, 8) }}</strong>
-              <span>{{ p.username ? '@' + p.username : 'no username' }}</span>
-              <small>{{ p.id }}</small>
-            </RouterLink>
-            <label>Role
-              <select :value="p.privilege" :disabled="savingId === p.id" @change="changePrivilege(p, ($event.target as HTMLSelectElement).value as 'user' | 'admin')">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </label>
-            <div v-if="p.strava" class="strava-admin">
-              <span>Strava {{ p.strava.athlete_username ? '@' + p.strava.athlete_username : 'connected' }}</span>
-              <button class="btn ghost small danger" :disabled="savingId === p.id" @click="requestDisconnectStrava(p)">Disconnect Strava</button>
-            </div>
-          </article>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Profile</th><th>Matches</th><th>Role</th><th>Strava</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="p in profiles" :key="p.id">
+                <td>
+                  <RouterLink v-if="p.username" :to="`/${p.username}`" class="profile-name">{{ p.display_name || '@' + p.username }}</RouterLink>
+                  <span v-else class="profile-name">{{ p.display_name || 'Unnamed account' }}</span>
+                  <small v-if="p.username">@{{ p.username }}</small>
+                </td>
+                <td>{{ p.match_count }}</td>
+                <td>
+                  <select :value="p.privilege" :disabled="savingId === p.id" @change="changePrivilege(p, ($event.target as HTMLSelectElement).value as 'user' | 'admin')">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </td>
+                <td>{{ p.strava ? (p.strava.athlete_username ? '@' + p.strava.athlete_username : 'Connected') : '—' }}</td>
+                <td><button v-if="p.strava" class="btn ghost small danger" :disabled="savingId === p.id" @click="requestDisconnectStrava(p)">Disconnect</button></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
     </template>
@@ -275,9 +292,7 @@ onMounted(load);
   gap: 3px;
 }
 .admin-stats span,
-td small,
-.profile-card span,
-.profile-card small {
+td small {
   color: var(--muted);
 }
 .admin-stats strong {
@@ -319,30 +334,6 @@ select {
   color: var(--danger);
   border-color: var(--danger);
 }
-.profile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-}
-.profile-card {
-  display: grid;
-  gap: 10px;
-  color: inherit;
-  text-decoration: none;
-}
-.profile-card a {
-  display: grid;
-  gap: 2px;
-  color: inherit;
-  text-decoration: none;
-}
-.profile-card label {
-  display: grid;
-  gap: 4px;
-  font-size: 11px;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.strava-admin { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+.profile-name { color: var(--text); font-weight: 600; text-decoration: none; }
+.profile-name:hover { color: var(--accent-ink); }
 </style>

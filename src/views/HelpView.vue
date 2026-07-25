@@ -42,7 +42,7 @@ import { METRIC_SECTIONS } from '../lib/metrics';
     <ul>
       <li><strong>Add a pitch</strong> — select a saved pitch or choose <strong>Create a pitch</strong> to draw it on the satellite map. It improves orientation and left/right accuracy, and is reused automatically next time.</li>
       <li><strong>Attack direction</strong> — hit the flip to match which end you attacked (per match &amp; half).</li>
-      <li><strong>Format</strong> — futsal / mini-soccer / full is auto-detected; override if needed.</li>
+      <li><strong>Format</strong> — futsal, 7-a-side, 9-a-side, or 11-a-side is auto-detected; override it when needed.</li>
       <li><strong>Your age</strong> — set your birth date in <RouterLink to="/settings">settings</RouterLink> and HR zones auto-use age &amp; max HR.</li>
     </ul>
 

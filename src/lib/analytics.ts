@@ -11,7 +11,7 @@ import type { FitResult } from './fit-parser';
 export const KMH = 3.6; // m/s -> km/h
 const MAX_GAP_S = 8; // cap dt across data gaps when accumulating time
 
-export type FormatKey = 'auto' | 'futsal' | 'mini' | 'full';
+export type FormatKey = 'auto' | 'futsal' | 'mini' | 'nine' | 'full';
 
 // Match formats. `maxLengthM` bounds the auto-detection by pitch length;
 // `aspect` is the drawn template's width/length; sprint/hi are default km/h
@@ -23,6 +23,7 @@ export const FORMATS: Record<
   auto: { key: 'auto', label: 'Auto-detect', short: 'Auto', maxLengthM: 0, aspect: 68 / 105, sprintKmh: 25.2, hiKmh: 14.4 },
   futsal: { key: 'futsal', label: 'Futsal / 5-a-side', short: 'Futsal', maxLengthM: 32, aspect: 0.5, sprintKmh: 15, hiKmh: 11 },
   mini: { key: 'mini', label: 'Mini-soccer / 7-a-side', short: 'Mini-soccer', maxLengthM: 78, aspect: 0.62, sprintKmh: 18, hiKmh: 13 },
+  nine: { key: 'nine', label: 'Football / 9-a-side', short: '9-a-side', maxLengthM: 92, aspect: 0.65, sprintKmh: 22, hiKmh: 14 },
   full: { key: 'full', label: 'Full football / 11-a-side', short: 'Full football', maxLengthM: Infinity, aspect: 68 / 105, sprintKmh: 25.2, hiKmh: 14.4 },
 };
 
@@ -864,8 +865,8 @@ export function estimateRole(
       { role: 'Fixo (defender)', score: back * 3.0 + defFrac * 1.8 + (1 - sp) * 0.6 },
       { role: 'Universal (all-rounder)', score: roam * 2.6 + (1 - Math.min(wide * 2, 1)) * 0.8 + Math.min(kmPerHour / 8, 1) * 0.8 },
     ];
-  } else if (format === 'mini') {
-    const sp = Math.min(sprints / 10, 1);
+  } else if (format === 'mini' || format === 'nine') {
+    const sp = Math.min(sprints / (format === 'nine' ? 11 : 10), 1);
     roles = [
       { role: 'Forward', score: forward * 3.0 + attFrac * 1.6 + sp * 1.2 + (0.5 - Math.min(wide, 0.5)) * 0.8 },
       { role: 'Winger', score: wide * 3.2 + spreadU * 1.1 + sp * 1.2 + Math.max(0, avgU - 0.45) * 1.0 },

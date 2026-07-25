@@ -57,6 +57,16 @@ describe('compute', () => {
     expect(FORMATS.auto.sprintKmh).toBe(25.2);
   });
 
+  it('supports nine-a-side as a distinct analysis format', () => {
+    const result = compute(fit([
+      { timestamp: 1_000, speed: 3 },
+      { timestamp: 1_010, speed: 4 },
+    ]), { format: 'nine' });
+
+    expect(FORMATS.nine).toMatchObject({ short: '9-a-side', sprintKmh: 22 });
+    expect(result.meta.format).toBe('nine');
+  });
+
   it('uses heart-rate reserve zones and reports moving cadence when resting HR is set', () => {
     const result = compute(
       fit([

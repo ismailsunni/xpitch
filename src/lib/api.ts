@@ -644,10 +644,19 @@ export async function listAdminData(): Promise<{ profiles: any[]; matches: any[]
   if (stravaRes.error) throw stravaRes.error;
   const levels = new Map((privilegesRes.data || []).map((item) => [item.user_id, item.level]));
   const strava = new Map((stravaRes.data || []).map((connection) => [connection.user_id, connection]));
+  const matchCounts = new Map<string, number>();
+  for (const match of matchesRes.data || []) {
+    if (match.owner_id) matchCounts.set(match.owner_id, (matchCounts.get(match.owner_id) || 0) + 1);
+  }
   return {
-    profiles: (profilesRes.data || []).map((profile) => ({ ...profile, privilege: levels.get(profile.id) || 'user', strava: strava.get(profile.id) || null })),
+    profiles: (profilesRes.data || []).map((profile) => ({
+      ...profile,
+      privilege: levels.get(profile.id) || 'user',
+      strava: strava.get(profile.id) || null,
+      match_count: matchCounts.get(profile.id) || 0,
+    })),
     matches: await attachAuthors(matchesRes.data || []),
-    fields: fieldsRes.data || [],
+    fields: await attachAuthors(fieldsRes.data || []),
   };
 }
 

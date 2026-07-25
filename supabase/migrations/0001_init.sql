@@ -52,7 +52,7 @@ create table if not exists public.matches (
   owner_id         uuid not null references auth.users(id) on delete cascade,
   title            text,
   sport            text,
-  format           text check (format in ('auto','futsal','mini','full')),
+  format           text check (format in ('auto','futsal','mini','nine','full')),
   group_gap_min    int not null default 10,                   -- for deterministic re-segmentation
   started_at       timestamptz,
   ended_at         timestamptz,
