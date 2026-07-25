@@ -37,6 +37,9 @@ import { METRIC_SECTIONS } from '../lib/metrics';
       and select up to ten for one match setup. On Android, install xPitch and share a FIT, GPX,
       or TCX file directly from your file manager to open it here. No file? Use <strong>Load a real sample</strong>.
     </p>
+    <p>
+      <strong>FIT versus Strava:</strong> a FIT file retains the watch’s native record rate, distance, and speed data, so it is best for detailed heatmaps, sprint counts, and peak speed. Strava supplies a processed GPS and speed stream, usually with fewer points. Session timing, heart rate, and total distance should remain close, but sample count, moving time, peak speed, and heatmap density can differ. Saved Strava imports retain their original distance and speed streams when reopened.
+    </p>
 
     <h3>4 · Make it accurate</h3>
     <ul>

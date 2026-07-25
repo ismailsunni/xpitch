@@ -7,11 +7,12 @@ function streamData(streams: Record<string, { data?: unknown[] }>, key: string):
 async function importActivity(userId: string, id: number, token: string, db: ReturnType<typeof serviceClient>) {
   const { data: activity, error: activityError } = await db.from('strava_activities').select('*').eq('user_id', userId).eq('strava_activity_id', id).maybeSingle();
   if (activityError || !activity) throw new Error('Sync your Strava activities before importing one.');
-  const streams = await stravaGet(`/activities/${id}/streams?keys=time,latlng,distance,heartrate,velocity_smooth,altitude&key_by_type=true`, token) as Record<string, { data?: unknown[] }>;
+  const streams = await stravaGet(`/activities/${id}/streams?keys=time,latlng,distance,heartrate,cadence,velocity_smooth,altitude&key_by_type=true`, token) as Record<string, { data?: unknown[] }>;
   const times = streamData(streams, 'time');
   const latlng = streamData(streams, 'latlng');
   const distance = streamData(streams, 'distance');
   const heartrate = streamData(streams, 'heartrate');
+  const cadence = streamData(streams, 'cadence');
   const speed = streamData(streams, 'velocity_smooth');
   const altitude = streamData(streams, 'altitude');
   const records = times.map((time, index) => {
@@ -22,6 +23,7 @@ async function importActivity(userId: string, id: number, token: string, db: Ret
       lon: point[1] ?? null,
       distance: distance[index] ?? null,
       heartRate: heartrate[index] ?? null,
+      cadence: cadence[index] ?? null,
       speed: speed[index] ?? null,
       altitude: altitude[index] ?? null,
     };

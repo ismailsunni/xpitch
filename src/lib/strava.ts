@@ -31,6 +31,7 @@ type StreamRecord = {
   lon: number;
   distance: number | null;
   heartRate: number | null;
+  cadence: number | null;
   speed: number | null;
   altitude: number | null;
 };
@@ -103,6 +104,7 @@ export function importedToFit(data: ImportedStravaActivity): FitResult {
       position_long: record.lon,
       distance: record.distance ?? undefined,
       heart_rate: record.heartRate ?? undefined,
+      cadence: record.cadence ?? undefined,
       speed: record.speed ?? undefined,
       altitude: record.altitude ?? undefined,
     };
@@ -127,11 +129,13 @@ export function importedToFit(data: ImportedStravaActivity): FitResult {
 export function stravaGpxSource(data: ImportedStravaActivity): ArrayBuffer {
   const points = data.records.map((record) => {
     const time = new Date(new Date(data.activity.startDate as string).getTime() + record.time * 1000).toISOString();
-    const heartRate = record.heartRate == null ? '' : `<gpxtpx:TrackPointExtension><gpxtpx:hr>${xml(record.heartRate)}</gpxtpx:hr></gpxtpx:TrackPointExtension>`;
+    const sensors = record.heartRate == null && record.cadence == null
+      ? ''
+      : `<gpxtpx:TrackPointExtension>${record.heartRate == null ? '' : `<gpxtpx:hr>${xml(record.heartRate)}</gpxtpx:hr>`}${record.cadence == null ? '' : `<gpxtpx:cad>${xml(record.cadence)}</gpxtpx:cad>`}</gpxtpx:TrackPointExtension>`;
     const metrics = record.distance == null && record.speed == null
       ? ''
       : `<xpitch:metrics>${record.distance == null ? '' : `<xpitch:distance>${xml(record.distance)}</xpitch:distance>`}${record.speed == null ? '' : `<xpitch:speed>${xml(record.speed)}</xpitch:speed>`}</xpitch:metrics>`;
-    return `<trkpt lat="${xml(record.lat)}" lon="${xml(record.lon)}"><ele>${xml(record.altitude)}</ele><time>${time}</time>${heartRate || metrics ? `<extensions>${heartRate}${metrics}</extensions>` : ''}</trkpt>`;
+    return `<trkpt lat="${xml(record.lat)}" lon="${xml(record.lon)}"><ele>${xml(record.altitude)}</ele><time>${time}</time>${sensors || metrics ? `<extensions>${sensors}${metrics}</extensions>` : ''}</trkpt>`;
   }).join('');
   const source = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="xPitch Strava import" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:xpitch="https://xpitch.app/xmlschemas/TrackPointExtension/v1"><trk><name>${xml(data.activity.name || 'Strava activity')}</name><trkseg>${points}</trkseg></trk></gpx>`;
   return new TextEncoder().encode(source).buffer;
