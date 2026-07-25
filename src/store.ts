@@ -126,6 +126,48 @@ export function isSaveable(): boolean {
   return currentRawFiles.length > 0 && !!store.analytics;
 }
 
+// Discard only a local analysis. Saved cloud matches retain their loaded data
+// and are never cleared from the analyze view.
+export function clearLocalAnalysis(): void {
+  if (store.cloud.mode !== 'local') return;
+  geoToken++;
+  currentFit = null;
+  currentRawFiles = [];
+  currentImportSource = null;
+  store.analytics = null;
+  store.fileName = '';
+  store.error = '';
+  store.loading = false;
+  store.activeTab = 'overview';
+  store.location = null;
+  store.matchTitle = '';
+  store.files = [];
+  store.segments = [];
+  store.activeSegmentId = '';
+  store.activePeriod = -1;
+  store.appliedFieldId = null;
+  store.selectedFieldId = null;
+  store.breakFiles = [];
+  store.breakSessionStarts = [];
+  store.uploadWizardOpen = false;
+  store.sessionSplitEditorOpen = false;
+  store.settingsOpen = false;
+  store.attackDirs = {};
+  store.sideDirs = {};
+  store.manualSplits = null;
+  store.manualSplitOpen = false;
+  store.options = {
+    age: null,
+    maxHR: null,
+    maxHRSource: null,
+    restHR: null,
+    sprintKmh: FORMATS[loadStoredFormat()].sprintKmh,
+    highIntensityKmh: FORMATS[loadStoredFormat()].hiKmh,
+    format: loadStoredFormat(),
+    groupGapMin: DEFAULT_GROUP_GAP_MIN,
+  };
+}
+
 // Persistence gets an explicit immutable snapshot instead of reaching back
 // into this reactive singleton while an async save is underway.
 export function matchPersistenceSnapshot(): MatchPersistenceSnapshot | null {

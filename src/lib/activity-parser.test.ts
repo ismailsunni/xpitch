@@ -26,6 +26,11 @@ describe('GPX and TCX activity parsing', () => {
     expect(result.records[1].timestamp! - result.records[0].timestamp!).toBe(10);
   });
 
+  it('reads xPitch distance and speed extensions from saved Strava GPX files', () => {
+    const result = parseGpx(`<?xml version="1.0"?><gpx><trk><trkseg><trkpt lat="-7.7750" lon="110.3750"><time>2026-07-19T08:00:00Z</time><extensions><xpitch:metrics><xpitch:distance>42.5</xpitch:distance><xpitch:speed>3.2</xpitch:speed></xpitch:metrics></extensions></trkpt></trkseg></trk></gpx>`);
+    expect(result.records[0]).toMatchObject({ distance: 42.5, speed: 3.2 });
+  });
+
   it('normalizes TCX tracks, laps, and sensor extensions', () => {
     const result = parseTcx(TCX);
     expect(result.records).toHaveLength(2);

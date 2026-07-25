@@ -121,13 +121,19 @@ export function importedToFit(data: ImportedStravaActivity): FitResult {
   return { records, sessions: [session], laps: [], events: [], activity: null, file_id: null, other: {} };
 }
 
-function gpxSource(data: ImportedStravaActivity): ArrayBuffer {
+// GPX has no standard cumulative-distance element. Persist Strava's original
+// distance and smoothed speed in an xPitch extension so reopening a saved
+// import uses the same streams as the initial analysis.
+export function stravaGpxSource(data: ImportedStravaActivity): ArrayBuffer {
   const points = data.records.map((record) => {
     const time = new Date(new Date(data.activity.startDate as string).getTime() + record.time * 1000).toISOString();
     const heartRate = record.heartRate == null ? '' : `<gpxtpx:TrackPointExtension><gpxtpx:hr>${xml(record.heartRate)}</gpxtpx:hr></gpxtpx:TrackPointExtension>`;
-    return `<trkpt lat="${xml(record.lat)}" lon="${xml(record.lon)}"><ele>${xml(record.altitude)}</ele><time>${time}</time>${heartRate ? `<extensions>${heartRate}</extensions>` : ''}</trkpt>`;
+    const metrics = record.distance == null && record.speed == null
+      ? ''
+      : `<xpitch:metrics>${record.distance == null ? '' : `<xpitch:distance>${xml(record.distance)}</xpitch:distance>`}${record.speed == null ? '' : `<xpitch:speed>${xml(record.speed)}</xpitch:speed>`}</xpitch:metrics>`;
+    return `<trkpt lat="${xml(record.lat)}" lon="${xml(record.lon)}"><ele>${xml(record.altitude)}</ele><time>${time}</time>${heartRate || metrics ? `<extensions>${heartRate}${metrics}</extensions>` : ''}</trkpt>`;
   }).join('');
-  const source = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="xPitch Strava import" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"><trk><name>${xml(data.activity.name || 'Strava activity')}</name><trkseg>${points}</trkseg></trk></gpx>`;
+  const source = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="xPitch Strava import" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:xpitch="https://xpitch.app/xmlschemas/TrackPointExtension/v1"><trk><name>${xml(data.activity.name || 'Strava activity')}</name><trkseg>${points}</trkseg></trk></gpx>`;
   return new TextEncoder().encode(source).buffer;
 }
 
@@ -137,7 +143,7 @@ export async function importStravaActivities(activityIds: number[]): Promise<voi
   const activities = result.activities.map((imported) => ({
     fit: importedToFit(imported),
     name: `strava-${imported.activity.id}.gpx`,
-    bytes: gpxSource(imported),
+    bytes: stravaGpxSource(imported),
     activityId: String(imported.activity.id),
     title: imported.activity.name || 'Strava activity',
   }));

@@ -86,6 +86,7 @@ export function parseGpx(text: string): FitResult {
           position_lat: lat,
           position_long: lon,
           altitude: childNumber(point, 'ele'),
+          distance: extensionValue(point, 'distance'),
           heart_rate: extensionValue(point, 'hr'),
           cadence: extensionValue(point, 'cad'),
           power: extensionValue(point, 'power'),

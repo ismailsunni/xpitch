@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
-import { store, loadDemo, loadSample, loadFromUrl, loadFromUrls, loadFiles, isSaveable, openFieldEditor } from '../store';
+import { clearLocalAnalysis, store, loadDemo, loadSample, loadFromUrl, loadFromUrls, loadFiles, isSaveable, openFieldEditor } from '../store';
 import { auth } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { takeSharedActivityFiles } from '../lib/pwa-files';
@@ -23,6 +23,11 @@ function openStravaImporter() {
     return;
   }
   void router.replace({ query: { source: 'strava' } });
+}
+
+function clearAnalysis() {
+  clearLocalAnalysis();
+  void router.replace({ query: {} });
 }
 
 watch(
@@ -79,13 +84,16 @@ onMounted(async () => {
     <FileDrop v-else @strava="openStravaImporter" />
   </main>
   <main v-else>
-    <div v-if="store.cloud.mode === 'local' && isSaveable()" class="savebar">
-      <span class="sb-text">Analysis ready — save it to your profile to keep and share it.</span>
+    <div v-if="store.cloud.mode === 'local'" class="savebar">
+      <span class="sb-text">{{ isSaveable() ? 'Analysis ready — save it to your profile to keep and share it.' : 'Local analysis — load another activity whenever you are ready.' }}</span>
       <span v-if="auth.user && (auth.profile?.birth_date || auth.profile?.max_hr || auth.profile?.rest_hr)" class="sb-text muted">
         Using your saved profile age and heart-rate defaults.
       </span>
-      <SaveMatchButton v-if="supabaseEnabled && auth.user" />
-      <RouterLink v-else-if="supabaseEnabled" to="/login" class="btn primary">Log in to save</RouterLink>
+      <template v-if="isSaveable()">
+        <SaveMatchButton v-if="supabaseEnabled && auth.user" />
+        <RouterLink v-else-if="supabaseEnabled" to="/login" class="btn primary">Log in to save</RouterLink>
+      </template>
+      <button class="btn ghost small" @click="clearAnalysis">Clear analysis</button>
     </div>
     <Dashboard />
   </main>
