@@ -7,6 +7,7 @@ import {
   updateMatchFromCurrent,
   setMatchVisibility,
   updateMatchTitle,
+  updateMatchYouTubeUrl,
   deleteMatch,
   getMatchPrivateNote,
   saveMatchPrivateNote,
@@ -27,6 +28,7 @@ import ShareButtons from '../components/ShareButtons.vue';
 import ShareImageModal from '../components/ShareImageModal.vue';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
 import { userErrorMessage } from '../lib/errors';
+import { normalizeYouTubeUrl, youtubeEmbedUrl } from '../lib/youtube';
 
 const shareToken = computed(() => typeof route.query.share === 'string' ? route.query.share : null);
 const shareUrl = computed(() => {
@@ -58,6 +60,7 @@ const editMode = ref(false);
 const shareImageOpen = ref(false);
 const draftTitle = ref('');
 const draftVisibility = ref('unlisted');
+const draftYouTubeUrl = ref('');
 const noteDraft = ref('');
 const noteSaved = ref('');
 const mediaLoading = ref(false);
@@ -74,6 +77,7 @@ const pendingDelete = ref<{ kind: 'match' | 'photo'; item?: MediaDraft } | null>
 let editSnapshot: {
   title: string;
   visibility: string;
+  youtubeUrl: string;
   options: typeof store.options;
   selectedFieldId: string | null;
   manualSplits: typeof store.manualSplits;
@@ -86,7 +90,8 @@ const hasDraftChanges = computed(
   () =>
     !!matchRow.value &&
     (draftTitle.value.trim() !== (matchRow.value.title || '') ||
-      draftVisibility.value !== (matchRow.value.visibility || 'unlisted'))
+      draftVisibility.value !== (matchRow.value.visibility || 'unlisted') ||
+      draftYouTubeUrl.value.trim() !== (matchRow.value.youtube_url || ''))
 );
 const activityDownloadLabel = computed(() => (getRawFiles().length > 1 ? 'Download source files' : 'Download source file'));
 const hasNoteChanges = computed(() => noteDraft.value !== noteSaved.value);
@@ -99,6 +104,7 @@ const hasMediaChanges = computed(() =>
   )
 );
 const visibleMediaItems = computed(() => mediaItems.value.filter((item) => !item.removed));
+const videoEmbedUrl = computed(() => youtubeEmbedUrl(matchRow.value?.youtube_url));
 const hasUnsavedChanges = computed(() => dirty.value || hasDraftChanges.value || hasNoteChanges.value || hasMediaChanges.value);
 
 function revokeMediaUrls() {
@@ -126,6 +132,7 @@ function beginEdit() {
   editSnapshot = {
     title: matchRow.value.title || '',
     visibility: matchRow.value.visibility || 'unlisted',
+    youtubeUrl: matchRow.value.youtube_url || '',
     options: { ...store.options },
     selectedFieldId: store.selectedFieldId,
     manualSplits: store.manualSplits
@@ -137,6 +144,7 @@ function beginEdit() {
   };
   draftTitle.value = editSnapshot.title;
   draftVisibility.value = editSnapshot.visibility;
+  draftYouTubeUrl.value = editSnapshot.youtubeUrl;
   store.sessionSplitEditorOpen = false;
   editMode.value = true;
 }
@@ -155,6 +163,16 @@ async function onSaveChanges() {
     if (draftVisibility.value !== matchRow.value.visibility) {
       await setMatchVisibility(matchRow.value.id, draftVisibility.value);
       matchRow.value.visibility = draftVisibility.value;
+    }
+    const submittedYouTubeUrl = draftYouTubeUrl.value.trim();
+    const youtubeUrl = submittedYouTubeUrl ? normalizeYouTubeUrl(submittedYouTubeUrl) : null;
+    if (submittedYouTubeUrl && !youtubeUrl) {
+      throw new Error('Enter a valid YouTube video, Short, share, or embed URL.');
+    }
+    if (youtubeUrl !== (matchRow.value.youtube_url || null)) {
+      await updateMatchYouTubeUrl(matchRow.value.id, youtubeUrl);
+      matchRow.value.youtube_url = youtubeUrl;
+      draftYouTubeUrl.value = youtubeUrl || '';
     }
     const snapshot = matchPersistenceSnapshot();
     if (!snapshot) throw new Error('Nothing to save yet.');
@@ -244,6 +262,7 @@ function cancelEdit() {
   }
   draftTitle.value = editSnapshot.title;
   draftVisibility.value = editSnapshot.visibility;
+  draftYouTubeUrl.value = editSnapshot.youtubeUrl;
   store.matchTitle = editSnapshot.title;
   Object.assign(store.options, editSnapshot.options);
   setSelectedField(editSnapshot.selectedFieldId);
@@ -304,6 +323,7 @@ async function load() {
     store.matchTitle = res.match.title || '';
     draftTitle.value = res.match.title || '';
     draftVisibility.value = res.match.visibility || 'unlisted';
+    draftYouTubeUrl.value = res.match.youtube_url || '';
     ownerId = res.match.owner_id;
     if (isOwner()) {
       noteSaved.value = await getMatchPrivateNote(res.match.id);
@@ -439,7 +459,7 @@ watch(
       <p v-if="actionError" class="error action-error">{{ actionError }}</p>
       <Dashboard :editing-match="editMode">
         <template #after-settings>
-      <section v-if="owned || visibleMediaItems.length" class="match-extras">
+      <section v-if="owned || videoEmbedUrl || visibleMediaItems.length" class="match-extras">
         <div v-if="owned" class="match-panel note-panel">
           <div class="panel-head">
             <h2>Private note</h2>
@@ -485,6 +505,26 @@ watch(
               <p v-else-if="item.caption" class="photo-caption">{{ item.caption }}</p>
             </article>
           </div>
+        </div>
+
+        <div v-if="owned || videoEmbedUrl" class="match-panel video-panel">
+          <div class="panel-head">
+            <h2>Match video</h2>
+          </div>
+          <label v-if="owned && editMode" class="video-input">
+            <span>YouTube video or Short</span>
+            <input v-model="draftYouTubeUrl" type="url" placeholder="https://youtube.com/shorts/..." aria-label="YouTube match video URL" />
+          </label>
+          <iframe
+            v-if="videoEmbedUrl"
+            class="video-player"
+            :src="videoEmbedUrl"
+            title="Match video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+          ></iframe>
+          <p v-else-if="!editMode" class="hint">No match video yet.</p>
         </div>
       </section>
         </template>
@@ -706,6 +746,37 @@ watch(
   font-size: 13px;
   line-height: 1.35;
 }
+.video-panel {
+  grid-column: 1 / -1;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.video-input {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.video-input input {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--ctl-radius);
+  padding: 8px 10px;
+  font: inherit;
+}
+.video-player {
+  display: block;
+  width: min(100%, 760px);
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #000;
+}
 @media (max-width: 900px) {
   .match-head {
     padding: 14px;
@@ -743,6 +814,9 @@ watch(
   }
   .photo-grid {
     grid-template-columns: 1fr;
+  }
+  .video-panel {
+    padding-top: 16px;
   }
 }
 </style>

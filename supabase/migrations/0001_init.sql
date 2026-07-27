@@ -57,6 +57,7 @@ create table if not exists public.matches (
   started_at       timestamptz,
   ended_at         timestamptz,
   location_label   text,
+  youtube_url      text,
   centroid_lat     double precision,
   centroid_lon     double precision,
   primary_field_id uuid references public.fields(id) on delete set null,

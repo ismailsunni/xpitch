@@ -429,6 +429,12 @@ export async function updateMatchTitle(matchId: string, title: string): Promise<
   if (error) throw error;
 }
 
+export async function updateMatchYouTubeUrl(matchId: string, youtubeUrl: string | null): Promise<void> {
+  const sb = requireClient();
+  const { error } = await sb.from('matches').update({ youtube_url: youtubeUrl }).eq('id', matchId);
+  if (error) throw error;
+}
+
 export async function getMatchPrivateNote(matchId: string): Promise<string> {
   const sb = requireClient();
   const { data, error } = await sb

@@ -165,6 +165,7 @@ export type Database = {
           title: string | null
           updated_at: string
           visibility: Database["public"]["Enums"]["visibility"]
+          youtube_url: string | null
         }
         Insert: {
           break_files?: Json
@@ -189,6 +190,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           visibility?: Database["public"]["Enums"]["visibility"]
+          youtube_url?: string | null
         }
         Update: {
           break_files?: Json
@@ -213,6 +215,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           visibility?: Database["public"]["Enums"]["visibility"]
+          youtube_url?: string | null
         }
         Relationships: [
           {
