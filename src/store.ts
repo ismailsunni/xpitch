@@ -3,8 +3,9 @@ import { markRaw, reactive } from 'vue';
 import * as FitParser from './lib/fit-parser';
 import type { FitResult, RecordSample } from './lib/fit-parser';
 import { parseActivityFile } from './lib/activity-parser';
-import { compute, FORMATS } from './lib/analytics';
-import type { MatchAnalytics, FormatKey } from './lib/analytics';
+import { compute, buildGlobalTransform, FORMATS } from './lib/analytics';
+import type { MatchAnalytics, FormatKey, PositionalAnalytics } from './lib/analytics';
+import type { PitchTransform } from './lib/geo';
 import { generate } from './lib/demo';
 import { buildSegments, buildSegmentsManual, buildSegmentsPerFile, missingRecordRestIntervals, recordsForPeriod, mergeFiles, playableSegments, DEFAULT_GROUP_GAP_MIN } from './lib/segmentation';
 import type { Segment, ParsedFile } from './lib/segmentation';
@@ -112,6 +113,7 @@ function loadStoredFormat(): FormatKey {
 let currentFit: FitResult | null = null;
 let currentRawFiles: { name: string; bytes: ArrayBuffer }[] = [];
 let currentImportSource: { type: 'strava'; activityIds: string[] } | null = null;
+let currentGlobalTransform: PitchTransform | null = null;
 let geoToken = 0;
 
 // Raw uploaded bytes (FIT, GPX, or TCX) for saving to cloud Storage.
@@ -134,6 +136,7 @@ export function clearLocalAnalysis(): void {
   currentFit = null;
   currentRawFiles = [];
   currentImportSource = null;
+  currentGlobalTransform = null;
   store.analytics = null;
   store.fileName = '';
   store.error = '';
@@ -367,6 +370,109 @@ function recordingStartTime(fit: FitResult | null): number | undefined {
   return fit?.records.find((r) => r.timestamp != null)?.timestamp as number | undefined;
 }
 
+// The "whole recording" segment's own attacking-direction flip can't apply
+// uniformly to sessions that individually need different corrections (e.g.
+// ends swapped between matches). Instead, positional data for that view is
+// built by computing each real session's own (correctly-oriented) heatmap
+// and summing them — so "whole recording" always matches the sum of each
+// session's own map.
+function computeCombinedPositional(): PositionalAnalytics | null {
+  if (!currentFit) return null;
+  const segs = nonCombinedSegments();
+  if (!segs.length) return null;
+  const parts: PositionalAnalytics[] = [];
+  const weights: number[] = [];
+  for (const s of segs) {
+    const recs = recordsForPeriod(s, -1);
+    const field = resolveField(recs);
+    const pseudo: FitResult = {
+      records: recs,
+      sessions: s.session ? [s.session] : [],
+      laps: [],
+      events: [],
+      activity: null,
+      file_id: currentFit.file_id,
+      other: {},
+    };
+    const a = compute(pseudo, {
+      attackingDir: store.attackDirs[`${s.id}:-1`] ?? 1,
+      sideDir: store.sideDirs[`${s.id}:-1`] ?? 1,
+      field: field ? field.corners : null,
+      globalTransform: currentGlobalTransform,
+    });
+    if (a.ok && a.positional) {
+      parts.push(a.positional);
+      weights.push(a.positional.points.reduce((sum, p) => sum + (p.dt || 0), 0) || 1);
+    }
+  }
+  if (!parts.length) return null;
+
+  const GX = parts[0].GX;
+  const GY = parts[0].GY;
+  const grid = Array.from({ length: GY }, () => new Array(GX).fill(0));
+  let gridMax = 0;
+  for (const part of parts) {
+    for (let y = 0; y < GY; y++) {
+      for (let x = 0; x < GX; x++) {
+        grid[y][x] += part.grid[y][x];
+        if (grid[y][x] > gridMax) gridMax = grid[y][x];
+      }
+    }
+  }
+
+  const ZONE_NY = parts[0].zoneGrid.length;
+  const ZONE_NX = parts[0].zoneGrid[0].length;
+  const zoneGrid = Array.from({ length: ZONE_NY }, () => new Array(ZONE_NX).fill(0));
+  for (const part of parts) {
+    for (let y = 0; y < ZONE_NY; y++) {
+      for (let x = 0; x < ZONE_NX; x++) zoneGrid[y][x] += part.zoneGrid[y][x];
+    }
+  }
+
+  const thirds = [0, 0, 0];
+  const sides = [0, 0, 0];
+  for (const part of parts) {
+    for (let i = 0; i < 3; i++) {
+      thirds[i] += part.thirds[i];
+      sides[i] += part.sides[i];
+    }
+  }
+
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+  let avgU = 0;
+  let avgV = 0;
+  let offset = 0;
+  const points: PositionalAnalytics['points'] = [];
+  parts.forEach((part, i) => {
+    avgU += part.avgPos.u * weights[i];
+    avgV += part.avgPos.v * weights[i];
+    for (const p of part.points) points.push({ ...p, tSec: p.tSec + offset });
+    offset += segs[i].endTime - segs[i].startTime;
+  });
+  avgU /= totalWeight;
+  avgV /= totalWeight;
+
+  const first = parts[0];
+  return {
+    transform: first.transform,
+    points,
+    grid,
+    gridMax,
+    GX,
+    GY,
+    avgPos: { u: avgU, v: avgV },
+    thirds,
+    sides,
+    zoneGrid,
+    lengthM: first.lengthM,
+    widthM: first.widthM,
+    hasField: parts.some((p) => p.hasField),
+    fieldIgnored: parts.some((p) => p.fieldIgnored),
+    compass: parts.find((p) => p.compass)?.compass ?? null,
+    templateAspect: first.templateAspect,
+  };
+}
+
 export function recompute(): void {
   const seg = activeSegment();
   if (!currentFit || !seg) {
@@ -401,6 +507,7 @@ export function recompute(): void {
     attackingDir: currentAttackDir(),
     sideDir: currentSideDir(),
     field: field ? field.corners : null,
+    globalTransform: currentGlobalTransform,
     format: store.options.format,
     periods: store.activePeriod < 0
       ? seg.periods.map((period) => ({ startSec: period.startTime - seg.startTime, endSec: period.endTime - seg.startTime }))
@@ -412,6 +519,10 @@ export function recompute(): void {
     return;
   }
   store.error = '';
+  if (seg.kind === 'combined' && store.activePeriod < 0 && a.positional) {
+    const merged = computeCombinedPositional();
+    if (merged) a.positional = merged;
+  }
   // Analysis is a large, immutable result. The reactive state only needs to
   // react when the result object is replaced, not proxy every GPS sample.
   store.analytics = markRaw(a);
@@ -430,6 +541,7 @@ function geocodeCurrent(): void {
 
 export function loadFit(fit: FitResult, name: string, resetFlips = true): void {
   currentFit = fit;
+  currentGlobalTransform = buildGlobalTransform(fit);
   store.fileName = name;
   if (resetFlips) {
     store.attackDirs = {};

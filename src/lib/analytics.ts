@@ -69,6 +69,10 @@ export interface AnalyticsOptions {
   sprintKmh?: number;
   highIntensityKmh?: number;
   field?: LatLon[] | null; // user-defined pitch corners (lat/lon)
+  // Shared PCA transform for the whole recording (no field defined). Reused
+  // across segments so every session's map shares the same axis/extent as
+  // the "whole recording" map instead of each re-inferring its own.
+  globalTransform?: PitchTransform | null;
   format?: FormatKey; // match format ('auto' infers from pitch size)
   // Period timing relative to the first record. When supplied, fatigue uses
   // real halves and excludes any recording time between them.
@@ -272,6 +276,32 @@ function smooth(arr: number[], win: number): number[] {
   return out;
 }
 
+// One PCA-inferred pitch transform for the whole recording, built from every
+// GPS fix across all sessions. Passed as `globalTransform` so each session's
+// map (and the "whole recording" map) share the same axis and extent instead
+// of each re-inferring its own — otherwise the pitch rotates/rescales
+// differently depending on which segment happens to be selected.
+export function buildGlobalTransform(fit: FitResult): PitchTransform | null {
+  const raw = fit.records
+    .filter((r) => r.timestamp != null && r.position_lat != null && r.position_long != null)
+    .sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
+  const pts: LatLon[] = [];
+  let prevFix: { lat: number; lon: number; tSec: number } | null = null;
+  for (const r of raw) {
+    const lat = r.position_lat as number;
+    const lon = r.position_long as number;
+    const tSec = r.timestamp as number;
+    if (prevFix) {
+      const jump = haversine(prevFix.lat, prevFix.lon, lat, lon);
+      const dt = tSec - prevFix.tSec || 1;
+      if (jump / dt > 12.5) continue;
+    }
+    prevFix = { lat, lon, tSec };
+    pts.push({ lat, lon });
+  }
+  return buildPitchTransform(pts);
+}
+
 export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalytics {
   const opt = Object.assign(
     {
@@ -284,6 +314,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
       sprintKmh: 25.2,
       highIntensityKmh: 14.4,
       field: null,
+      globalTransform: null,
       format: 'auto',
       periods: [],
     },
@@ -429,7 +460,7 @@ export function compute(fit: FitResult, options?: AnalyticsOptions): MatchAnalyt
         hasField = !!transform;
       }
     }
-    if (!transform) transform = buildPitchTransform(gpsPts);
+    if (!transform) transform = opt.globalTransform || buildPitchTransform(gpsPts);
     if (transform) {
       const pts: any[] = [];
       const OFF_FIELD = 0.12; // fraction of pitch beyond a line before a fix is treated as GPS error

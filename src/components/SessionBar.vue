@@ -15,7 +15,8 @@ const session = computed<any>(() => meta.value?.session || {});
 const calories = computed(() => session.value.total_calories ?? null);
 
 const readOnly = computed(() => store.cloud.mode === 'cloud' && auth.user?.id !== store.cloud.ownerId);
-const canEditOrientation = computed(() => !readOnly.value && (props.editing || store.cloud.mode === 'local'));
+const isCombined = computed(() => activeSegment()?.kind === 'combined');
+const canEditOrientation = computed(() => !readOnly.value && !isCombined.value && (props.editing || store.cloud.mode === 'local'));
 const flipped = computed(() => currentAttackDir() === -1);
 const sidesFlipped = computed(() => currentSideDir() === -1);
 const usingField = computed(() => !!store.analytics?.positional?.hasField);
