@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { RouterLink, useRouter, useRoute } from 'vue-router';
-import { loadFiles } from '../store';
+import { loadFiles, store, clearLocalAnalysis } from '../store';
 import { auth, isAdmin, signOut } from '../lib/auth';
 import { supabaseEnabled } from '../lib/supabase';
 import { theme, toggleTheme } from '../lib/theme';
@@ -22,6 +22,14 @@ async function onPick(e: Event) {
     await router.push('/analyze');
     drawerOpen.value = false;
   }
+}
+
+const hasLocalActivity = computed(() => !!store.analytics && store.cloud.mode === 'local');
+
+async function onClearLocal() {
+  clearLocalAnalysis();
+  drawerOpen.value = false;
+  if (route.path === '/analyze') await router.replace({ query: {} });
 }
 
 const initials = computed(() => {
@@ -79,6 +87,7 @@ watch(
     <div class="mobile-actions">
       <label class="import-cta"><input type="file" accept=".fit,.gpx,.tcx" multiple hidden @change="onPick" />Import activity file</label>
       <RouterLink v-if="supabaseEnabled" to="/analyze?source=strava" class="strava-cta">Strava import</RouterLink>
+      <button v-if="hasLocalActivity" class="theme-toggle" @click="onClearLocal">Clear local activity</button>
       <SaveMatchButton />
       <button v-if="pwa.canInstall" class="theme-toggle" @click="installPwa">Install xPitch</button>
       <button v-if="pwa.updateAvailable" class="theme-toggle" @click="applyPwaUpdate">Update xPitch</button>
@@ -133,6 +142,11 @@ watch(
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12l-2 6 3 2-7 8 2-6-3-2z" /></svg>
       Strava import
     </RouterLink>
+
+    <button v-if="hasLocalActivity" class="theme-toggle" @click="onClearLocal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 6" /></svg>
+      Clear local activity
+    </button>
 
     <SaveMatchButton class="save-in-sidebar" />
 
